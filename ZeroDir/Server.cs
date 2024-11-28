@@ -213,10 +213,6 @@ namespace ZeroDir
                     Logging.Warning($"Content-type: {mimetype}");
                     response.ContentType = mimetype;
 
-                    response.AddHeader("Content-Disposition", "inline");
-                    response.AddHeader("Cache-Control", "no-cache");
-                    response.AddHeader("X-Frame-Options", "deny");
-                    response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
                     if (Directory.Exists(absolute_on_disk_path)) {
                         page_content = absolute_on_disk_path + "\n";
@@ -241,7 +237,11 @@ namespace ZeroDir
                         Logging.Message($"file: {absolute_on_disk_path}");
                         FileStream fs = File.OpenRead(absolute_on_disk_path);
 
-                        
+                        response.AddHeader("Content-Disposition", "inline");
+                        response.AddHeader("Cache-Control", "no-cache");
+                        response.AddHeader("X-Frame-Options", "allowall");
+                        response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+
                         Logging.Warning($"Content-type: {mimetype}");
                         response.ContentType = mimetype;
                         response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
