@@ -212,7 +212,7 @@ namespace ZeroDir
 
                     Logging.Warning($"Content-type: {mimetype}");
                     response.ContentType = mimetype;
-                   // response.AddHeader("X-Frame-Options", "SAMEORIGIN");
+                    response.AddHeader("X-Frame-Options", "SAMEORIGIN");
 
 
                     if (Directory.Exists(absolute_on_disk_path)) {
@@ -239,7 +239,8 @@ namespace ZeroDir
                                 response.Close();
                             }, response);*/
                         } catch (HttpListenerException ex) {
-                            //response.Close();
+                            Logging.Error(ex.Message);
+                            response.Close();
                         }
 
                     } else if (File.Exists(absolute_on_disk_path)) {
@@ -268,6 +269,7 @@ namespace ZeroDir
                             });
 
                         } catch (HttpListenerException ex) {
+                            Logging.Error(ex.Message);
                             response.Close();
                         }
 
@@ -294,6 +296,7 @@ namespace ZeroDir
                             }, response);
                             */
                         } catch (HttpListenerException ex) {
+                            Logging.Error(ex.Message);
                             response.Close();
                         }
                     }
