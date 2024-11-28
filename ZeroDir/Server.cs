@@ -212,6 +212,7 @@ namespace ZeroDir
 
                     Logging.Warning($"Content-type: {mimetype}");
                     response.ContentType = mimetype;
+                    response.AddHeader("X-Frame-Options", "deny");
 
 
                     if (Directory.Exists(absolute_on_disk_path)) {
@@ -225,7 +226,6 @@ namespace ZeroDir
                             response.ContentLength64 = data.LongLength;
                             response.SendChunked = true;
 
-                            response.AddHeader("X-Frame-Options", "deny");
 
                             var task = response.OutputStream.WriteAsync(data, 0, data.Length);
 
