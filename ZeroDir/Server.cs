@@ -202,10 +202,11 @@ namespace ZeroDir
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
 
-                    while (url_path.StartsWith('/')) {
-                        url_path = url_path.Remove(0, 1);
+                    if (Environment.OSVersion.Platform != PlatformID.Unix) {
+                        while (url_path.StartsWith('/')) {
+                            url_path = url_path.Remove(0, 1);
+                        }
                     }
-
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
 
