@@ -77,7 +77,7 @@ namespace ZeroDir
                     }
                     string share_name = "";
                     var slash_i = url_path.IndexOf('/');
-                    if (slash_i > -1) {
+                    if (slash_i > 0) {
                         share_name = url_path.Substring(0, slash_i);
                         if (share_name.EndsWith('/')) share_name = share_name.Remove(share_name.Length - 1, 1);
                     }
