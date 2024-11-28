@@ -235,39 +235,43 @@ namespace ZeroDir
                         }
 
                     } else if (File.Exists(absolute_on_disk_path)) {
-                        Logging.Message($"file: {absolute_on_disk_path}");
-                        FileStream fs = File.OpenRead(absolute_on_disk_path);
+                        try {
+                            Logging.Message($"file: {absolute_on_disk_path}");
+                            FileStream fs = File.OpenRead(absolute_on_disk_path);
 
-                        response.AddHeader("Content-Disposition", "inline");
-                        response.AddHeader("Cache-Control", "no-cache");
-                        response.AddHeader("X-Frame-Options", "allowall");
-                        response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+                            response.AddHeader("Content-Disposition", "inline");
+                            response.AddHeader("Cache-Control", "no-cache");
+                            response.AddHeader("X-Frame-Options", "allowall");
+                            response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
-                        Logging.Warning($"Content-type: {mimetype}");
-                        response.ContentType = mimetype;
-                        response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                        response.ContentLength64 = fs.Length;
-                        response.SendChunked = false;
+                            Logging.Warning($"Content-type: {mimetype}");
+                            response.ContentType = mimetype;
+                            response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
+                            response.ContentLength64 = fs.Length;
+                            response.SendChunked = false;
 
-                        Logging.Message("Starting write");
+                            Logging.Message("Starting write");
 
-                        var task = fs.CopyToAsync(context.Response.OutputStream);
+                            var task = fs.CopyToAsync(context.Response.OutputStream);
 
-                        task.GetAwaiter().OnCompleted(() => {
-                            Logging.Message("Finished write");
-                        });
-                        
+                            task.GetAwaiter().OnCompleted(() => {
+                                Logging.Message("Finished write");
+                            });
+
+                        } catch (HttpListenerException ex) {
+                            response.Close();
+                        }
 
                     } else {
-                        page_content = $"<b>{absolute_on_disk_path} NOT FOUND</b>";
-                        data = Encoding.UTF8.GetBytes(page_data);
-                        response.ContentType = "text/html; charset=utf-8";
-                        response.ContentEncoding = Encoding.UTF8;
-                        response.ContentLength64 = data.LongLength;
-                        response.AddHeader("X-Frame-Options", "deny");
-                        response.SendChunked = true;
-
                         try {
+                            page_content = $"<b>{absolute_on_disk_path} NOT FOUND</b>";
+                            data = Encoding.UTF8.GetBytes(page_data);
+                            response.ContentType = "text/html; charset=utf-8";
+                            response.ContentEncoding = Encoding.UTF8;
+                            response.ContentLength64 = data.LongLength;
+                            response.AddHeader("X-Frame-Options", "deny");
+                            response.SendChunked = true;
+
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                                 response.OutputStream.EndWrite(result);
                                 response.Close();
