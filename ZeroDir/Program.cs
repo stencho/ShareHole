@@ -41,5 +41,10 @@ namespace ZeroDir
         static void start_server(object? section) {
             servers[servers.Count - 1].StartServer(section.ToString());
         }
+        ~Program() {
+            Console.CursorVisible = true;
+            Console.ForegroundColor = ConsoleColor.White;
+        }
+
     }
 }
