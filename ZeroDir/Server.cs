@@ -215,8 +215,7 @@ namespace ZeroDir
 
                     response.AddHeader("Content-Disposition", "inline");
                     response.AddHeader("Cache-Control", "no-cache");
-                    response.AddHeader("X-Frame-Options", "allowall");
-                    response.AddHeader("Accept-CH", "none");
+                    response.AddHeader("X-Frame-Options", "deny");
                     response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
                     if (Directory.Exists(absolute_on_disk_path)) {
