@@ -177,6 +177,8 @@ namespace ZeroDir
         const int dispatch_thread_count = 8;
         Thread[] dispatch_threads;
 
+
+
         async void RequestThread() {
             while (listener.IsListening) {
                 string url = string.Empty;
@@ -195,7 +197,7 @@ namespace ZeroDir
                     HttpListenerRequest request = context.Request;
                     HttpListenerResponse response = context.Response;
 
-                    Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} ");
+                    Logging.Message($"REQ {request.Url.LocalPath} | {request.HttpMethod} | {request.UserHostName} ");
 
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
