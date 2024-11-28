@@ -6,10 +6,17 @@ img {
 
 body {
   background-color: #101010;
+  font-family: 'Times New Roman', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+span.emojitint {
+  color: transparent;  
+  text-shadow: 0 0 0 rgb(254, 168, 234);
 }
 
 p.up {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 32;
 }
 
 p.head {
