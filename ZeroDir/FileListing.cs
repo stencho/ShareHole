@@ -45,7 +45,7 @@ namespace ZeroDir {
             }
 
             //Add up dir if we're showing directories
-            if (show_dirs && !string.IsNullOrEmpty(up_dir)) {
+            if (show_dirs && (uri_path.Length - (share_name.Length + 1)>0)) {
                 result += $"<p style=\"up\"><a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [/{up_dir}]</a></p>";
             }
 
@@ -73,6 +73,8 @@ namespace ZeroDir {
                 }
             }
 
+            //TODO: hide hidden files/folders + allow forcing them to show through an option
+
             int dir_c = 0;
             int file_c = 0;
 
@@ -85,12 +87,11 @@ namespace ZeroDir {
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
                     listing.Add($"{dir.Name}");
-                    result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
+                    result += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>";
                     dir_c++;
                 }
-            }
+            }            
 
-            
             if (grouping == "none" || !cares_about_groups) {
                 foreach (var file in files) {
                     string n = uri_path;
