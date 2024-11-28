@@ -198,7 +198,7 @@ namespace ZeroDir
                     HttpListenerResponse response = context.Response;
 
 
-                    Logging.Message($"REQ {request.Url.LocalPath} | {request.HttpMethod} | {request.UserHostName} ");
+                    Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
 
@@ -219,6 +219,7 @@ namespace ZeroDir
                         response.ContentType = "text/html; charset=utf-8";
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
+                        response.SendChunked = false;
 
                         try {
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
@@ -247,6 +248,7 @@ namespace ZeroDir
                         response.AddHeader("Cache-Control", "no-cache");
                         response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                         response.ContentLength64 = fs.Length;
+                        response.SendChunked = true;
 
                         Logging.Message("Starting write");
 
@@ -263,6 +265,8 @@ namespace ZeroDir
                         response.ContentType = "text/html; charset=utf-8";
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
+                        response.SendChunked = false;
+
                         try {
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                                 response.OutputStream.EndWrite(result);
