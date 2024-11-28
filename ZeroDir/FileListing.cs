@@ -87,7 +87,7 @@ namespace ZeroDir {
                 if (grouping != "none" && cares_about_groups) {
                     result += $"<p class=\"head\"><b>Directories</b></p>";
                 }
-                foreach (var dir in directories) {
+                foreach (var dir in directories.OrderBy(a => a.Name)) {
                     string n = uri_path;
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
@@ -98,7 +98,7 @@ namespace ZeroDir {
             }            
 
             if (grouping == "none" || !cares_about_groups) {
-                foreach (var file in files) {
+                foreach (var file in files.OrderBy(a => a.Name)) {
                     string n = uri_path;
                     string f = file.Name;
 
@@ -146,7 +146,7 @@ namespace ZeroDir {
                 string previous_ext = "";
                 string previous_mime = "";
                 string current_type = "";
-                foreach (var file in files.OrderBy(x => GetMimeTypeOrOctet(x.Name))) {
+                foreach (var file in files.OrderBy(x => GetMimeTypeOrOctet(x.Name)).ThenBy(x => x.Name)) {
                     string n = uri_path;
                     string f = file.Name;
                     //Logging.Message("file: " + f);
