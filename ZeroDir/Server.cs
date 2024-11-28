@@ -71,6 +71,7 @@ namespace ZeroDir
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
                     if (Environment.OSVersion.Platform != PlatformID.Unix) {
+                        Logging.Message($"ON UNIX REMOVE SLASH");
                         while (url_path.StartsWith('/')) {
                             url_path = url_path.Remove(0, 1);
                         }
@@ -80,6 +81,8 @@ namespace ZeroDir
                     if (slash_i > 0) {
                         share_name = url_path.Substring(0, slash_i);
                         if (share_name.EndsWith('/')) share_name = share_name.Remove(share_name.Length - 1, 1);
+                    } else {
+
                     }
                     string folder_path = "";
 
