@@ -134,7 +134,7 @@ namespace ZeroDir
                             response.ContentType = "text/html; charset=utf-8";
                             response.ContentEncoding = Encoding.UTF8;
                             response.ContentLength64 = data.LongLength;
-                            response.SendChunked = false;
+                            response.SendChunked = true;
 
 
                             var task = response.OutputStream.WriteAsync(data, 0, data.Length);
