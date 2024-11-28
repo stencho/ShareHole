@@ -54,9 +54,12 @@ namespace ZeroDir {
             if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
                 cares_about_groups = true;
                 grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
+                if (grouping.Trim().ToLower() != "type" && grouping.Trim().ToLower() != "none") {
+                    cares_about_groups = false;
+                    grouping = "none";
+                }
             }
             grouping = grouping.Trim().ToLower();
-
 
 
             bool using_extensions = false;
