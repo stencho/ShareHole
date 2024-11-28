@@ -16,11 +16,11 @@ namespace ZeroDir
                 Logging.Message($"No shares configured in shares file!");
             }
 
-            foreach (string section in CurrentConfig.shares.Keys) {
+            //foreach (string section in CurrentConfig.shares.Keys) {
                 servers.Add(new HttpServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                server_thread.Start(section);                
-            }
+                server_thread.Start();                
+            //}
 
             while (true) {
                 string line = Console.ReadLine();
@@ -39,7 +39,7 @@ namespace ZeroDir
         }
 
         static void start_server(object? section) {
-            servers[servers.Count - 1].StartServer(section.ToString());
+            servers[servers.Count - 1].StartServer();
         }
         ~Program() {
             Console.CursorVisible = true;

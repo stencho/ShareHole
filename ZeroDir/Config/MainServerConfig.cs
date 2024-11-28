@@ -13,6 +13,12 @@ namespace ZeroDir.Config {
         public ConfigFileIO config_file;
 
         public Dictionary<string, Dictionary<string, ConfigValue>> values = new Dictionary<string, Dictionary<string, ConfigValue>>() {
+            { "server",
+                new Dictionary<string, ConfigValue>() {
+                    { "prefix", new ConfigValue("http://localhost/")},
+                    { "port", new ConfigValue(8080)}
+                }
+            },
             { "UI",
                 new Dictionary<string, ConfigValue>() {
                     {"background_color", new ConfigValue(Color.Red)}

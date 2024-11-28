@@ -40,16 +40,6 @@ namespace ZeroDir.Config
                     values.Remove(section);
                     continue;
                 } 
-                if (!this[section].ContainsKey("prefix")) {
-                    Logging.ErrorAndThrow($"Share \"{section}\" doesn't contain a 'prefix' variable (should look something like \"localhost:8080\"");
-                    values.Remove(section); 
-                    continue;
-                }
-                if (!this[section].ContainsKey("port")) {
-                    Logging.ErrorAndThrow($"Share \"{section}\" doesn't contain a 'port' variable");
-                    values.Remove(section);
-                    continue;
-                }
             }
 
             config_file.WriteAllValuesToConfig(values);

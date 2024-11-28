@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ZeroDir {
     internal static class FileListing {
-        public static string BuildListing(string directory, string prefix, string uri_path) {
+        public static string BuildListing(string directory, string prefix, string uri_path, string share_name) {
             string result = "";
             int file_count;
 
@@ -20,8 +20,6 @@ namespace ZeroDir {
             while (prefix.EndsWith('/')) {
                 prefix = prefix.Remove(prefix.Length - 1, 1);
             }
-
-            Logging.Message($"uri_path: {uri_path}");
 
             List<string> listing = new List<string>();
 
@@ -44,26 +42,48 @@ namespace ZeroDir {
                 //result += $"<p>{up_dir}</p>";
 
             
-
             Logging.Message($"up_dir: {up_dir}");
-            foreach (var dir in directories) {
-                string n = uri_path;
-                while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
-                if (n.Length > 0) n = n.Insert(0, "/");
-                listing.Add($"{dir.Name}");
-                result += $"<p><a href=\"http://{prefix}{n}/{dir.Name}\">{dir.Name}</a></p>";
+            bool show_dirs = false;
+            if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
+                show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
+            }
+            bool using_extensions = false;
+            string[] extensions = null;
+            if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
+                extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().Split(" ");
+                using_extensions = true;
+                for (int i =  0; i < extensions.Length; i++) {
+                    extensions[i] = extensions[i].Trim();
+                    extensions[i] = extensions[i].Replace(".", "");
+                }
+            }
+
+            if (show_dirs) {
+                foreach (var dir in directories) {
+                    string n = uri_path;
+                    while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
+                    if (n.Length > 0) n = n.Insert(0, "/");
+                    listing.Add($"{dir.Name}");
+                    result += $"<p><a href=\"http://{prefix}/{share_name}/{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
+                }
             }
             foreach (var file in files) {
                 string n = uri_path;
                 string f = file.Name;
-                
+
+                var ext = new FileInfo(f).Extension.Replace(".", "");
+
+                if (using_extensions && !extensions.Contains(ext)) {
+                    continue;
+                }
+
                 while (n.EndsWith('/')) n = n.Remove(n.Length-1, 1);
                 while (f.StartsWith('/')) f = f.Remove(0, 1);
                 if (n.Length > 0) n = n.Insert(0, "/");
 
                 listing.Add($"{f}");
-                //Logging.Message($"{n} {f}  http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}");
-                result += $"<p><a href=\"http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                //Logging.Message($"{n} {f}  http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}");
+                result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
             }
 
             return result;
