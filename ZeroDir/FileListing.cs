@@ -119,7 +119,7 @@ namespace ZeroDir {
                     }
                     previous_ext = ext;
                     if (using_extensions && !extensions.Contains(ext)) {
-                        continue;
+                        //continue;
                     }
 
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
