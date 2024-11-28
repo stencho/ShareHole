@@ -70,10 +70,12 @@ namespace ZeroDir
                     Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
-                    while (url_path.StartsWith('/')) {
-                        url_path = url_path.Remove(0, 1);
+                    if (Environment.OSVersion.Platform != PlatformID.Unix) {
+                        Logging.Message($"NOT ON UNIX REMOVE SLASH");
+                        while (url_path.StartsWith('/')) {
+                            url_path = url_path.Remove(0, 1);
+                        }
                     }
-                    
                     string share_name = "";
                     var slash_i = url_path.IndexOf('/');
                     if (slash_i > 0) {

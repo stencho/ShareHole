@@ -37,13 +37,13 @@ namespace ZeroDir {
             if (slash_i > -1) up_dir = up_dir.Remove(slash_i);
             else up_dir = "";
             //if (up_dir.Length > 0)
-                result += $"<p><a href=\"http://{prefix}/{up_dir}\">.. [ {up_dir} ])</a></p>";
+                result += $"<p><a href=\"http://{prefix}/{share_name}{up_dir}\">.. [ {up_dir} ])</a></p>";
             //else
                 //result += $"<p>{up_dir}</p>";
 
             
             Logging.Message($"up_dir: {up_dir}");
-            bool show_dirs = false;
+            bool show_dirs = true;
             if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
                 show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
             }
