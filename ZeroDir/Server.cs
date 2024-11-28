@@ -216,7 +216,7 @@ namespace ZeroDir
 
                     Logging.Warning($"Content-type: {mimetype}");
                     response.ContentType = mimetype;
-                    response.AddHeader("X-Frame-Options", "SAMEORIGIN");
+                    response.AddHeader("X-Frame-Options", "DENY");
 
 
                     if (Directory.Exists(absolute_on_disk_path)) {
