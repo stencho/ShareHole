@@ -7,40 +7,60 @@ using System.Threading.Tasks;
 
 namespace ZeroDir {
     internal static class FileListing {
-        public static string BuildListing(string directory) {
+        public static string BuildListing(string directory, string prefix, string uri_path) {
             string result = "";
             int file_count;
+
+            uri_path = Uri.UnescapeDataString(uri_path);
+
+            while (uri_path.StartsWith('/')) {
+                uri_path = uri_path.Remove(0,1);
+            }
+
+            while (prefix.EndsWith('/')) {
+                prefix = prefix.Remove(prefix.Length - 1, 1);
+            }
+
+            Logging.Message($"uri_path: {uri_path}");
+
             List<string> listing = new List<string>();
 
-            DirectoryInfo dirInfo = new DirectoryInfo(directory);
 
+            Logging.Message($"listing directory: {directory}{uri_path}");
+            DirectoryInfo dirInfo = new DirectoryInfo($"{directory}{uri_path}");
             if (!dirInfo.Exists) return "";
 
             var directories = dirInfo.GetDirectories();
             var files = dirInfo.GetFiles();
-            var url_path = directory.Replace(Server.config.options["server"]["folder"].ToString(), "");
-            if (!url_path.StartsWith('/'))
-                url_path = url_path.Insert(0, "/");
-            url_path = url_path.TrimEnd('/');
-            var last_slash = url_path.LastIndexOf('/')+1;
-            string up_dir = url_path.Remove(last_slash, url_path.Length - last_slash);
 
-            Logging.Warning(directory);
-            Logging.Warning(up_dir);
-            Logging.Warning(url_path);
+            string up_dir = uri_path;
+            int slash_i = up_dir.LastIndexOf('/');
+            if (slash_i > -1) up_dir = up_dir.Remove(slash_i);
+            else up_dir = "";
+            //if (up_dir.Length > 0)
+                result += $"<p><a href=\"http://{prefix}/{up_dir}\">.. [ {up_dir} ])</a></p>";
+            //else
+                //result += $"<p>{up_dir}</p>";
 
-            if (up_dir.Length > 0)
-                result += $"<p><a href=\"{up_dir}\">.. [ {up_dir} ])</a></p>";
-            else
-                result += $"<p><a href=\"{up_dir}\">/</a></p>";
+            
 
+            Logging.Message($"up_dir: {up_dir}");
             foreach (var dir in directories) {
+                string n = uri_path;
+                while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
+                if (n.Length > 0) n.Insert(0, "/");
                 listing.Add($"{dir.Name}");
-                result += $"<p><a href=\"{Server.config.options["server"]["URL"]}{url_path}/{dir.Name}\">{dir.Name}</a></p>";
+                result += $"<p><a href=\"http://{prefix}{n}/{dir.Name}\">{dir.Name}</a></p>";
             }
             foreach (var file in files) {
-                listing.Add($"{file.Name}");
-                result += $"<p><a href=\"{Server.config.options["server"]["URL"]}{url_path}/{file.Name}\">{file.Name}</a></p>";
+                string n = uri_path;
+                string f = file.Name;
+                
+                while (n.EndsWith('/')) n = n.Remove(n.Length-1, 1);
+                while (f.StartsWith('/')) f = f.Remove(0, 1);
+                if (n.Length > 0) n.Insert(0, "/");
+                listing.Add($"{f}");
+                result += $"<p><a href=\"http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
             }
 
             return result;

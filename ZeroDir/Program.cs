@@ -1,28 +1,45 @@
 ﻿using System.Drawing;
+using ZeroDir.Config;
 
-namespace ZeroDir {
+namespace ZeroDir
+{
     internal class Program {
+        static List<HttpServer> servers = new List<HttpServer>();       
 
         static void Main(string[] args) {
-            Server.config = new Configuration("config", new Dictionary<string, Dictionary<string, ConfigValue>>() {
-            { "server",
-                new Dictionary<string, ConfigValue>() {
-                    { "bind_to_address", new ConfigValue(new byte[]{127,0,0,1})},
-                    { "bind_to_port", new ConfigValue(8080)},
-                    { "db_location", new ConfigValue("metadata.db")},
-                    { "folder", new ConfigValue("W://")},
-                    { "URL", new ConfigValue("http://localhost:8080")}
-                }
-            },
-            { "UI",
-                new Dictionary<string, ConfigValue>() {
-                    {"background_color", new ConfigValue(Color.Red)}
-                }
-            }});
-            Logging.Warning(Server.config.options["server"]["folder"].ToString());
-            HttpServer.start(Server.config.options["server"]["folder"].get_string());
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            Server.config.Clean();
+            CurrentConfig.server = new ServerConfig("server");
+            CurrentConfig.shares = new FileShareConfig("shares");
+            
+            if (CurrentConfig.shares.share_count == 0) {
+                Logging.Message($"No shares configured in shares file!");
+            }
+
+            foreach (string section in CurrentConfig.shares.Keys) {
+                servers.Add(new HttpServer());
+                Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
+                server_thread.Start(section);                
+            }
+
+            while (true) {
+                string line = Console.ReadLine();
+
+                if (line == "restart") {
+                    Logging.Message("Restarting server!");
+                    for (int i = 0; i < servers.Count; i++) {
+                        servers[i].StopServer();
+                    }
+                    if (line.Contains('.') && line.Contains('=')) {
+                        CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server.values, line);
+                    }
+                }
+            }
+            CurrentConfig.server.Clean();
+        }
+
+        static void start_server(object? section) {
+            servers[servers.Count - 1].StartServer(section.ToString());
         }
     }
 }

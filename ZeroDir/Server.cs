@@ -6,24 +6,29 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Mime;
 using HeyRed.Mime;
+using ZeroDir.Config;
 
-namespace ZeroDir {
-    public static class  Server {
-        public static Configuration config;
+namespace ZeroDir
+{
+    public static class CurrentConfig {
+        public static ServerConfig server;
+        public static FileShareConfig shares;
     }
 
     public class HttpServer {
-        static Dictionary<string, string> mime_dict = MIME.get_MIME_dict();
-        static HttpListener listener;
+        public string share_name = "";
 
-        static string url = "http://localhost:8080/";
+        Dictionary<string, string> mime_dict = MIME.get_MIME_dict();
+        HttpListener listener;
+        
+        string page_title = "";
+        string page_content = "";
 
-        static string base_path = "";
+        public void StopServer() {
+            run = false;
+        }
 
-        static string page_title = "";
-        static string page_content = "";
-
-        static string page_data => new string (
+        string page_data => new string (
             "<!DOCTYPE>" +
             "<html>" +
             "  <head>" +
@@ -34,31 +39,45 @@ namespace ZeroDir {
             "  </body>" +
             "</html>");
 
-        public static async Task HandleConnections() {
-            bool run = true;
+        bool run = true;
 
-            while(run) {
+        public async Task ServePageAsync() {
+
+            while (run) {
+
+
+
+            }
+        }
+        public async Task ServePage() {
+            while (run) {
                 HttpListenerContext context = await listener.GetContextAsync();
 
                 HttpListenerRequest request = context.Request;
                 HttpListenerResponse response = context.Response;
 
-                var combo_path = Uri.UnescapeDataString(Path.Join(base_path, request.Url.AbsolutePath.Remove(0,1)));
-                var ext = new FileInfo(combo_path).Extension;
-                if (ext.StartsWith('.')) ext = ext.Remove(0, 1);
-                Console.WriteLine($"REQ {request.Url.AbsolutePath} [{combo_path}] | {request.HttpMethod} | {request.UserHostName} ");
+                Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} ");
 
-                Logging.Info(combo_path);
-                //if (request.HttpMethod == "POST") {}//do stuff
+                string url_path = request.Url.AbsolutePath;                
+                string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
+                
+                while (url_path.StartsWith('/')) {
+                    url_path = url_path.Remove(0,1);
+                }
 
+                Logging.Message(folder_path.Replace("\\","/") + Uri.UnescapeDataString(url_path));
+                string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data;
-                data = Encoding.UTF8.GetBytes(page_data);
-                if (Directory.Exists(combo_path)) {
-                    page_content = FileListing.BuildListing(combo_path);
+
+                if (Directory.Exists(absolute_on_disk_path)) {
+                    page_content = folder_path + "\n";
+                    page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
+
                     data = Encoding.UTF8.GetBytes(page_data);
-                    response.ContentType = "text/html";
+                    response.ContentType = "text/html; charset=utf-8";
                     response.ContentEncoding = Encoding.UTF8;
                     response.ContentLength64 = data.LongLength;
+
                     try {
                         await response.OutputStream.WriteAsync(data, 0, data.Length);
                         response.StatusCode = (int)HttpStatusCode.OK;
@@ -69,46 +88,44 @@ namespace ZeroDir {
                         response.StatusDescription = "429 Too Many Requests";
                         response.Close();
                     }
-                } 
-                else if (File.Exists(combo_path)) {
+
+                } else if (File.Exists(absolute_on_disk_path)) {
                     try {
                         //var mt = MimeTypes                    
-                        using (FileStream fs = File.OpenRead(combo_path)) {
+                        FileStream fs = File.OpenRead(absolute_on_disk_path);
 
-                            string mimetype;
-                            try {
-                                mimetype = MimeTypesMap.GetMimeType(combo_path);
-                            } catch {
-                                mimetype = "application/octet-stream";
+                        string mimetype;
+                        try {
+                            mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
+                        } catch {
+                            mimetype = "application/octet-stream";
+                        }
+                        Logging.Warning($"Content-type: {mimetype}");
+                        response.ContentType = mimetype;
+
+
+                        response.AddHeader("Content-Disposition", "inline");
+                        response.AddHeader("Cache-Control", "no-cache");
+                        response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
+                        response.ContentLength64 = fs.Length;
+                        response.SendChunked = false;
+                        /*
+                        byte[] buffer = new byte[64 * 1024];
+                        int read;
+                        using (BinaryWriter bw = new BinaryWriter(response.OutputStream)) {
+                            while ((read = fs.Read(buffer, 0, buffer.Length)) > 0) {
+                                bw.Write(buffer, 0, read);
+                                bw.Flush(); //seems to have no effect
                             }
-                            Logging.Warning($"Content-type: {mimetype}");
-                            response.ContentType = mimetype;
 
+                            bw.Close();
+                        }*/
 
-                            response.AddHeader("Content-Disposition", "inline");
-                            response.AddHeader("Cache-Control", "no-cache");
-                            response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                            response.ContentLength64 = fs.Length;
-                            response.SendChunked = false;
-                            
+                        data = Encoding.Unicode.GetBytes(page_data);
+                        Logging.Message("Started serving file???");
+                        Task serve_file = ServeFile(context, response, fs, data);
+                        //serve_file.Start();
 
-                        
-                            byte[] buffer = new byte[64 * 1024];
-                            int read;
-                            using (BinaryWriter bw = new BinaryWriter(response.OutputStream)) {
-                                while ((read = fs.Read(buffer, 0, buffer.Length)) > 0) {
-                                    bw.Write(buffer, 0, read);
-                                    bw.Flush(); //seems to have no effect
-                                }
-
-                                bw.Close();
-                            }
-                        
-                        }   
-                        await response.OutputStream.WriteAsync(data, 0, data.Length);
-                        response.StatusCode = (int)HttpStatusCode.OK;
-                        response.StatusDescription = "OK";
-                        response.Close();
                     } catch (HttpListenerException ex) {
                         response.StatusCode = (int)HttpStatusCode.TooManyRequests;
                         response.StatusDescription = "429 Too Many Requests";
@@ -119,7 +136,7 @@ namespace ZeroDir {
                 } else {
                     page_content = "<b>NOT FOUND</b>";
                     data = Encoding.UTF8.GetBytes(page_data);
-                    response.ContentType = "text/html";
+                    response.ContentType = "text/html; charset=utf-8";
                     response.ContentEncoding = Encoding.UTF8;
                     response.ContentLength64 = data.LongLength;
                     try {
@@ -133,28 +150,164 @@ namespace ZeroDir {
                         response.Close();
                     }
                 }
-                ///response.ContentEncoding = Encoding.UTF8;
-                //response.ContentLength64 = data.LongLength;
+            }
 
+        }
+
+        public async Task ServeFile(HttpListenerContext context, HttpListenerResponse response, FileStream fs, byte[] data) {
+            byte[] buffer = new byte[1024];
+            int read;
+            response.KeepAlive = false;
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.StatusDescription = "OK";
+
+            using (BinaryWriter bw = new BinaryWriter(response.OutputStream)) {
+                while (listener.IsListening && response.OutputStream.CanWrite && (read = fs.Read(buffer, 0, buffer.Length)) > 0) {
+                    bw.Write(buffer, 0, read);
+                    //bw.Flush(); //seems to have no effect
+                }
+
+                bw.Close();
+            }
+            Logging.Message("Finished serving file???");
+            response.Close();
+            fs.Close();
+        }
+
+        const int dispatch_thread_count = 8;
+        Thread[] dispatch_threads;
+
+        async void RequestThread() {
+            while (listener.IsListening) {
+                string url = string.Empty;
+
+                try {
+                    // Yeah, this blocks, but that's the whole point of this thread
+                    // Note: the number of threads that are dispatching requets in no way limits the number of "open" requests that we can have
+                    HttpListenerContext context = await listener.GetContextAsync();
+
+                    // For this demo we only support GET
+                    if (context.Request.HttpMethod != "GET") {
+                        context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                        context.Response.Close();
+                    }
+
+                    HttpListenerRequest request = context.Request;
+                    HttpListenerResponse response = context.Response;
+
+                    Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} ");
+
+                    string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
+                    string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
+
+                    while (url_path.StartsWith('/')) {
+                        url_path = url_path.Remove(0, 1);
+                    }
+
+                    string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
+                    byte[] data;
+
+                    if (Directory.Exists(absolute_on_disk_path)) {
+                        page_content = folder_path + "\n";
+                        page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
+
+                        data = Encoding.UTF8.GetBytes(page_data);
+                        response.ContentType = "text/html; charset=utf-8";
+                        response.ContentEncoding = Encoding.UTF8;
+                        response.ContentLength64 = data.LongLength;
+
+                        try {
+                            response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                                response.OutputStream.EndWrite(result);
+                                response.Close();
+                            }, response);
+                        } catch (HttpListenerException ex) {
+                            response.Close();
+                        }
+
+                    } else if (File.Exists(absolute_on_disk_path)) {
+                        Logging.Message($"file: {absolute_on_disk_path}");
+                        FileStream fs = File.OpenRead(absolute_on_disk_path);
+
+                        string mimetype;
+                        try {
+                            mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
+                        } catch {
+                            mimetype = "application/octet-stream";
+                        }
+
+                        Logging.Warning($"Content-type: {mimetype}");
+                        response.ContentType = mimetype;
+
+                        response.AddHeader("Content-Disposition", "inline");
+                        response.AddHeader("Cache-Control", "no-cache");
+                        response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
+                        response.ContentLength64 = fs.Length;
+
+                        Logging.Message("Starting write");
+
+                        var task = fs.CopyToAsync(context.Response.OutputStream);
+
+                        task.GetAwaiter().OnCompleted(() => {
+
+                            Logging.Message("Finished write");
+                        });
+
+                    } else {
+                        page_content = $"<b>{absolute_on_disk_path} NOT FOUND</b>";
+                        data = Encoding.UTF8.GetBytes(page_data);
+                        response.ContentType = "text/html; charset=utf-8";
+                        response.ContentEncoding = Encoding.UTF8;
+                        response.ContentLength64 = data.LongLength;
+                        try {
+                            response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                                response.OutputStream.EndWrite(result);
+                                response.Close();
+                            }, response);
+                        } catch (HttpListenerException ex) {
+                            response.Close();
+                        }
+                    }
+
+                } catch (System.Net.HttpListenerException e) {
+                    // Bail out - this happens on shutdown
+                    return;
+                } catch (Exception e) {
+                    Console.WriteLine("Unexpected exception: {0}", e.Message);
+                }
             }
         }
 
 
+        public void StartServer(string share_name) {
+            this.share_name = share_name;
 
-        static bool running = true;
-        public static void start(string root_folder) {
-            while (running) {
-                base_path = root_folder;
+            var prefix = CurrentConfig.shares[share_name]["prefix"].ToString();
+            var port = CurrentConfig.shares[share_name]["port"].get_int();
 
-                listener = new HttpListener();
-                listener.Prefixes.Add(url);
-                listener.Start();
-                Logging.Info($"Listening for connections on {url}, serving folder {root_folder}");
+            if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
+            if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
+            while (prefix.EndsWith('/')) prefix.Remove(prefix.Length - 1, 1);
 
-                Task listener_task = HandleConnections();
-                listener_task.GetAwaiter().GetResult();
-                listener.Close();
+            listener = new HttpListener();
+            //listener.Prefixes.Add($"http://*{port}/");
+            listener.Prefixes.Add($"http://{prefix}:{port}/");
+            listener.Start();
+
+            dispatch_threads = new Thread[dispatch_thread_count];
+            Logging.Message($"Starting server for share '{share_name}' on port {port}");
+
+            for (int i = 0; i < dispatch_thread_count; i++) {
+                dispatch_threads[i] = new Thread(RequestThread);
+                dispatch_threads[i].Start();
+                Logging.Message($"[{share_name}] started thread {i}");
             }
+
+
+            //Task listener_task = ServePage();
+            //listener_task.GetAwaiter().GetResult();
+            //listener.Close();
+            
         }
 
     }
