@@ -70,7 +70,7 @@ namespace ZeroDir
                     Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
-                    if (Environment.OSVersion.Platform != PlatformID.Unix) {
+                    if (Environment.OSVersion.Platform != PlatformID.Other) {
                         Logging.Message($"ON UNIX REMOVE SLASH");
                         while (url_path.StartsWith('/')) {
                             url_path = url_path.Remove(0, 1);
