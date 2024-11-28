@@ -215,23 +215,23 @@ namespace ZeroDir
 
 
                     if (Directory.Exists(absolute_on_disk_path)) {
-                        page_content = absolute_on_disk_path + "\n";
-                        page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
-
-                        data = Encoding.UTF8.GetBytes(page_data);
-                        response.ContentType = "text/html; charset=utf-8";
-                        response.ContentEncoding = Encoding.UTF8;
-                        response.ContentLength64 = data.LongLength;
-                        response.SendChunked = true;
-                        response.AddHeader("X-Frame-Options", "deny");
-
                         try {
+                            page_content = absolute_on_disk_path + "\n";
+                            page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
+
+                            data = Encoding.UTF8.GetBytes(page_data);
+                            response.ContentType = "text/html; charset=utf-8";
+                            response.ContentEncoding = Encoding.UTF8;
+                            response.ContentLength64 = data.LongLength;
+                            response.SendChunked = true;
+                            response.AddHeader("X-Frame-Options", "deny");
+
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                                 response.OutputStream.EndWrite(result);
                                 response.Close();
                             }, response);
                         } catch (HttpListenerException ex) {
-                            response.Close();
+                            //response.Close();
                         }
 
                     } else if (File.Exists(absolute_on_disk_path)) {
