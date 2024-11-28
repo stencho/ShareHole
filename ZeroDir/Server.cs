@@ -209,8 +209,7 @@ namespace ZeroDir
                     }
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
-
-                    Logging.Message($"ODP {absolute_on_disk_path} ");
+;
                     if (Directory.Exists(absolute_on_disk_path)) {
                         page_content = absolute_on_disk_path + "\n";
                         page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
@@ -219,7 +218,7 @@ namespace ZeroDir
                         response.ContentType = "text/html; charset=utf-8";
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
-                        response.SendChunked = false;
+                        response.SendChunked = true;
 
                         try {
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
@@ -246,9 +245,10 @@ namespace ZeroDir
 
                         response.AddHeader("Content-Disposition", "inline");
                         response.AddHeader("Cache-Control", "no-cache");
+                        response.AddHeader("X-Frame-Options", "allowall");
                         response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                         response.ContentLength64 = fs.Length;
-                        response.SendChunked = true;
+                        response.SendChunked = false;
 
                         Logging.Message("Starting write");
 
@@ -265,7 +265,7 @@ namespace ZeroDir
                         response.ContentType = "text/html; charset=utf-8";
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
-                        response.SendChunked = false;
+                        response.SendChunked = true;
 
                         try {
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {

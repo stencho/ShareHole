@@ -62,7 +62,7 @@ namespace ZeroDir {
                 if (n.Length > 0) n = n.Insert(0, "/");
 
                 listing.Add($"{f}");
-                Logging.Message($"{n} {f}  http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}");
+                //Logging.Message($"{n} {f}  http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}");
                 result += $"<p><a href=\"http://{prefix}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
             }
 
