@@ -80,6 +80,14 @@ namespace ZeroDir
                     Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
+                    string passdir = CurrentConfig.server.values["server"]["passdir"].get_string().Trim();
+                    if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
+                        response.Close();
+                        continue;
+                    } else {
+                        url_path = url_path.Remove(0, 5);
+                    }
+
                     while (url_path.StartsWith('/')) {
                         url_path = url_path.Remove(0, 1);
                     }
@@ -140,6 +148,8 @@ namespace ZeroDir
                             var task = response.OutputStream.WriteAsync(data, 0, data.Length);
 
                             task.GetAwaiter().OnCompleted(() => {
+                                response.StatusCode = (int)HttpStatusCode.OK;
+                                response.StatusDescription = "400 OK";
                                 response.Close();
                                 Logging.Message("Finished write");
                             });
@@ -147,6 +157,7 @@ namespace ZeroDir
                         } catch (HttpListenerException ex) {
                             Logging.Error(ex.Message);
                             response.Close();
+                            continue;
                         }
 
                     } else if (File.Exists(absolute_on_disk_path)) {
@@ -184,6 +195,8 @@ namespace ZeroDir
                             var task = fs.CopyToAsync(context.Response.OutputStream);
 
                             task.GetAwaiter().OnCompleted(() => {
+                                response.StatusCode = (int)HttpStatusCode.OK;
+                                response.StatusDescription = "400 OK";
                                 response.Close();
                                 Logging.Message("Finished write");
                                 fs.Close();
@@ -192,6 +205,7 @@ namespace ZeroDir
                         } catch (HttpListenerException ex) {
                             Logging.Error(ex.Message);
                             response.Close();
+                            continue;
                         }
 
                     } else {
@@ -207,6 +221,8 @@ namespace ZeroDir
                             var task = response.OutputStream.WriteAsync(data, 0, data.Length);
 
                             task.GetAwaiter().OnCompleted(() => {
+                                response.StatusCode = (int)HttpStatusCode.OK;
+                                response.StatusDescription = "400 OK";
                                 response.Close();
                                 Logging.Message("Finished write");
                             });
@@ -214,6 +230,7 @@ namespace ZeroDir
                         } catch (HttpListenerException ex) {
                             Logging.Error(ex.Message);
                             response.Close();
+                            continue;
                         }
                     }
 
