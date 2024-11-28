@@ -223,6 +223,7 @@ namespace ZeroDir
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
                         response.SendChunked = true;
+                        response.AddHeader("X-Frame-Options", "deny");
 
                         try {
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
@@ -263,6 +264,7 @@ namespace ZeroDir
                         response.ContentType = "text/html; charset=utf-8";
                         response.ContentEncoding = Encoding.UTF8;
                         response.ContentLength64 = data.LongLength;
+                        response.AddHeader("X-Frame-Options", "deny");
                         response.SendChunked = true;
 
                         try {
