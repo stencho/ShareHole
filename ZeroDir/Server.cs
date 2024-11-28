@@ -224,12 +224,20 @@ namespace ZeroDir
                             response.ContentEncoding = Encoding.UTF8;
                             response.ContentLength64 = data.LongLength;
                             response.SendChunked = true;
+
                             response.AddHeader("X-Frame-Options", "deny");
 
+                            var task = response.OutputStream.WriteAsync(data, 0, data.Length);
+
+                            task.GetAwaiter().OnCompleted(() => {
+                                response.Close();
+                                Logging.Message("Finished write");
+                            });
+                            /*
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                                 response.OutputStream.EndWrite(result);
                                 response.Close();
-                            }, response);
+                            }, response);*/
                         } catch (HttpListenerException ex) {
                             //response.Close();
                         }
@@ -255,6 +263,7 @@ namespace ZeroDir
                             var task = fs.CopyToAsync(context.Response.OutputStream);
 
                             task.GetAwaiter().OnCompleted(() => {
+                                response.Close();
                                 Logging.Message("Finished write");
                             });
 
@@ -272,10 +281,18 @@ namespace ZeroDir
                             response.AddHeader("X-Frame-Options", "deny");
                             response.SendChunked = true;
 
+                            var task = response.OutputStream.WriteAsync(data, 0, data.Length);
+
+                            task.GetAwaiter().OnCompleted(() => {
+                                response.Close();
+                                Logging.Message("Finished write");
+                            });
+                            /*
                             response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                                 response.OutputStream.EndWrite(result);
                                 response.Close();
                             }, response);
+                            */
                         } catch (HttpListenerException ex) {
                             response.Close();
                         }
