@@ -131,6 +131,7 @@ namespace ZeroDir {
                     file_c++;
                 }
             }
+            Logging.Message($"listed {dir_c} folders and {file_c} files");
 
 
             return result;
