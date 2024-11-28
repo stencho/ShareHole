@@ -74,7 +74,7 @@ namespace ZeroDir {
             int file_c = 0;
 
             if (show_dirs) {
-                if (grouping != "none") {
+                if (grouping != "none" && cares_about_groups) {
                     result += $"<p class=\"head\"><b>Directories</b></p>";
                 }
                 foreach (var dir in directories) {
@@ -88,7 +88,6 @@ namespace ZeroDir {
             }
 
             
-            string previous_ext = "";
             if (grouping == "none") {
                 foreach (var file in files) {
                     string n = uri_path;
@@ -109,6 +108,7 @@ namespace ZeroDir {
                     file_c++;
                 }
             } else if (grouping == "type") {
+                string previous_ext = "";
                 foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     string n = uri_path;
                     string f = file.Name;
