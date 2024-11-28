@@ -15,7 +15,7 @@ namespace ZeroDir.Config {
         public Dictionary<string, Dictionary<string, ConfigValue>> values = new Dictionary<string, Dictionary<string, ConfigValue>>() {
             { "server",
                 new Dictionary<string, ConfigValue>() {
-                    { "prefix", new ConfigValue("http://localhost/")},
+                    { "prefix", new ConfigValue("localhost")},
                     { "port", new ConfigValue(8080)}
                 }
             },
