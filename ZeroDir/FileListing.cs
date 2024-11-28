@@ -36,17 +36,29 @@ namespace ZeroDir {
             int slash_i = up_dir.LastIndexOf('/');
             if (slash_i > -1) up_dir = up_dir.Remove(slash_i);
             else up_dir = "";
-            //if (up_dir.Length > 0)
-                result += $"<p><a href=\"http://{prefix}/{share_name}/{up_dir}\">.. [ {up_dir} ])</a></p>";
-            //else
-                //result += $"<p>{up_dir}</p>";
-
             
             Logging.Message($"up_dir: {up_dir}");
+
             bool show_dirs = true;
             if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
                 show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
             }
+
+            //Add up dir if we're showing directories
+            if (show_dirs) {
+                result += $"<p style=\"up\"><a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [ /{up_dir} ]</a></p>";
+            }
+
+            string grouping = "";
+            bool cares_about_groups = false;
+            if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
+                cares_about_groups = true;
+                grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
+            }
+            grouping = grouping.Trim().ToLower();
+
+
+
             bool using_extensions = false;
             string[] extensions = null;
             if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
@@ -58,7 +70,11 @@ namespace ZeroDir {
                 }
             }
 
+
             if (show_dirs) {
+                if (grouping != "none") {
+                    result += $"<p class=\"head\"><b>Directories</b></p>";
+                }
                 foreach (var dir in directories) {
                     string n = uri_path;
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
@@ -67,24 +83,49 @@ namespace ZeroDir {
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
                 }
             }
-            foreach (var file in files) {
-                string n = uri_path;
-                string f = file.Name;
 
-                var ext = new FileInfo(f).Extension.Replace(".", "");
+            
+            string previous_ext = "";
+            if (grouping == "none") {
+                foreach (var file in files) {
+                    string n = uri_path;
+                    string f = file.Name;
 
-                if (using_extensions && !extensions.Contains(ext)) {
-                    continue;
+                    var ext = new FileInfo(f).Extension.Replace(".", "");
+                    if (using_extensions && !extensions.Contains(ext)) {
+                        continue;
+                    }
+
+                    while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
+                    while (f.StartsWith('/')) f = f.Remove(0, 1);
+                    if (n.Length > 0) n = n.Insert(0, "/");
+
+                    listing.Add($"{f}");
+                    result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
                 }
+            } else if (grouping == "type") {
+                foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
+                    string n = uri_path;
+                    string f = file.Name;
 
-                while (n.EndsWith('/')) n = n.Remove(n.Length-1, 1);
-                while (f.StartsWith('/')) f = f.Remove(0, 1);
-                if (n.Length > 0) n = n.Insert(0, "/");
+                    var ext = new FileInfo(f).Extension.Replace(".", "");
+                    if (ext != previous_ext && extensions.Contains(ext)) {
+                        result += $"<p class=\"head\"><b>{ext}</b></p>";
+                    }
+                    previous_ext = ext;
+                    if (using_extensions && !extensions.Contains(ext)) {
+                        continue;
+                    }
 
-                listing.Add($"{f}");
-                //Logging.Message($"{n} {f}  http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}");
-                result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
+                    while (f.StartsWith('/')) f = f.Remove(0, 1);
+                    if (n.Length > 0) n = n.Insert(0, "/");
+
+                    listing.Add($"{f}");
+                    result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                }
             }
+
 
             return result;
         }

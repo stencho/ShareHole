@@ -3,3 +3,38 @@ img {
   max-height: 100vh;
   height: auto;
 }
+
+body {
+  background-color: #101010;
+}
+
+p.up {
+  font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+p.head {
+  color: rgb(255, 255, 255) !important;
+  font-size: 32;
+}
+
+p {
+  font-size: 20;
+}
+
+
+a {
+  text-decoration: none;
+}
+
+a:link { 
+  color: rgb(242, 191, 241) !important;  
+}
+a:visited { 
+  color: rgb(163, 212, 239) !important;
+}
+a:hover { 
+  color: rgb(141, 69, 139) !important;
+}
+a:active { 
+  color: rgb(203, 115, 200) !important;
+}

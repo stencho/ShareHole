@@ -1,6 +1,7 @@
 <!DOCTYPE>
 <html>
   <head>
+    <link rel="stylesheet" href="base_css.css">
     <title>{page_title}</title>
   </head>
   <body>

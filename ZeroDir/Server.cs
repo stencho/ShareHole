@@ -67,15 +67,14 @@ namespace ZeroDir
                         continue;
                     }
 
+                    if (request.Url.AbsolutePath == "/favicon.ico") continue;
                     Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
-                    //if (Environment.OSVersion.Platform != PlatformID.Unix) {
-                        //Logging.Message($"NOT ON UNIX REMOVE SLASH");
-                        while (url_path.StartsWith('/')) {
-                            url_path = url_path.Remove(0, 1);
-                        }
-                    //}
+                    while (url_path.StartsWith('/')) {
+                        url_path = url_path.Remove(0, 1);
+                    }
+
                     string share_name = "";
                     var slash_i = url_path.IndexOf('/');
                     if (slash_i > 0) {
@@ -86,6 +85,10 @@ namespace ZeroDir
                     }
                     string folder_path = "";
 
+                    bool show_dirs = true;
+                    if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
+                        show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
+                    }
 
                     if (CurrentConfig.shares.ContainsKey(share_name)) {
                         folder_path = CurrentConfig.shares[share_name]["path"].ToString();
@@ -107,15 +110,25 @@ namespace ZeroDir
                         mimetype = "application/octet-stream";
                     }
 
-                    Logging.Warning($"Content-type: {mimetype}");
+                    Logging.Message($"Content-type: {mimetype}");
                     response.ContentType = mimetype;
                     response.AddHeader("X-Frame-Options", "DENY");
-                    response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+                    //response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
+                    if (request.Url.AbsolutePath.EndsWith("base_css.css")) {
+                        absolute_on_disk_path = "base_css.css";
+                        Logging.Message(absolute_on_disk_path);
+                    }
 
                     if (Directory.Exists(absolute_on_disk_path)) {
                         try {
-                            page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                            if (!show_dirs && url_path != "/" ) {
+                                Logging.Error($"Attempted to browse outside of share \"{share_name}\" with directories off");
+                                page_content = "";
+                            } else {
+                                page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                            }
+
 
                             data = Encoding.UTF8.GetBytes(page_data);
                             response.ContentType = "text/html; charset=utf-8";
@@ -138,6 +151,11 @@ namespace ZeroDir
 
                     } else if (File.Exists(absolute_on_disk_path)) {
                         try {
+                            if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
+                                Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
+                                continue;
+                            }
+
                             Logging.Message($"file: {absolute_on_disk_path}");
                             FileStream fs = File.OpenRead(absolute_on_disk_path);
 
