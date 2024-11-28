@@ -191,6 +191,10 @@ namespace ZeroDir
                     HttpListenerResponse response = context.Response;
 
 
+                    if (request.Url.AbsolutePath.StartsWith("/~/")) {
+                        response.Close();
+                        continue;
+                    }
                     Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
