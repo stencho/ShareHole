@@ -37,7 +37,7 @@ namespace ZeroDir {
             if (slash_i > -1) up_dir = up_dir.Remove(slash_i);
             else up_dir = "";
             //if (up_dir.Length > 0)
-                result += $"<p><a href=\"http://{prefix}/{share_name}{up_dir}\">.. [ {up_dir} ])</a></p>";
+                result += $"<p><a href=\"http://{prefix}/{share_name}/{up_dir}\">.. [ {up_dir} ])</a></p>";
             //else
                 //result += $"<p>{up_dir}</p>";
 
@@ -64,7 +64,7 @@ namespace ZeroDir {
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
                     listing.Add($"{dir.Name}");
-                    result += $"<p><a href=\"http://{prefix}/{share_name}/{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
+                    result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
                 }
             }
             foreach (var file in files) {
