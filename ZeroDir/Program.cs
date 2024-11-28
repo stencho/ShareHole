@@ -28,11 +28,24 @@ namespace ZeroDir
                 if (line == "restart") {
                     Logging.Message("Restarting server!");
                     for (int i = 0; i < servers.Count; i++) {
-                        servers[i].StopServer();
+                        servers[i].StopServer();                        
                     }
-                    if (line.Contains('.') && line.Contains('=')) {
-                        CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server.values, line);
+
+                    CurrentConfig.server = new ServerConfig("server");
+                    CurrentConfig.shares = new FileShareConfig("shares");
+
+                    for (int i = 0; i < servers.Count; i++) {
+                        servers[i] = new HttpServer();
+                        server_thread = new Thread(new ParameterizedThreadStart(start_server));
+                        server_thread.Start();
                     }
+
+                } else if (line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
+                    line = line.Remove(0, 1);
+                    CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server.values, line);
+                } else if (line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
+                    line = line.Remove(0, 1);
+                    CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
                 }
             }
             CurrentConfig.server.Clean();

@@ -49,7 +49,7 @@ namespace ZeroDir.Config
                 val = input.Substring(eq + 1).Trim();
 
                 if (values.ContainsKey(sec) && values[sec].ContainsKey(key)) {
-                    Logging.Message($"Changing {sec}.{key} to {val} (was {values[sec][key].ToString()})");
+                    Logging.Message($"Changing {sec}.{key} to \"{val}\" (was \"{values[sec][key].ToString()}\")");
 
                     switch (values[sec][key].value_type) {
                         case ValueType.STRING:

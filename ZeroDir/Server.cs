@@ -24,7 +24,16 @@ namespace ZeroDir
 
         public void StopServer() {
             run = false;
+            listener.Stop();
+            for (int i = 0; i < dispatch_threads.Length; i++) {
+                Logging.Message($"Stopping thread {i}");
+                dispatch_threads[i].Join();
+            }
+            //while (stopped == false) { }
+            //stopped = true;
         }
+
+        //restbool stopped = false;
 
         string _pd;
         string page_data {

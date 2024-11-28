@@ -45,8 +45,8 @@ namespace ZeroDir {
             }
 
             //Add up dir if we're showing directories
-            if (show_dirs) {
-                result += $"<p style=\"up\"><a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [ /{up_dir} ]</a></p>";
+            if (show_dirs && !string.IsNullOrEmpty(up_dir)) {
+                result += $"<p style=\"up\"><a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [/{up_dir}]</a></p>";
             }
 
             string grouping = "";
@@ -115,6 +115,7 @@ namespace ZeroDir {
                 foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     string n = uri_path;
                     string f = file.Name;
+                    //Logging.Message("file: " + f);
 
                     var ext = new FileInfo(f).Extension.Replace(".", "");
                     if (ext != previous_ext && extensions.Contains(ext)) {
@@ -130,6 +131,7 @@ namespace ZeroDir {
                     if (n.Length > 0) n = n.Insert(0, "/");
 
                     listing.Add($"{f}");
+                    //Logging.Message(listing.Last());
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
                     file_c++;
                 }

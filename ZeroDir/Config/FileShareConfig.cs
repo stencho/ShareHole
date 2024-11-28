@@ -13,7 +13,7 @@ namespace ZeroDir.Config
 
         public int share_count = 0;
 
-        ConfigFileIO config_file;
+        public ConfigFileIO config_file;
 
         public FileShareConfig() {        
             config_file = new ConfigFileIO(config_location);
