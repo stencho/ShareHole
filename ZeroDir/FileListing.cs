@@ -46,7 +46,7 @@ namespace ZeroDir {
             }
 
             //Add up dir if we're showing directories
-            if (show_dirs && (uri_path.Length - (share_name.Length + 1)>0)) {
+            if (show_dirs && (uri_path.Trim() != share_name.Trim()) && uri_path.Trim().Length != 0) {
                 result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [/{up_dir}]</a></span></p>";
             }
 
