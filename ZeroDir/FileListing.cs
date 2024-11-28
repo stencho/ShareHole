@@ -25,6 +25,7 @@ namespace ZeroDir {
 
             List<string> listing = new List<string>();
 
+            if (!directory.EndsWith('/')) directory = directory + "/";
 
             Logging.Message($"listing directory: {directory}{uri_path}");
             DirectoryInfo dirInfo = new DirectoryInfo($"{directory}{uri_path}");
