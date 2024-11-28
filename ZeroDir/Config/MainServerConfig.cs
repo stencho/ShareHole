@@ -16,7 +16,8 @@ namespace ZeroDir.Config {
             { "server",
                 new Dictionary<string, ConfigValue>() {
                     { "prefix", new ConfigValue("localhost")},
-                    { "port", new ConfigValue(8080)}
+                    { "port", new ConfigValue(8080)},
+                    { "threads", new ConfigValue(32) }
                 }
             },
             { "UI",

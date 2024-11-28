@@ -49,7 +49,7 @@ namespace ZeroDir
             }
         }
 
-        const int dispatch_thread_count = 8;
+        int dispatch_thread_count = 64;
         Thread[] dispatch_threads;
 
         async void RequestThread() {
@@ -237,7 +237,7 @@ namespace ZeroDir
             var port = CurrentConfig.server.values["server"]["port"].get_int();
 
             var prefixes = CurrentConfig.server.values["server"]["prefix"].ToString().Trim().Split(' ');
-
+            dispatch_thread_count = CurrentConfig.server.values["server"]["threads"].get_int();
             for (int i = 0; i < prefixes.Length; i++) {
                 string prefix = prefixes[i].Trim();
                 if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
