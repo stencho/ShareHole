@@ -70,6 +70,8 @@ namespace ZeroDir {
                 }
             }
 
+            int dir_c = 0;
+            int file_c = 0;
 
             if (show_dirs) {
                 if (grouping != "none") {
@@ -81,6 +83,7 @@ namespace ZeroDir {
                     if (n.Length > 0) n = n.Insert(0, "/");
                     listing.Add($"{dir.Name}");
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></p>";
+                    dir_c++;
                 }
             }
 
@@ -102,6 +105,8 @@ namespace ZeroDir {
 
                     listing.Add($"{f}");
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+
+                    file_c++;
                 }
             } else if (grouping == "type") {
                 foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
@@ -123,6 +128,7 @@ namespace ZeroDir {
 
                     listing.Add($"{f}");
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    file_c++;
                 }
             }
 
