@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HeyRed.Mime;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.ExceptionServices;
@@ -49,12 +50,13 @@ namespace ZeroDir {
                 result += $"<p style=\"up\"><a href=\"http://{prefix}/{share_name}/{up_dir}\">↑ [/{up_dir}]</a></p>";
             }
 
+
             string grouping = "";
             bool cares_about_groups = false;
             if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
                 cares_about_groups = true;
                 grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
-                if (grouping.Trim().ToLower() != "type" && grouping.Trim().ToLower() != "none") {
+                if (grouping.Trim().ToLower() != "type" && grouping.Trim().ToLower() != "extension" && grouping.Trim().ToLower() != "none") {
                     cares_about_groups = false;
                     grouping = "none";
                 }
@@ -111,7 +113,7 @@ namespace ZeroDir {
 
                     file_c++;
                 }
-            } else if (grouping == "type" && cares_about_groups) {
+            } else if (grouping == "extension" && cares_about_groups) {
                 string previous_ext = "";
                 foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     string n = uri_path;
@@ -136,11 +138,61 @@ namespace ZeroDir {
                     result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
                     file_c++;
                 }
+
+            } else if (grouping == "type" && cares_about_groups) {
+                string previous_ext = "";
+                string previous_mime = "";
+                string current_type = "";
+                foreach (var file in files.OrderBy(x => GetMimeTypeOrOctet(x.Name))) {
+                    string n = uri_path;
+                    string f = file.Name;
+                    //Logging.Message("file: " + f);
+
+                    var ext = new FileInfo(f).Extension.Replace(".", "");
+                    var mime = GetMimeTypeOrOctet(file.Name);
+                    //if (ext != previous_ext && extensions.Contains(ext)) {
+                        if (mime != previous_mime) {
+                            var slashi = mime.IndexOf("/");
+                            var t = mime.Substring(0, slashi);
+                            if (current_type != t) {
+                                result += $"<p class=\"head\"><b>{t}</b></p>";
+
+                                current_type = t;
+                            }
+                        }
+                        //result += $"<p class=\"head\"><b>{ext}</b></p>";
+                    //}
+                
+                    previous_mime = mime;
+                    previous_ext = ext;
+                    if (using_extensions && !extensions.Contains(ext)) {
+                        continue;
+                    }
+
+                    while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
+                    while (f.StartsWith('/')) f = f.Remove(0, 1);
+                    if (n.Length > 0) n = n.Insert(0, "/");
+
+                    listing.Add($"{f}");
+                    //Logging.Message(listing.Last());
+                    result += $"<p><a href=\"http://{prefix}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    file_c++;
+                }
             }
             Logging.Message($"listed {dir_c} folders and {file_c} files");
 
 
             return result;
+        }
+
+        static string GetMimeTypeOrOctet(string fn) {
+            string mimetype;
+            try {
+                mimetype = MimeTypesMap.GetMimeType(fn);
+            } catch {
+                mimetype = "application/octet-stream";
+            }
+            return mimetype;
         }
     }
 }
