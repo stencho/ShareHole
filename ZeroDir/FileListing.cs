@@ -88,7 +88,7 @@ namespace ZeroDir {
             }
 
             
-            if (grouping == "none") {
+            if (grouping == "none" || !cares_about_groups) {
                 foreach (var file in files) {
                     string n = uri_path;
                     string f = file.Name;
@@ -107,7 +107,7 @@ namespace ZeroDir {
 
                     file_c++;
                 }
-            } else if (grouping == "type") {
+            } else if (grouping == "type" && cares_about_groups) {
                 string previous_ext = "";
                 foreach (var file in files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     string n = uri_path;
@@ -119,7 +119,7 @@ namespace ZeroDir {
                     }
                     previous_ext = ext;
                     if (using_extensions && !extensions.Contains(ext)) {
-                        //continue;
+                        continue;
                     }
 
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
