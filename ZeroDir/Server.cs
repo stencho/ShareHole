@@ -103,17 +103,8 @@ namespace ZeroDir
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
 
-                    string mimetype;
-                    try {
-                        mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
-                    } catch {
-                        mimetype = "application/octet-stream";
-                    }
-
-                    Logging.Message($"Content-type: {mimetype}");
-                    response.ContentType = mimetype;
                     response.AddHeader("X-Frame-Options", "DENY");
-                    //response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+                    response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
                     if (request.Url.AbsolutePath.EndsWith("base_css.css")) {
                         absolute_on_disk_path = "base_css.css";
@@ -151,6 +142,16 @@ namespace ZeroDir
 
                     } else if (File.Exists(absolute_on_disk_path)) {
                         try {
+                            string mimetype;
+                            try {
+                                mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
+                            } catch {
+                                mimetype = "application/octet-stream";
+                            }
+
+                            Logging.Message($"Content-type: {mimetype}");
+                            response.ContentType = mimetype;
+
                             if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
                                 Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
                                 continue;
