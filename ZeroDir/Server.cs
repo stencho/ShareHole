@@ -28,25 +28,17 @@ namespace ZeroDir
             run = false;
         }
 
-        string page_data => new string (
-            "<!DOCTYPE>" +
-            "<html>" +
-            "  <head>" +
-            $"    <title>{page_title}</title>" +
-            "  </head>" +
-            "  <body>" +
-            $"{page_content}" +
-            "  </body>" +
-            "</html>");
+        string _pd;
+        string page_data {
+            get { return _pd.Replace("{page_content}", page_content).Replace("{page_title}", page_title); }
+            set { _pd = value; }
+        }
 
         bool run = true;
 
         public async Task ServePageAsync() {
 
             while (run) {
-
-
-
             }
         }
         public async Task ServePage() {
@@ -106,6 +98,7 @@ namespace ZeroDir
 
                         response.AddHeader("Content-Disposition", "inline");
                         response.AddHeader("Cache-Control", "no-cache");
+                        response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
                         response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                         response.ContentLength64 = fs.Length;
                         response.SendChunked = false;
@@ -198,7 +191,7 @@ namespace ZeroDir
                     HttpListenerResponse response = context.Response;
 
 
-                    Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} ");
+                    Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
 
@@ -209,7 +202,23 @@ namespace ZeroDir
                     }
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
-;
+
+                    string mimetype;
+                    try {
+                        mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
+                    } catch {
+                        mimetype = "application/octet-stream";
+                    }
+
+                    Logging.Warning($"Content-type: {mimetype}");
+                    response.ContentType = mimetype;
+
+                    response.AddHeader("Content-Disposition", "inline");
+                    response.AddHeader("Cache-Control", "no-cache");
+                    response.AddHeader("X-Frame-Options", "allowall");
+                    response.AddHeader("Accept-CH", "none");
+                    response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+
                     if (Directory.Exists(absolute_on_disk_path)) {
                         page_content = absolute_on_disk_path + "\n";
                         page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
@@ -233,19 +242,9 @@ namespace ZeroDir
                         Logging.Message($"file: {absolute_on_disk_path}");
                         FileStream fs = File.OpenRead(absolute_on_disk_path);
 
-                        string mimetype;
-                        try {
-                            mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
-                        } catch {
-                            mimetype = "application/octet-stream";
-                        }
-
+                        
                         Logging.Warning($"Content-type: {mimetype}");
                         response.ContentType = mimetype;
-
-                        response.AddHeader("Content-Disposition", "inline");
-                        response.AddHeader("Cache-Control", "no-cache");
-                        response.AddHeader("X-Frame-Options", "allowall");
                         response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                         response.ContentLength64 = fs.Length;
                         response.SendChunked = false;
@@ -255,9 +254,9 @@ namespace ZeroDir
                         var task = fs.CopyToAsync(context.Response.OutputStream);
 
                         task.GetAwaiter().OnCompleted(() => {
-
                             Logging.Message("Finished write");
                         });
+                        
 
                     } else {
                         page_content = $"<b>{absolute_on_disk_path} NOT FOUND</b>";
@@ -288,6 +287,8 @@ namespace ZeroDir
 
 
         public void StartServer(string share_name) {
+            page_data = File.ReadAllText("base_page");
+
             this.share_name = share_name;
 
             var prefix = CurrentConfig.shares[share_name]["prefix"].ToString();
