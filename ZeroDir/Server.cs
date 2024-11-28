@@ -197,8 +197,8 @@ namespace ZeroDir
                     HttpListenerRequest request = context.Request;
                     HttpListenerResponse response = context.Response;
 
-                    Logging.Message($"REQ {request.Url.LocalPath} | {request.HttpMethod} | {request.UserHostName} ");
 
+                    Logging.Message($"REQ {request.Url.LocalPath} | {request.HttpMethod} | {request.UserHostName} ");
                     string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                     string folder_path = CurrentConfig.shares[share_name]["path"].ToString();
 
@@ -209,8 +209,9 @@ namespace ZeroDir
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
 
+                    Logging.Message($"ODP {absolute_on_disk_path} ");
                     if (Directory.Exists(absolute_on_disk_path)) {
-                        page_content = folder_path + "\n";
+                        page_content = absolute_on_disk_path + "\n";
                         page_content += FileListing.BuildListing(folder_path, request.UserHostName, url_path);
 
                         data = Encoding.UTF8.GetBytes(page_data);
