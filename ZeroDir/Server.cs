@@ -318,18 +318,25 @@ namespace ZeroDir
         public void StartServer(string share_name) {
             page_data = File.ReadAllText("base_page");
 
+            listener = new HttpListener();
+
             this.share_name = share_name;
 
-            var prefix = CurrentConfig.shares[share_name]["prefix"].ToString();
             var port = CurrentConfig.shares[share_name]["port"].get_int();
 
-            if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
-            if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
-            while (prefix.EndsWith('/')) prefix.Remove(prefix.Length - 1, 1);
+            var prefixes = CurrentConfig.shares[share_name]["prefix"].ToString().Trim().Split(' ');
 
-            listener = new HttpListener();
-            //listener.Prefixes.Add($"http://*{port}/");
-            listener.Prefixes.Add($"http://{prefix}:{port}/");
+            for (int i = 0; i < prefixes.Length; i++) {
+                string prefix = prefixes[i].Trim();
+                if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
+                if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
+                while (prefix.EndsWith('/')) prefix.Remove(prefix.Length - 1, 1);
+
+                //listener.Prefixes.Add($"http://*{port}/");
+                listener.Prefixes.Add($"http://{prefix}:{port}/");
+                Logging.Message("Using prefix: " + $"http://{prefix}:{port}/");
+            }
+
             listener.Start();
 
             dispatch_threads = new Thread[dispatch_thread_count];
