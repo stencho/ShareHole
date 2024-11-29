@@ -195,7 +195,9 @@ namespace ZeroDir {
                         if (n == 0) break;
                     }
 
+                    Logging.Config($"Re-loading configuration");
                     load_config();
+                    Logging.Config($"Configuration loaded, starting server!");
 
                     for (int i = 0; i < servers.Count; i++) {
                         servers[i] = new FolderServer();
