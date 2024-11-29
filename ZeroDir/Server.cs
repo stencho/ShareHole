@@ -52,28 +52,28 @@ namespace ZeroDir
         int dispatch_thread_count = 64;
         Thread[] dispatch_threads;
 
-        async void RequestThread() {
+        void RequestThread() {
             while (listener.IsListening) {
                 string url = string.Empty;
 
                 try {
                     // Yeah, this blocks, but that's the whole point of this thread
                     // Note: the number of threads that are dispatching requets in no way limits the number of "open" requests that we can have
-                    HttpListenerContext context = await listener.GetContextAsync();
-
+                    HttpListenerContext context = listener.GetContext();
+                context.Response.KeepAlive = false;
                     // For this demo we only support GET
                     if (context.Request.HttpMethod != "GET") {
                         context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                         context.Response.Close();
                     }
 
-                    HttpListenerRequest request = context.Request;
-                    HttpListenerResponse response = context.Response;
+                    var request = context.Request;
+                    var response = context.Response;
 
 
                     if (request.Url.AbsolutePath.StartsWith("/~/")) {
-                        response.Close();
-                        continue;
+                        context.Response.Abort();
+                        return;
                     }
 
                     if (request.Url.AbsolutePath == "/favicon.ico") continue;
@@ -82,8 +82,8 @@ namespace ZeroDir
 
                     string passdir = CurrentConfig.server.values["server"]["passdir"].get_string().Trim();
                     if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
-                        response.Close();
-                        continue;
+                        context.Response.Abort();
+                        return;
                     } else {
                         url_path = url_path.Remove(0, 5);
                     }
@@ -113,7 +113,7 @@ namespace ZeroDir
                     } else {
                         Logging.Error($"Client requested share which doesn't exist: {share_name} {url_path}");
                         response.Close();
-                        continue;
+                        return;
                     }
                     
                     url_path = url_path.Remove(0, share_name.Length);
@@ -157,11 +157,10 @@ namespace ZeroDir
                         } catch (HttpListenerException ex) {
                             Logging.Error(ex.Message);
                             response.Close();
-                            continue;
+                            return;
                         }
 
                     } else if (File.Exists(absolute_on_disk_path)) {
-                        try {
                             string mimetype;
                             try {
                                 mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
@@ -174,39 +173,33 @@ namespace ZeroDir
 
                             if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
                                 Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
-                                continue;
+                                return;
                             }
 
                             Logging.Message($"file: {absolute_on_disk_path}");
-                            FileStream fs = File.OpenRead(absolute_on_disk_path);
+                            
 
-                            response.AddHeader("Content-Disposition", "inline");
-                            response.AddHeader("Cache-Control", "no-cache");
-                            response.AddHeader("X-Frame-Options", "allowall");
+                            //response.AddHeader("Content-Disposition", "inline");
+                            //response.AddHeader("Cache-Control", "no-cache");
+                            //response.AddHeader("X-Frame-Options", "allowall");
 
                             Logging.Warning($"Content-type: {mimetype}");
-                            response.ContentType = mimetype;
-                            response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                            response.ContentLength64 = fs.Length;
-                            response.SendChunked = false;
+                            context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
+                            context.Response.ContentType = mimetype;
+                        
+                            context.Response.SendChunked = false;
 
                             Logging.Message("Starting write");
+                            using (FileStream fs = File.OpenRead(absolute_on_disk_path)) {
+                                context.Response.ContentLength64 = fs.Length;
 
-                            var task = fs.CopyToAsync(context.Response.OutputStream);
-
-                            task.GetAwaiter().OnCompleted(() => {
-                                response.StatusCode = (int)HttpStatusCode.OK;
-                                response.StatusDescription = "400 OK";
-                                response.Close();
-                                Logging.Message("Finished write");
-                                fs.Close();
-                            });
-
-                        } catch (HttpListenerException ex) {
-                            Logging.Error(ex.Message);
-                            response.Close();
-                            continue;
-                        }
+                                fs.CopyTo(context.Response.OutputStream);
+                                
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "400 OK";
+                                context.Response.Close();
+                                Logging.Message("Finished write");                                
+                            }
 
                     } else {
                         try {
@@ -221,16 +214,16 @@ namespace ZeroDir
                             var task = response.OutputStream.WriteAsync(data, 0, data.Length);
 
                             task.GetAwaiter().OnCompleted(() => {
-                                response.StatusCode = (int)HttpStatusCode.OK;
-                                response.StatusDescription = "400 OK";
+                                response.StatusCode = (int)HttpStatusCode.NotFound;
+                                response.StatusDescription = "404 NOT FOUND";
                                 response.Close();
                                 Logging.Message("Finished write");
                             });
 
                         } catch (HttpListenerException ex) {
-                            Logging.Error(ex.Message);
-                            response.Close();
-                            continue;
+                            Logging.Error(ex.Message); 
+                            context.Response.Abort();
+                            return;
                         }
                     }
 
@@ -250,6 +243,8 @@ namespace ZeroDir
             page_data = File.ReadAllText("base_page");
 
             listener = new HttpListener();
+            listener.IgnoreWriteExceptions = true;
+
 
             var port = CurrentConfig.server.values["server"]["port"].get_int();
 
