@@ -24,11 +24,12 @@ namespace ZeroDir {
 
             List<string> listing = new List<string>();
 
-            string passdir = CurrentConfig.server.values["server"]["passdir"].get_string().Trim();
+            string passdir = Config.server["server"]["passdir"].get_string().Trim();
 
             if (!directory.EndsWith('/')) directory = directory + "/";
 
-            Logging.Message($"listing directory: {directory}{uri_path}");
+            Logging.Custom($"listing directory: {directory}{uri_path}", "BuildListing", ConsoleColor.DarkYellow);
+
             DirectoryInfo dirInfo = new DirectoryInfo($"{directory}{uri_path}");
             if (!dirInfo.Exists) return "";
 
@@ -40,11 +41,11 @@ namespace ZeroDir {
             if (slash_i > -1) up_dir = up_dir.Remove(slash_i);
             else up_dir = "";
             
-            Logging.Message($"up_dir: {up_dir}");
+            Logging.Custom($"up_dir: {up_dir}", "BuildListing", ConsoleColor.DarkYellow);
 
             bool show_dirs = true;
-            if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
+            if (Config.shares[share_name].ContainsKey("show_directories")) {
+                show_dirs = Config.shares[share_name]["show_directories"].get_bool();
             }
 
             //Add up dir if we're showing directories
@@ -55,9 +56,9 @@ namespace ZeroDir {
 
             string grouping = "";
             bool cares_about_groups = false;
-            if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
+            if (Config.shares[share_name].ContainsKey("group_by")) {
                 cares_about_groups = true;
-                grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
+                grouping = Config.shares[share_name]["group_by"].get_string();
                 if (grouping.Trim().ToLower() != "type" && grouping.Trim().ToLower() != "extension" && grouping.Trim().ToLower() != "none") {
                     cares_about_groups = false;
                     grouping = "none";
@@ -68,8 +69,8 @@ namespace ZeroDir {
 
             bool using_extensions = false;
             string[] extensions = null;
-            if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
-                extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+            if (Config.shares[share_name].ContainsKey("extensions")) {
+                extensions = Config.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                 using_extensions = true;
                 for (int i =  0; i < extensions.Length; i++) {
                     extensions[i] = extensions[i].Trim();
@@ -182,7 +183,7 @@ namespace ZeroDir {
                     file_c++;
                 }
             }
-            Logging.Message($"listed {dir_c} folders and {file_c} files");
+            Logging.Custom($"listed {dir_c} folders and {file_c} files", "BuildListing", ConsoleColor.DarkYellow);
 
 
             return result;

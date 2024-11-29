@@ -1,23 +1,148 @@
 ﻿using System.Drawing;
-using ZeroDir.Config;
+using System.Runtime.CompilerServices;
+using ZeroDir.Configuration;
 
-namespace ZeroDir
-{
+namespace ZeroDir {
+    public static class Config {
+        public static string config_dir = "config";
+
+        public static ConfigWithExpectedValues server;
+        public static ConfigWithUserValues shares;
+
+        public static bool log_headers = false;
+
+        public static bool use_html_file = false;
+        public static bool use_css_file = false;
+
+        public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values = 
+            new Dictionary<string, Dictionary<string, ConfigValue>>() {
+                    { "server",
+                        new Dictionary<string, ConfigValue>() {
+                            { "prefix", new ConfigValue("localhost") },
+                            { "port", new ConfigValue(8080) },
+                            { "threads", new ConfigValue(32) },
+                            { "passdir", new ConfigValue("loot") }
+                        }
+                    }
+                };
+
+        public static string base_html = """
+        <!DOCTYPE>
+        <html>
+          <head>
+            <link rel="stylesheet" href="base.css">
+            <title>{page_title}</title>
+          </head>
+          <body>
+            {page_content}
+          </body>
+        </html>
+        """;
+
+        public static string base_css= """
+        img {
+          max-width: 100%;
+          max-height: 100vh;
+          height: auto;
+        }
+
+        body { 
+          background-color: #101010; 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+
+        span.emojitint { 
+          color: transparent; 
+          text-shadow: 0 0 0 rgb(254, 168, 234); 
+        }
+
+        p.up { 
+          font-size: 32; 
+        }
+
+        p.head {
+          color: rgb(255, 255, 255) !important;
+          font-size: 32;
+        }
+
+        p {
+          font-size: 20;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        a { text-decoration: none; }
+        a:link { color: rgb(242, 191, 241); }
+        a:visited { color: rgb(163, 212, 239); }
+        a:hover { color: rgb(141, 69, 139); }
+        a:active { color: rgb(203, 115, 200); }
+        """;
+    }
+
     internal class Program {
         static List<FolderServer> servers = new List<FolderServer>();       
 
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            CurrentConfig.server = new ServerConfig("server");
-            CurrentConfig.shares = new FileShareConfig("shares");
-            
-            if (CurrentConfig.shares.share_count == 0) {
-                Logging.Message($"No shares configured in shares file!");
+            if (args.Length > 0) {
+                for (int i = 0; i < args.Length; i++) {
+                    if (args[i] == "-c") {
+                        i++;
+                        string p = args[i];
+                        Logging.Config($"Using {Path.GetFullPath(p)} as config directory");
+                        if (Directory.Exists(Path.GetFullPath(p))) {
+                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                        } else {
+                            Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                            Directory.CreateDirectory(Path.GetFullPath(p));
+                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                        }
+                    }
+                }
+            } else {
+                Logging.Config($"Using {Path.GetFullPath(Config.config_dir)} as config directory");
+                if (Directory.Exists(Path.GetFullPath(Config.config_dir))) {
+                    Directory.SetCurrentDirectory(Path.GetFullPath(Config.config_dir));
+                } else {
+                    Directory.CreateDirectory(Path.GetFullPath(Config.config_dir));
+                    Directory.SetCurrentDirectory(Path.GetFullPath(Config.config_dir));
+                    Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                }
             }
 
+            Logging.Config($"Loading configuration");
+
+            Config.server = new ConfigWithExpectedValues(Config.server_config_values);
+
+            Logging.Config($"Loaded server config");
+
+            Config.shares = new ConfigWithUserValues("shares");
+
+            if (Config.shares.share_count == 0) {
+                Logging.Config($"No shares configured in shares file!");
+                Logging.Config("Add one to the shares file in your config folder using this format:");
+
+                var tmpcol = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Magenta;
+
+                Logging.Config($"""                                 
+                                 [music]
+                                 path=W:\\_STORAGE\MUSIC
+                                 show_directories=true
+                                 extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
+                                 """);
+
+                Console.ForegroundColor = tmpcol;
+
+                return;
+            }else {
+                Logging.Config($"Loaded shares");
+            }
+
+            Logging.Config($"Configuration loaded, starting server!");
+
             //foreach (string section in CurrentConfig.shares.Keys) {
-                servers.Add(new FolderServer());
+            servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start(0.ToString());                
             //}
@@ -31,19 +156,19 @@ namespace ZeroDir
                         servers[i].StopServer();
                     }
 
-                    CurrentConfig.server = new ServerConfig("server");
-                    CurrentConfig.shares = new FileShareConfig("shares");
+                    Config.server = new ConfigWithExpectedValues(Config.server_config_values);
+                    Config.shares = new ConfigWithUserValues("shares");
 
                     for (int i = 0; i < servers.Count; i++) {
                         servers[i] = new FolderServer();
                         server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                        server_thread.Start();
+                        server_thread.Start(0.ToString());
                     }
 
                 } else if (line == "threadstatus") {
                     for (int i = 0; i < servers.Count; i++) {
-                        var port = CurrentConfig.server.values["server"]["port"].get_int();
-                        var p = CurrentConfig.server.values["server"]["prefix"].ToString().Trim().Split(' ')[0];
+                        var port = Config.server["server"]["port"].get_int();
+                        var p = Config.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
 
                         if (p.StartsWith("http://")) p = p.Remove(0, 7);
                         if (p.StartsWith("https://")) p = p.Remove(0, 8);
@@ -59,13 +184,13 @@ namespace ZeroDir
                     
                 } else if (line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
-                    CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server.values, line);
+                    Config.server.config_file.ChangeValueByString(Config.server, line);
                 } else if (line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
-                    CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
+                    Config.shares.config_file.ChangeValueByString(Config.shares, line);
                 }
             }
-            CurrentConfig.server.Clean();
+            Config.server.Clean();
         }
 
         static void start_server(object? id) {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -10,45 +11,77 @@ namespace ZeroDir {
         static String printing = "";
         enum LOG_TYPES { MSG, WRN, ERR, CNF }
 
-        public static void Message(string text, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            lock (printing) {
-                WriteColor("[MSG]", ConsoleColor.Green);
-                var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                WriteColor($"[{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}->{membername}] ", ConsoleColor.Green);
-                Console.WriteLine(text);
-            }
+        public static void Message(string text, bool show_caller=true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername);
         }
-        public static void Warning(string text, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            lock (printing) {
-                WriteColor("[WRN]", ConsoleColor.Yellow);
-                var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                WriteColor($"[{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}->{membername}] ", ConsoleColor.Yellow);
-                Console.WriteLine(text);
-            }
+        public static void Warning(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Log(text, "WRN", ConsoleColor.Yellow, show_caller, callerfilename, membername);
         }
-        public static void Config(string text, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            lock (printing) {
-                WriteColor("[CNF]", ConsoleColor.Cyan);
-                var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                WriteColor($"[{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}->{membername}] ", ConsoleColor.Cyan);
-                Console.WriteLine(text);
-            }
+        public static void Config(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Log(text, "CFG", ConsoleColor.Cyan, show_caller,callerfilename, membername);
         }
-        public static void Error(string text, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+        public static void Error(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Log(text, "ERR", ConsoleColor.Red, show_caller, callerfilename, membername);
+        }
+
+        public static void ThreadMessage(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "MSG", ConsoleColor.Green, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadWarning(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "WRN", ConsoleColor.Yellow, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadConfig(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "CFG", ConsoleColor.Cyan, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadError(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "ERR", ConsoleColor.Red, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+
+        public static void Custom(string text, string tag, ConsoleColor tag_color, bool show_caller = false, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Log(text, tag, tag_color, show_caller);
+        }
+        public static void CustomDouble(string text, string tag, ConsoleColor tag_color, string second_tag, ConsoleColor second_tag_color, bool show_caller = false, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, tag, tag_color, second_tag, second_tag_color, show_caller);
+        }
+
+        public static void ErrorAndThrow(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             lock (printing) {
                 WriteColor("[ERR]", ConsoleColor.Red);
-                var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                WriteColor($"[{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}->{membername}] ", ConsoleColor.Red);
+                if (show_caller) {
+                    var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
+                    var fn = callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash);
+                    fn = fn.Remove(callerfilename.Length - 3);
+                    WriteColor($"[{fn}->{membername}] ", ConsoleColor.Red);
+                } else Console.Write(" ");
+                Console.WriteLine(text);
+                throw new Exception($"{text}");
+            }
+        }
+
+        static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
+            lock (printing) {
+                WriteColor($"[{tag}]", color);
+                if (show_caller) {
+                    var last_slash = caller_fn.Replace('\\', '/').LastIndexOf('/') + 1;
+                    var fn = caller_fn.Replace('\\', '/').Substring(last_slash, caller_fn.Length - last_slash);
+                    fn = fn.Remove(fn.Length - 3);
+                    WriteColor($"[{fn}->{caller_mn}] ", color);
+                } else Console.Write(" ");
                 Console.WriteLine(text);
             }
         }
-        public static void ErrorAndThrow(string text, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+
+        static void LogExtra(string text, string tag, ConsoleColor color, string extra_tag, ConsoleColor extra_color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
             lock (printing) {
-                WriteColor("[ERR]", ConsoleColor.Red);
-                var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                WriteColor($"[{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}] ", ConsoleColor.Red);
+                WriteColor($"[{tag}]", color);
+                if (show_caller) {
+                    var last_slash = caller_fn.Replace('\\', '/').LastIndexOf('/') + 1;
+                    var fn = caller_fn.Replace('\\', '/').Substring(last_slash, caller_fn.Length - last_slash);
+                    fn = fn.Remove(fn.Length - 3);
+                    WriteColor($"[{fn}->{caller_mn}] ", color);
+                } else Console.Write(" ");
+                WriteColor($"[{extra_tag}] ", extra_color);
                 Console.WriteLine(text);
-                throw new Exception($"[ERR][{callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash)}->{membername}] {text}");
             }
         }
 
@@ -59,17 +92,30 @@ namespace ZeroDir {
         }
 
         public static void WriteLineColor(string str, ConsoleColor color) {
-            var tmp = Console.ForegroundColor;
             Console.ForegroundColor = color;
             Console.WriteLine(str);
-            Console.ForegroundColor = tmp;
+            Console.ForegroundColor = ConsoleColor.White;
         }
 
         public static void WriteColor(string str, ConsoleColor color) {
-            var tmp = Console.ForegroundColor;
             Console.ForegroundColor = color;
             Console.Write(str);
-            Console.ForegroundColor = tmp;
+            Console.ForegroundColor = ConsoleColor.White;
+        }
+
+        public static ConsoleColor RandomConsoleColor() {
+            var cc_list = Enum.GetNames(typeof(ConsoleColor));
+            var cc_count = cc_list.Length;
+            var rng = Random.Shared.Next(0, cc_count);
+            
+            return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
+        }
+        public static ConsoleColor SeededRandomConsoleColor(int seed) {
+            var cc_list = Enum.GetNames(typeof(ConsoleColor));
+            var cc_count = cc_list.Length;
+            var rng = new Random(seed).Next(0, cc_count);
+
+            return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
         }
     }
 }

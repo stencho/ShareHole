@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir.Config
+namespace ZeroDir.Configuration
 {
     public enum ValueType { STRING, INT, BOOL, IP, COLOR }
 
@@ -148,9 +148,9 @@ namespace ZeroDir.Config
             return false;
         }
 
-
-        public Dictionary<string, Dictionary<string, ConfigValue>> LoadFromIniIntoNestedDictWithDefaults(Dictionary<string, Dictionary<string, ConfigValue>> defaults) {
+        public void LoadExpectedValues(ref Dictionary<string, Dictionary<string, ConfigValue>> defaults) {
             foreach (string section in defaults.Keys) {
+                Logging.Config($"[{section}]");
                 foreach (string key in defaults[section].Keys) {
                     if (KeyExists(section, key)) {
                         switch (defaults[section][key].value_type) {
@@ -170,26 +170,19 @@ namespace ZeroDir.Config
                                 defaults[section][key].set_color(load_color_from_ini_with_defaults(defaults, section, key));
                                 break;
                         }
+                        Logging.Config($"| [{defaults[section][key].value_type.ToString()}] {section}.{key} = {defaults[section][key].ToString()}");
                     } else {
                         Write(section, key, defaults[section][key].ToString());
+                        Logging.Config($"| [{defaults[section][key].value_type.ToString()}] {section}.{key} = {defaults[section][key].ToString()}");
                     }
-
-                    Console.WriteLine($"[{defaults[section][key].value_type.ToString()}] {section}.{key} = {defaults[section][key].ToString()}");
                 }
             }
-            Console.WriteLine();
             //write back to unfuck any malformed options
             WriteAllValuesToConfig(defaults);
             Clean(defaults);
 
             Flush();
-
-            return defaults;
         }
-
-        //public bool LoadFromIniIntoNestedDict(out Dictionary<string, Dictionary<string, ConfigValue>> values) {
-
-        //}
 
         string load_string_from_ini(string section, string name) {
             return Read(section, name);
@@ -309,7 +302,7 @@ namespace ZeroDir.Config
             return sections.ToArray();
         }
 
-        public Dictionary <string, Dictionary<string, ConfigValue>> ToDictionary() {
+        public Dictionary <string, Dictionary<string, ConfigValue>> LoadValues() {
             Dictionary<string, Dictionary<string, ConfigValue>> dict = new Dictionary<string, Dictionary<string, ConfigValue>>();
             
             string current_section = "";
@@ -322,7 +315,7 @@ namespace ZeroDir.Config
                     current_section = line.Substring(1, line.Length - 2);
                     if (!dict.ContainsKey(current_section)) {
                         dict.Add(current_section, new Dictionary<string, ConfigValue>());
-                        Logging.Config($"Adding section: {current_section}");
+                        Logging.Config($"[{current_section}]");
                     }
 
                 //checking for a key
@@ -343,15 +336,15 @@ namespace ZeroDir.Config
                             int ip = 0;
                             bool bp = false;
                             if (int.TryParse(value, out ip)) {
-                                Logging.Config($"Adding config value {current_section}.{key} = {value} as integer");
+                                Logging.Config($"| [INT] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(ip));          
                                 
                             } else if (bool.TryParse(value, out bp)) {                                
-                                Logging.Config($"Adding config value {current_section}.{key} = {value} as bool");
+                                Logging.Config($"| [BOOL] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(bp));
 
                             } else if (value.Count(x => x == '.') ==  3) {
-                                Logging.Config($"Adding config value {current_section}.{key} = {value} as IP");
+                                Logging.Config($"| [IP] {current_section}.{key} = {value}");
                                 var str = value.Split(',');
                                 byte[] byte_out = new byte[4];
                                 for (int c = 0; c < str.Length; c++) {
@@ -365,7 +358,7 @@ namespace ZeroDir.Config
                                 dict[current_section].Add(key, new ConfigValue(byte_out));
 
                             } else if (value.Count(x => x == ',') == 3) {
-                                Logging.Config($"Adding config value {current_section}.{key} = {value} as Color");
+                                Logging.Config($"| [COLOR] {current_section}.{key} = {value}");
 
                                 var str = value.Split(',');
                                 byte[] col = new byte[4];
@@ -379,7 +372,7 @@ namespace ZeroDir.Config
                                
                                 dict[current_section].Add(key, new ConfigValue(Color.FromArgb(col[3], col[0], col[1], col[2])));
                             } else {
-                                Logging.Config($"Adding config value {current_section}.{key} = {value} as string");
+                                Logging.Config($"| [STRING] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(value));
                             }
 

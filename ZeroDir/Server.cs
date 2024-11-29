@@ -6,16 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Mime;
 using HeyRed.Mime;
-using ZeroDir.Config;
+using ZeroDir.Configuration;
 using System.ComponentModel.Design;
 
 namespace ZeroDir
 {
-    public static class CurrentConfig {
-        public static ServerConfig server;
-        public static FileShareConfig shares;
-    }
-
     public class FolderServer {
         Dictionary<string, string> mime_dict = MIME.get_MIME_dict();
         bool running = true;
@@ -43,44 +38,58 @@ namespace ZeroDir
         int dispatch_thread_count = 64;
         public Thread[] dispatch_threads;
 
-        async void RequestThread() {
+        async void RequestThread(object? name_id) {
+            (string name, int id) nid = (((string, int))name_id);
+            string thread_name = nid.name.ToString();
+            int thread_id = nid.id;
+
+            Logging.ThreadMessage($"Started thread", thread_name, thread_id);
+
             while (listener.IsListening && running) {
-                //try {
-                // Yeah, this blocks, but that's the whole point of this thread
-                // Note: the number of threads that are dispatching requets in no way limits the number of "open" requests that we can have
                 HttpListenerContext context = null;
+
                 try {
                     context = listener.GetContext();
                 } catch(HttpListenerException ex) {
                     if (running) {
-                        Logging.Error($"Failed to get context: {ex.Message}");
-                    }
+                        Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
+                    } //if we're not running, then that means Stop was called, so this error is expected
                     return;
                 }
-                //context.Response.KeepAlive = false;
-                context.Response.ContentEncoding = Encoding.UTF8;
 
-                // For this demo we only support GET
+                var request = context.Request;
+
+                //Set up response
+                context.Response.KeepAlive = false;
+                context.Response.ContentEncoding = Encoding.UTF8;
+                context.Response.AddHeader("X-Frame-Options", "DENY");
+                context.Response.AddHeader("Keep-alive", "false");
+                context.Response.AddHeader("Content-Disposition", "inline");
+                context.Response.AddHeader("Accept-ranges", "none");
+                context.Response.SendChunked = false;
+
+                //only support GET
                 if (context.Request.HttpMethod != "GET") {
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     context.Response.Close();
                 }
 
-                var request = context.Request;
-
-                if (request.Url.AbsolutePath.StartsWith("/~/")) {
-                    context.Response.Abort();
-                    continue;
-                }
-
+                //No current favicon support
                 if (request.Url.AbsolutePath == "/favicon.ico") {
                     context.Response.Abort();
                     continue;
                 }
-                Logging.Message($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} \n{request.Headers.ToString()} ");
-                string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
 
-                string passdir = CurrentConfig.server.values["server"]["passdir"].get_string().Trim();
+                //Logging.ThreadMessage($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} {(CurrentConfig.log_headers ? "\n" + request.Headers.ToString() : "")} ", thread_name, thread_id);
+                
+                //Fuck around with the path a whole bunch
+                string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
+                string passdir = Config.server["server"]["passdir"].get_string().Trim();
+
+                string share_name = "";
+                string folder_path = "";
+
+                //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
                     context.Response.Abort();
                     continue;
@@ -88,50 +97,53 @@ namespace ZeroDir
                     url_path = url_path.Remove(0, 5);
                 }
 
+                //Clean URL
                 while (url_path.StartsWith('/')) {
                     url_path = url_path.Remove(0, 1);
                 }
 
-                string share_name = "";
+                //Extract share name from start of URL
                 var slash_i = url_path.IndexOf('/');
                 if (slash_i > 0) {
                     share_name = url_path.Substring(0, slash_i);
                     if (share_name.EndsWith('/')) share_name = share_name.Remove(share_name.Length - 1, 1);
-                } else {
 
+                } else if (!request.Url.AbsolutePath.EndsWith("base.css")) {
+                    //if the user types, for example, localhost:8080/loot/share instead of /loot/share/
+                    //redirect to /loot/share/ so that 
+                    share_name = url_path;
+                    url_path += "/";
+                    context.Response.Redirect(url_path);
+                    Logging.ThreadWarning($"Share recognized, missing trailing slash, redirecting to {url_path}", thread_name, thread_id);
                 }
-                string folder_path = "";
 
                 bool show_dirs = true;
-                if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                    show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
-                }
 
-                if (CurrentConfig.shares.ContainsKey(share_name)) {
-                    folder_path = CurrentConfig.shares[share_name]["path"].ToString();
-                    Logging.Message($"Accessing share: {share_name}");
-                } else {
-                    Logging.Error($"Client requested share which doesn't exist: {share_name} {url_path}");
+                //if requested share exists
+                if (Config.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
+                    //Check if directories should be listed
+                    if (Config.shares[share_name].ContainsKey("show_directories")) {
+                        show_dirs = Config.shares[share_name]["show_directories"].get_bool();
+                    }
+
+                    folder_path = Config.shares[share_name]["path"].ToString();
+                    //Logging.Message($"Accessing share: {share_name}");
+
+                } else if (!request.Url.AbsolutePath.EndsWith("base.css")) {
+                    Logging.ThreadError($"Client requested share which doesn't exist: {share_name} {url_path}", thread_name, thread_id);
                     context.Response.Abort();
                     continue;
-                }
-                    
+                }                    
                 url_path = url_path.Remove(0, share_name.Length);
+
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data;
 
-                context.Response.AddHeader("X-Frame-Options", "DENY");
-                context.Response.AddHeader("Keep-alive", "false");
-                context.Response.AddHeader("Content-Disposition", "inline");
-                context.Response.AddHeader("Accept-ranges", "none");
-                context.Response.SendChunked = false;
-                //context.Response.AddHeader("Cache-Control", "no-cache");
-                //response.AddHeader("Link", "<base.css>;rel=stylesheet;media=all");
 
                 //Requested CSS file
-                if (request.Url.AbsolutePath.EndsWith("base.css")) {
-                    absolute_on_disk_path = "base.css";
-                    Logging.Message("Requesting CSS");
+                if (request.Url.AbsolutePath.EndsWith("base.css")) {                    
+                    absolute_on_disk_path = Path.GetFullPath("base.css");
+                    Logging.ThreadMessage($"Requesting base.css", thread_name, thread_id);
 
                     data = Encoding.UTF8.GetBytes(CSS);
                     context.Response.ContentType = "text/html; charset=utf-8";
@@ -142,13 +154,13 @@ namespace ZeroDir
                         context.Response.StatusCode = (int)HttpStatusCode.OK;
                         context.Response.StatusDescription = "400 OK";
                         context.Response.Close();
-                        Logging.Message("Sent CSS");
+                        Logging.ThreadMessage("Sent CSS", thread_name, thread_id);
                     }, context.Response);
 
                 //Requested a directory
                 } else if (Directory.Exists(absolute_on_disk_path)) {
                     if (!show_dirs && url_path != "/" ) {
-                        Logging.Error($"Attempted to browse outside of share \"{share_name}\" with directories off");
+                        Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
                     } else {
                         page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
@@ -163,7 +175,7 @@ namespace ZeroDir
                         context.Response.StatusCode = (int)HttpStatusCode.OK;
                         context.Response.StatusDescription = "400 OK";
                         context.Response.Close();
-                        Logging.Message($"Sent directory listing for {url_path}");
+                        Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
                     }, context.Response);
 
                 //Requested a non-CSS file
@@ -177,33 +189,18 @@ namespace ZeroDir
                     context.Response.ContentType = mimetype;
 
                     if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
-                        Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
+                        Logging.ThreadError($"Attempted to open file outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         context.Response.Abort();
                         continue;
                     }
 
-                    Logging.Message($"Filename: {absolute_on_disk_path} | Content-type: {mimetype}");
+                    Logging.ThreadMessage($"[Share] {share_name} [Filename]: {absolute_on_disk_path} [Content-type] {mimetype}", thread_name, thread_id);
 
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                     context.Response.ContentType = mimetype;                        
                     context.Response.SendChunked = false;
 
-                    Logging.Message("Starting write");
-
-                    /*
-                    FileStream fs = File.OpenRead(absolute_on_disk_path);
-                    context.Response.ContentLength64 = fs.Length;
-                    
-                    Task t = fs.CopyToAsync(context.Response.OutputStream);
-                    t.GetAwaiter().OnCompleted(() => {
-                        context.Response.StatusCode = (int)HttpStatusCode.OK;
-                        context.Response.StatusDescription = "400 OK";
-                        context.Response.OutputStream.Close();
-                        context.Response.Close();
-                        Logging.Message($"Finished write on {url_path}");
-                        fs.Close();
-                    });
-                    */
+                    Logging.ThreadMessage($"Starting write on {url_path}", thread_name, thread_id);
 
                     using (FileStream fs = File.OpenRead(absolute_on_disk_path)) {
                         context.Response.ContentLength64 = fs.Length;
@@ -213,14 +210,13 @@ namespace ZeroDir
                             context.Response.StatusDescription = "400 OK";
                             context.Response.OutputStream.Close();
                             context.Response.Close();
-                            Logging.Message($"Finished write on {url_path}");
+                            Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
 
                         } catch (HttpListenerException ex) {
-                            Logging.Error($"{ex.Message}");
+                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
                             continue;
                         }
-                    }
-                    
+                    }                    
 
                 //User gave a very fail URL
                 } else {
@@ -234,51 +230,60 @@ namespace ZeroDir
                         context.Response.StatusDescription = "404 NOT FOUND";
                         context.Response.OutputStream.Close();
                         context.Response.Close();
-                        Logging.Message("Finished writing 404");
+                        Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
                     }, context.Response);
                 }
-
-                    /*
-                } catch (System.Net.HttpListenerException e) {
-                    // Bail out - this happens on shutdown
-                    Logging.Error($"Unexpected exception: {e.Message}");
-                    if (listener.IsListening) {
-                        continue;
-                    } else {
-                        return;
-                    }
-                } catch (Exception e) {
-                    Logging.Error($"Unexpected exception: {e.Message}");
-                }*/
             }
 
-            Logging.Message($"Stopped thread");
+            Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
         }
 
 
         string CSS = "";
         public string id { get; private set; }
+        public string name { get; private set; }
+
         public void StartServer(string id) {
             this.id = id;
-            page_data = File.ReadAllText("base_page");
-            CSS = File.ReadAllText("base.css");
-            listener = new HttpListener();
-            //listener.TimeoutManager.RequestQueue = TimeSpan.FromMilliseconds(100);
-            //listener.TimeoutManager.HeaderWait = TimeSpan.FromMilliseconds(100);
-            //listener.TimeoutManager.RequestQueue = TimeSpan.FromMilliseconds(100);
-            //listener.IgnoreWriteExceptions = true;
 
-            var port = CurrentConfig.server.values["server"]["port"].get_int();
-            var prefixes = CurrentConfig.server.values["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = CurrentConfig.server.values["server"]["threads"].get_int();
+            if (Config.use_html_file) {
+                if (File.Exists("base.html"))
+                    page_data = File.ReadAllText("base.html");
+                else {
+                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
+                    page_data = Config.base_html;
+                    File.WriteAllText("base.html", page_data);                    
+                }                    
+            } else {
+                page_data = Config.base_html;
+            }
+
+            if (Config.use_css_file) {
+                if (File.Exists("base.css")) {
+                    CSS = File.ReadAllText("base.css");
+                } else {
+                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
+                    CSS = Config.base_css;
+                    File.WriteAllText("base.css", CSS);               
+                }
+            } else { 
+                CSS = Config.base_css;
+            }
+
+
+            listener = new HttpListener();
+
+            var port = Config.server["server"]["port"].get_int();
+            var prefixes = Config.server["server"]["prefix"].ToString().Trim().Split(' ');
+            dispatch_thread_count = Config.server["server"]["threads"].get_int();
 
             for (int i = 0; i < prefixes.Length; i++) {
                 string prefix = prefixes[i].Trim();
+                
                 if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
                 if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
                 if (prefix.EndsWith('/')) prefix = prefix.Remove(prefix.Length - 1, 1);
 
-                //listener.Prefixes.Add($"http://*{port}/");
                 listener.Prefixes.Add($"http://{prefix}:{port}/");
                 Logging.Message("Using prefix: " + $"http://{prefix}:{port}/");
             }
@@ -288,10 +293,14 @@ namespace ZeroDir
             dispatch_threads = new Thread[dispatch_thread_count];
             Logging.Message($"Starting server on port {port}");
 
-            for (int i = 0; i < dispatch_thread_count; i++) {
-                dispatch_threads[i] = new Thread(RequestThread);
-                dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
-                dispatch_threads[i].Start();
+            while (listener.IsListening) {
+                for (int i = 0; i < dispatch_thread_count; i++) {
+                    if (dispatch_threads[i] == null || dispatch_threads[i].ThreadState == ThreadState.Stopped) {
+                        dispatch_threads[i] = new Thread(RequestThread);
+                        dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
+                        dispatch_threads[i].Start((dispatch_threads[i].Name, i));
+                    }
+                }
             }
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
@@ -300,21 +309,6 @@ namespace ZeroDir
 
             Logging.Message($"Started {dispatch_thread_count} threads on server \"{p}:{port}\"");
 
-            while (listener.IsListening) {
-                for (int i = 0; i < dispatch_thread_count; i++) {
-                    if (dispatch_threads[i].ThreadState != ThreadState.Running) {
-                        dispatch_threads[i] = new Thread(RequestThread);
-                        dispatch_threads[i].Start();
-                        Logging.Message($"Re-started dead thread {i}");
-                    }
-                }
-            }
-
-            //Task listener_task = ServePage();
-            //listener_task.GetAwaiter().GetResult();
-            //listener.Close();
-            
         }
-
     }
 }

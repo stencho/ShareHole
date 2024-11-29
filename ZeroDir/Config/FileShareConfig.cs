@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir.Config
+namespace ZeroDir.Configuration
 {
-    public class FileShareConfig : Dictionary<string, Dictionary<string, ConfigValue>>
+    public class ConfigWithUserValues : Dictionary<string, Dictionary<string, ConfigValue>>
     {
         string config_location = "shares";
         string[] sections;
@@ -15,12 +15,12 @@ namespace ZeroDir.Config
 
         public ConfigFileIO config_file;
 
-        public FileShareConfig() {        
+        public ConfigWithUserValues() {        
             config_file = new ConfigFileIO(config_location);
             LoadShares();
         }
 
-        public FileShareConfig(string config_location) {
+        public ConfigWithUserValues(string config_location) {
             this.config_location = config_location;
             config_file = new ConfigFileIO(config_location);
             LoadShares();
@@ -28,7 +28,7 @@ namespace ZeroDir.Config
 
         void LoadShares() {
             sections = config_file.GetAllSections();
-            var values = config_file.ToDictionary();
+            var values = config_file.LoadValues();
 
             foreach (var section in sections) {
                 this.Add(section, values[section]);
