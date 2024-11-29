@@ -30,8 +30,9 @@ namespace ZeroDir {
 
         public static string base_html = """
         <!DOCTYPE>
-        <html>
+        <html lang="en">
           <head>
+            <meta charset="UTF-8">
             <link rel="stylesheet" href="base.css">
             <title>{page_title}</title>
           </head>
@@ -80,7 +81,62 @@ namespace ZeroDir {
     }
 
     internal class Program {
-        static List<FolderServer> servers = new List<FolderServer>();       
+        static List<FolderServer> servers = new List<FolderServer>();
+
+        internal static void load_config() {
+
+            Config.server = new ConfigWithExpectedValues(Config.server_config_values);
+
+            if (Config.server["server"].ContainsKey("use_html_file")) {
+                Config.use_css_file = Config.server["server"]["use_html_file"].get_bool();
+                Logging.Config("Using HTML from disk");
+            } else {
+                Logging.Config("Using CSS from constant");
+            }
+
+            if (Config.server["server"].ContainsKey("use_css_file")) {
+                Config.use_css_file = Config.server["server"]["use_css_file"].get_bool();
+                Logging.Config("Using CSS from disk");
+            } else {
+                Logging.Config("Using CSS from constant");
+            }
+
+            Logging.Config($"Loaded server config");
+
+            Config.shares = new ConfigWithUserValues("shares");
+
+            foreach (var section in Config.shares.Keys) {
+                if (!Config.shares[section].ContainsKey("path")) {
+                    Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
+                    Config.shares.Remove(section);
+                }
+            }
+
+            Config.shares.config_file.WriteAllValuesToConfig(Config.shares);
+
+            if (Config.shares.share_count == 0) {
+                Logging.Config($"No shares configured in shares file!");
+                Logging.Config("Add one to the shares file in your config folder using this format:");
+
+                var tmpcol = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Magenta;
+
+                Logging.Config($"""                                 
+                                 [music]
+                                 path=W:\\_STORAGE\MUSIC
+                                 show_directories=true
+                                 extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
+                                 """);
+
+                Console.ForegroundColor = tmpcol;
+
+                return;
+            } else {
+                Logging.Config($"Loaded shares");
+            }
+
+        }
+   
 
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -112,49 +168,7 @@ namespace ZeroDir {
             }
 
             Logging.Config($"Loading configuration");
-
-            Config.server = new ConfigWithExpectedValues(Config.server_config_values);
-
-            if (Config.server["server"].ContainsKey("use_html_file")) 
-                Config.use_css_file = Config.server["server"]["use_html_file"].get_bool();
-            
-            if (Config.server["server"].ContainsKey("use_css_file")) 
-                Config.use_css_file = Config.server["server"]["use_css_file"].get_bool();
-            
-            Logging.Config($"Loaded server config");
-
-            Config.shares = new ConfigWithUserValues("shares");
-
-            foreach (var section in Config.shares.Keys) {
-                if (!Config.shares[section].ContainsKey("path")) {
-                    Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
-                    Config.shares.Remove(section);
-                }
-            }
-
-            Config.shares.config_file.WriteAllValuesToConfig(Config.shares);
-
-            if (Config.shares.share_count == 0) {
-                Logging.Config($"No shares configured in shares file!");
-                Logging.Config("Add one to the shares file in your config folder using this format:");
-
-                var tmpcol = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Magenta;
-
-                Logging.Config($"""                                 
-                                 [music]
-                                 path=W:\\_STORAGE\MUSIC
-                                 show_directories=true
-                                 extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
-                                 """);
-
-                Console.ForegroundColor = tmpcol;
-
-                return;
-            }else {
-                Logging.Config($"Loaded shares");
-            }
-
+            load_config();
             Logging.Config($"Configuration loaded, starting server!");
 
             //foreach (string section in CurrentConfig.shares.Keys) {
@@ -181,8 +195,7 @@ namespace ZeroDir {
                         if (n == 0) break;
                     }
 
-                    Config.server = new ConfigWithExpectedValues(Config.server_config_values);
-                    Config.shares = new ConfigWithUserValues("shares");
+                    load_config();
 
                     for (int i = 0; i < servers.Count; i++) {
                         servers[i] = new FolderServer();
@@ -215,7 +228,6 @@ namespace ZeroDir {
                     Config.shares.config_file.ChangeValueByString(Config.shares, line);
                 }
             }
-            Config.server.Clean();
         }
 
         static void start_server(object? id) {
