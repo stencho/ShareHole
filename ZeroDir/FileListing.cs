@@ -41,7 +41,7 @@ namespace ZeroDir {
 
             if (!directory.EndsWith('/')) directory = directory + "/";
 
-            Logging.Custom($"listing directory: {directory}{info.uri_path}", "BuildListing", ConsoleColor.DarkYellow);
+            Logging.Custom($"listing directory: {directory}{info.uri_path}", "RENDER][BuildListing", ConsoleColor.DarkYellow);
 
             DirectoryInfo dirInfo = new DirectoryInfo($"{directory}{info.uri_path}");
             if (!dirInfo.Exists) Logging.ErrorAndThrow($"Directory {Path.Combine(directory,info.uri_path)} does not exist");
@@ -54,7 +54,7 @@ namespace ZeroDir {
             if (slash_i > -1) info.up_dir = info.up_dir.Remove(slash_i);
             else info.up_dir = "";
 
-            Logging.Custom($"up_dir: {info.up_dir}", "BuildListing", ConsoleColor.DarkYellow);
+            Logging.Custom($"up_dir: {info.up_dir}", "RENDER][BuildListing", ConsoleColor.DarkYellow);
 
             info.show_dirs = true;
             if (Config.shares[share_name].ContainsKey("show_directories")) {
@@ -97,6 +97,11 @@ namespace ZeroDir {
 
             int dir_c = 0;
             int file_c = 0;
+
+            //Add up dir if we're showing directories
+            if (info.show_dirs && (uri_path.Trim() != share_name.Trim()) && uri_path.Trim().Length != 0) {
+                result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share_name}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>";
+            }
 
             if (info.show_dirs) {
                 if (info.grouping != "none" && info.cares_about_groups) {
@@ -197,7 +202,7 @@ namespace ZeroDir {
                     file_c++;
                 }
             }
-            Logging.Custom($"listed {dir_c} folders and {file_c} files", "BuildListing", ConsoleColor.DarkYellow);
+            Logging.Custom($"listed {dir_c} folders and {file_c} files", "RENDER][BuildListing", ConsoleColor.DarkYellow);
 
 
             return result;
@@ -205,6 +210,14 @@ namespace ZeroDir {
 
         public static string BuildGallery(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+
+            string result = "";
+
+            foreach (var file in info.files.OrderBy(a => a.Name)) {
+                
+            }
+            
+            
             return "";
         }
 
