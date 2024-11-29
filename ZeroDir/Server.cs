@@ -62,7 +62,7 @@ namespace ZeroDir
                 HttpListenerContext context = null;
 
                 try {
-                    context = listener.GetContext();
+                    context = await listener.GetContextAsync();
                 } catch(HttpListenerException ex) {
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
@@ -76,7 +76,8 @@ namespace ZeroDir
                 context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
-                context.Response.AddHeader("Cache-control", "no-cache");
+                context.Response.AddHeader("Keep-alive", "false");
+                context.Response.AddHeader("Cache-control", "no-store");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "none");
                 context.Response.SendChunked = false;
@@ -150,7 +151,7 @@ namespace ZeroDir
                 url_path = url_path.Remove(0, share_name.Length);
 
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
-                byte[] data;
+                byte[] data = null;
 
 
                 //Requested CSS file
@@ -159,7 +160,7 @@ namespace ZeroDir
                     Logging.ThreadMessage($"Requesting base.css", thread_name, thread_id);
 
                     data = Encoding.UTF8.GetBytes(CSS);
-                    context.Response.ContentType = "text/html; charset=utf-8";
+                    context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
                     context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
@@ -180,17 +181,19 @@ namespace ZeroDir
                             switch (Config.shares[share_name]["style"].get_string()) {
                                 case "gallery":
                                     page_content = FileListing.BuildGallery(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(Config.base_html);
                                     break;
                                 default:
                                     page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(page_data);
                                     break;
                             }
                         } else {
                             page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                            data = Encoding.UTF8.GetBytes(page_data);
                         }                    
                     }
 
-                    data = Encoding.UTF8.GetBytes(page_data);
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
@@ -226,6 +229,26 @@ namespace ZeroDir
 
                     Logging.ThreadMessage($"Starting write on {url_path}", thread_name, thread_id);
 
+                    FileStream fs = File.OpenRead(absolute_on_disk_path);
+
+                    context.Response.ContentLength64 = fs.Length;
+
+                    var task = fs.CopyToAsync(context.Response.OutputStream);
+
+                    task.GetAwaiter().OnCompleted(() => {
+                        try {
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.OutputStream.Close();
+                            context.Response.Close();
+                            Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
+                            fs.Close();
+                        } catch (HttpListenerException ex) {
+                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);                            
+                        }
+                    });
+
+                    /*
                     using (FileStream fs = File.OpenRead(absolute_on_disk_path)) {
                         context.Response.ContentLength64 = fs.Length;
                         try {
@@ -240,9 +263,9 @@ namespace ZeroDir
                             Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
                             continue;
                         }
-                    }                    
+                    } */
 
-                //User gave a very fail URL
+                    //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
                     data = Encoding.UTF8.GetBytes(page_data);
@@ -321,7 +344,7 @@ namespace ZeroDir
 
             while (listener.IsListening) {
                 for (int i = 0; i < dispatch_thread_count; i++) {
-                    if (dispatch_threads[i] == null || dispatch_threads[i].ThreadState == ThreadState.Stopped) {
+                    if (dispatch_threads[i] == null) {
                         dispatch_threads[i] = new Thread(RequestThread);
                         dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
                         dispatch_threads[i].Start((dispatch_threads[i].Name, i));
