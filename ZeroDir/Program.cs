@@ -19,7 +19,7 @@ namespace ZeroDir
             //foreach (string section in CurrentConfig.shares.Keys) {
                 servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                server_thread.Start();                
+                server_thread.Start(0.ToString());                
             //}
 
             while (true) {
@@ -28,7 +28,7 @@ namespace ZeroDir
                 if (line == "restart") {
                     Logging.Message("Restarting server!");
                     for (int i = 0; i < servers.Count; i++) {
-                        servers[i].StopServer();                        
+                        servers[i].StopServer();
                     }
 
                     CurrentConfig.server = new ServerConfig("server");
@@ -40,6 +40,23 @@ namespace ZeroDir
                         server_thread.Start();
                     }
 
+                } else if (line == "threadstatus") {
+                    for (int i = 0; i < servers.Count; i++) {
+                        var port = CurrentConfig.server.values["server"]["port"].get_int();
+                        var p = CurrentConfig.server.values["server"]["prefix"].ToString().Trim().Split(' ')[0];
+
+                        if (p.StartsWith("http://")) p = p.Remove(0, 7);
+                        if (p.StartsWith("https://")) p = p.Remove(0, 8);
+                        if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
+
+                        FolderServer s = servers[i];
+                        Logging.Message($"[Server] {p}:{port}");
+                        for (int n = 0; n < s.dispatch_threads.Length; n++) {
+                            Thread t = s.dispatch_threads[n];
+                            Logging.Message($"| [Name] {t.Name} [IsAlive] {t.IsAlive} [ThreadState] {t.ThreadState.ToString()}");
+                        }
+                    }
+                    
                 } else if (line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
                     CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server.values, line);
@@ -51,8 +68,8 @@ namespace ZeroDir
             CurrentConfig.server.Clean();
         }
 
-        static void start_server(object? section) {
-            servers[servers.Count - 1].StartServer();
+        static void start_server(object? id) {
+            servers[servers.Count - 1].StartServer(id.ToString());
         }
         ~Program() {
             Console.CursorVisible = true;

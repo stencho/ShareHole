@@ -27,9 +27,6 @@ namespace ZeroDir.Config
         }
 
         void LoadShares() {
-            //Logging.WriteLineColor("\n### SHARES ###", ConsoleColor.DarkMagenta);
-            //Console.WriteLine(string.Join('\n', config_file.config_file_text));
-
             sections = config_file.GetAllSections();
             var values = config_file.ToDictionary();
 

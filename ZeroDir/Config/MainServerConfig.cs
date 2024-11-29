@@ -15,15 +15,10 @@ namespace ZeroDir.Config {
         public Dictionary<string, Dictionary<string, ConfigValue>> values = new Dictionary<string, Dictionary<string, ConfigValue>>() {
             { "server",
                 new Dictionary<string, ConfigValue>() {
-                    { "prefix", new ConfigValue("localhost")},
-                    { "port", new ConfigValue(8080)},
+                    { "prefix", new ConfigValue("localhost") },
+                    { "port", new ConfigValue(8080) },
                     { "threads", new ConfigValue(32) },
                     { "passdir", new ConfigValue("loot") }
-                }
-            },
-            { "UI",
-                new Dictionary<string, ConfigValue>() {
-                    {"background_color", new ConfigValue(Color.Red)}
                 }
             }
             };
@@ -33,9 +28,6 @@ namespace ZeroDir.Config {
             config_location = config_path;
             config_file = new ConfigFileIO(config_full_path);
             values = config_file.LoadFromIniIntoNestedDictWithDefaults(values);
-
-            //Logging.WriteLineColor("\n### SERVER CONFIG ###", ConsoleColor.DarkMagenta);
-            //Console.WriteLine(string.Join('\n', config_file.config_file_text));
         }
 
         ~ServerConfig() {

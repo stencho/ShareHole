@@ -1,7 +1,7 @@
 <!DOCTYPE>
 <html>
   <head>
-    <link rel="stylesheet" href="base_css.css">
+    <link rel="stylesheet" href="base.css">
     <title>{page_title}</title>
   </head>
   <body>
