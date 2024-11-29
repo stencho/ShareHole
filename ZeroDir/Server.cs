@@ -12,12 +12,15 @@ using System.ComponentModel.Design;
 namespace ZeroDir
 {
     public class FolderServer {
-        Dictionary<string, string> mime_dict = MIME.get_MIME_dict();
         bool running = true;
         HttpListener listener;
         
         string page_title = "";
         string page_content = "";
+
+        string CSS = "";
+        public string id { get; private set; }
+        public string name { get; private set; }
 
         public void StopServer() {
             running = false;
@@ -120,7 +123,7 @@ namespace ZeroDir
 
                 } else if (!request.Url.AbsolutePath.EndsWith("base.css")) {
                     //if the user types, for example, localhost:8080/loot/share instead of /loot/share/
-                    //redirect to /loot/share/ so that 
+                    //redirect to /loot/share/ so that the rest of this garbage works
                     share_name = url_path;
                     url_path += "/";
                     context.Response.Redirect(url_path);
@@ -169,11 +172,22 @@ namespace ZeroDir
 
                 //Requested a directory
                 } else if (Directory.Exists(absolute_on_disk_path)) {
-                    if (!show_dirs && url_path != "/" ) {
+                    if (!show_dirs && url_path != "/") {
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
                     } else {
-                        page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                        if (Config.shares[share_name].ContainsKey("style")) {
+                            switch (Config.shares[share_name]["style"].get_string()) {
+                                case "gallery":
+                                    page_content = FileListing.BuildGallery(folder_path, request.UserHostName, url_path, share_name);
+                                    break;
+                                default:
+                                    page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                                    break;
+                            }
+                        } else {
+                            page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
+                        }                    
                     }
 
                     data = Encoding.UTF8.GetBytes(page_data);
@@ -205,7 +219,7 @@ namespace ZeroDir
                     }
 
                     Logging.ThreadMessage($"[Share] {share_name} [Filename]: {absolute_on_disk_path} [Content-type] {mimetype}", thread_name, thread_id);
-
+                    
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                     context.Response.ContentType = mimetype;                        
                     context.Response.SendChunked = false;
@@ -248,10 +262,6 @@ namespace ZeroDir
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
         }
 
-
-        string CSS = "";
-        public string id { get; private set; }
-        public string name { get; private set; }
 
         public void StartServer(string id) {
             this.id = id;
