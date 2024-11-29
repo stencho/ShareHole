@@ -4,7 +4,7 @@ using ZeroDir.Config;
 namespace ZeroDir
 {
     internal class Program {
-        static List<HttpServer> servers = new List<HttpServer>();       
+        static List<FolderServer> servers = new List<FolderServer>();       
 
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -17,7 +17,7 @@ namespace ZeroDir
             }
 
             //foreach (string section in CurrentConfig.shares.Keys) {
-                servers.Add(new HttpServer());
+                servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start();                
             //}
@@ -35,7 +35,7 @@ namespace ZeroDir
                     CurrentConfig.shares = new FileShareConfig("shares");
 
                     for (int i = 0; i < servers.Count; i++) {
-                        servers[i] = new HttpServer();
+                        servers[i] = new FolderServer();
                         server_thread = new Thread(new ParameterizedThreadStart(start_server));
                         server_thread.Start();
                     }

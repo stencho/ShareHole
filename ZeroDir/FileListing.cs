@@ -69,7 +69,7 @@ namespace ZeroDir {
             bool using_extensions = false;
             string[] extensions = null;
             if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
-                extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().Split(" ");
+                extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                 using_extensions = true;
                 for (int i =  0; i < extensions.Length; i++) {
                     extensions[i] = extensions[i].Trim();
@@ -103,7 +103,7 @@ namespace ZeroDir {
                     string f = file.Name;
 
                     var ext = new FileInfo(f).Extension.Replace(".", "");
-                    if (using_extensions && !extensions.Contains(ext)) {
+                    if (using_extensions && !extensions.Contains(ext.ToLower())) {
                         continue;
                     }
 
@@ -124,11 +124,11 @@ namespace ZeroDir {
                     //Logging.Message("file: " + f);
 
                     var ext = new FileInfo(f).Extension.Replace(".", "");
-                    if (ext != previous_ext && extensions.Contains(ext)) {
+                    if (ext != previous_ext && extensions.Contains(ext.ToLower())) {
                         result += $"<p class=\"head\"><b>{ext}</b></p>";
                     }
                     previous_ext = ext;
-                    if (using_extensions && !extensions.Contains(ext)) {
+                    if (using_extensions && !extensions.Contains(ext.ToLower())) {
                         continue;
                     }
 
@@ -168,7 +168,7 @@ namespace ZeroDir {
                 
                     previous_mime = mime;
                     previous_ext = ext;
-                    if (using_extensions && !extensions.Contains(ext)) {
+                    if (using_extensions && !extensions.Contains(ext.ToLower())) {
                         continue;
                     }
 

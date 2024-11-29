@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Net.Mime;
 using HeyRed.Mime;
 using ZeroDir.Config;
+using System.ComponentModel.Design;
 
 namespace ZeroDir
 {
@@ -15,7 +16,7 @@ namespace ZeroDir
         public static FileShareConfig shares;
     }
 
-    public class HttpServer {
+    public class FolderServer {
         Dictionary<string, string> mime_dict = MIME.get_MIME_dict();
         HttpListener listener;
         
@@ -23,17 +24,13 @@ namespace ZeroDir
         string page_content = "";
 
         public void StopServer() {
-            run = false;
             listener.Stop();
+
             for (int i = 0; i < dispatch_threads.Length; i++) {
                 Logging.Message($"Stopping thread {i}");
                 dispatch_threads[i].Join();
             }
-            //while (stopped == false) { }
-            //stopped = true;
         }
-
-        //restbool stopped = false;
 
         string _pd;
         string page_data {
@@ -41,26 +38,21 @@ namespace ZeroDir
             set { _pd = value; }
         }
 
-        bool run = true;
-
-        public async Task ServePageAsync() {
-
-            while (run) {
-            }
-        }
-
         int dispatch_thread_count = 64;
         Thread[] dispatch_threads;
 
-        void RequestThread() {
+        async void RequestThread() {
             while (listener.IsListening) {
                 string url = string.Empty;
 
                 try {
                     // Yeah, this blocks, but that's the whole point of this thread
                     // Note: the number of threads that are dispatching requets in no way limits the number of "open" requests that we can have
-                    HttpListenerContext context = listener.GetContext();
-                context.Response.KeepAlive = false;
+                    HttpListenerContext context = await listener.GetContextAsync();
+                    
+                    context.Response.KeepAlive = false;
+                    context.Response.ContentEncoding = Encoding.UTF8;
+
                     // For this demo we only support GET
                     if (context.Request.HttpMethod != "GET") {
                         context.Response.StatusCode = (int)HttpStatusCode.NotFound;
@@ -68,12 +60,10 @@ namespace ZeroDir
                     }
 
                     var request = context.Request;
-                    var response = context.Response;
-
 
                     if (request.Url.AbsolutePath.StartsWith("/~/")) {
                         context.Response.Abort();
-                        return;
+                        continue;
                     }
 
                     if (request.Url.AbsolutePath == "/favicon.ico") continue;
@@ -83,7 +73,7 @@ namespace ZeroDir
                     string passdir = CurrentConfig.server.values["server"]["passdir"].get_string().Trim();
                     if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
                         context.Response.Abort();
-                        return;
+                        continue;
                     } else {
                         url_path = url_path.Remove(0, 5);
                     }
@@ -109,122 +99,112 @@ namespace ZeroDir
 
                     if (CurrentConfig.shares.ContainsKey(share_name)) {
                         folder_path = CurrentConfig.shares[share_name]["path"].ToString();
-                        Logging.Message($"WANTS SHARE NAME {share_name} {url_path}");
+                        Logging.Message($"Accessing share: {share_name}");
                     } else {
                         Logging.Error($"Client requested share which doesn't exist: {share_name} {url_path}");
-                        response.Close();
-                        return;
+                        context.Response.Close();
+                        continue;
                     }
                     
                     url_path = url_path.Remove(0, share_name.Length);
                     string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                     byte[] data;
 
-                    response.AddHeader("X-Frame-Options", "DENY");
-                    response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
+                    context.Response.AddHeader("X-Frame-Options", "DENY");
+                    context.Response.AddHeader("Content-Disposition", "inline");
+                    context.Response.AddHeader("Accept-ranges", "none");
+                    context.Response.SendChunked = false;
+                    //context.Response.AddHeader("Cache-Control", "no-cache");
+                    //response.AddHeader("Link", "<base_css.css>;rel=stylesheet;media=all");
 
+                    //Requested CSS file
                     if (request.Url.AbsolutePath.EndsWith("base_css.css")) {
                         absolute_on_disk_path = "base_css.css";
-                        Logging.Message(absolute_on_disk_path);
-                    }
+                        Logging.Message("Requesting CSS");
 
-                    if (Directory.Exists(absolute_on_disk_path)) {
-                        try {
-                            if (!show_dirs && url_path != "/" ) {
-                                Logging.Error($"Attempted to browse outside of share \"{share_name}\" with directories off");
-                                page_content = "";
-                            } else {
-                                page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
-                            }
+                        data = Encoding.UTF8.GetBytes(CSS);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
 
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.OutputStream.EndWrite(result);
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.Close();
+                            Logging.Message("Sent CSS");
+                        }, context.Response);
 
-                            data = Encoding.UTF8.GetBytes(page_data);
-                            response.ContentType = "text/html; charset=utf-8";
-                            response.ContentEncoding = Encoding.UTF8;
-                            response.ContentLength64 = data.LongLength;
-                            response.SendChunked = true;
-
-
-                            var task = response.OutputStream.WriteAsync(data, 0, data.Length);
-
-                            task.GetAwaiter().OnCompleted(() => {
-                                response.StatusCode = (int)HttpStatusCode.OK;
-                                response.StatusDescription = "400 OK";
-                                response.Close();
-                                Logging.Message("Finished write");
-                            });
-
-                        } catch (HttpListenerException ex) {
-                            Logging.Error(ex.Message);
-                            response.Close();
-                            return;
+                    //Requested a directory
+                    } else if (Directory.Exists(absolute_on_disk_path)) {
+                        if (!show_dirs && url_path != "/" ) {
+                            Logging.Error($"Attempted to browse outside of share \"{share_name}\" with directories off");
+                            page_content = "";
+                        } else {
+                            page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
                         }
 
+                        data = Encoding.UTF8.GetBytes(page_data);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.OutputStream.EndWrite(result);
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.Close();
+                            Logging.Message($"Sent directory listing for {url_path}");
+                        }, context.Response);
+
+                    //Requested a non-CSS file
                     } else if (File.Exists(absolute_on_disk_path)) {
-                            string mimetype;
-                            try {
-                                mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
-                            } catch {
-                                mimetype = "application/octet-stream";
-                            }
-
-                            Logging.Message($"Content-type: {mimetype}");
-                            response.ContentType = mimetype;
-
-                            if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
-                                Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
-                                return;
-                            }
-
-                            Logging.Message($"file: {absolute_on_disk_path}");
-                            
-
-                            //response.AddHeader("Content-Disposition", "inline");
-                            //response.AddHeader("Cache-Control", "no-cache");
-                            //response.AddHeader("X-Frame-Options", "allowall");
-
-                            Logging.Warning($"Content-type: {mimetype}");
-                            context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                            context.Response.ContentType = mimetype;
-                        
-                            context.Response.SendChunked = false;
-
-                            Logging.Message("Starting write");
-                            using (FileStream fs = File.OpenRead(absolute_on_disk_path)) {
-                                context.Response.ContentLength64 = fs.Length;
-
-                                fs.CopyTo(context.Response.OutputStream);
-                                
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "400 OK";
-                                context.Response.Close();
-                                Logging.Message("Finished write");                                
-                            }
-
-                    } else {
+                        string mimetype;
                         try {
-                            page_content = $"<b>{absolute_on_disk_path} NOT FOUND</b>";
-                            data = Encoding.UTF8.GetBytes(page_data);
-                            response.ContentType = "text/html; charset=utf-8";
-                            response.ContentEncoding = Encoding.UTF8;
-                            response.ContentLength64 = data.LongLength;
-                            response.AddHeader("X-Frame-Options", "deny");
-                            response.SendChunked = false;
-
-                            var task = response.OutputStream.WriteAsync(data, 0, data.Length);
-
-                            task.GetAwaiter().OnCompleted(() => {
-                                response.StatusCode = (int)HttpStatusCode.NotFound;
-                                response.StatusDescription = "404 NOT FOUND";
-                                response.Close();
-                                Logging.Message("Finished write");
-                            });
-
-                        } catch (HttpListenerException ex) {
-                            Logging.Error(ex.Message); 
-                            context.Response.Abort();
-                            return;
+                            mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
+                        } catch {
+                            mimetype = "application/octet-stream";
                         }
+                        context.Response.ContentType = mimetype;
+
+                        if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
+                            Logging.Error($"Attempted to open file outside of share \"{share_name}\" with directories off");
+                            continue;
+                        }
+
+                        Logging.Message($"Filename: {absolute_on_disk_path} | Content-type: {mimetype}");
+
+                        context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
+                        context.Response.ContentType = mimetype;                        
+                        context.Response.SendChunked = false;
+
+                        Logging.Message("Starting write");
+
+                        FileStream fs = File.OpenRead(absolute_on_disk_path);
+                        context.Response.ContentLength64 = fs.Length;
+
+                        Task t = fs.CopyToAsync(context.Response.OutputStream, 1024, CancellationToken.None);
+                        t.GetAwaiter().OnCompleted(() => {
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.OutputStream.Close();
+                            context.Response.Close();
+                            Logging.Message($"Finished write on {url_path}");
+                            fs.Close();
+                        });
+                                                
+                    //User gave a very fail URL
+                    } else {
+                        page_content = $"<b>NOT FOUND</b>";
+                        data = Encoding.UTF8.GetBytes(page_data);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                            context.Response.StatusDescription = "404 NOT FOUND";
+                            context.Response.OutputStream.Close();
+                            context.Response.Close();
+                            Logging.Message("Finished writing 404");
+                        }, context.Response);
                     }
 
                 } catch (System.Net.HttpListenerException e) {
@@ -239,12 +219,13 @@ namespace ZeroDir
         }
 
 
+        string CSS = "";
+
         public void StartServer() {
             page_data = File.ReadAllText("base_page");
-
+            CSS = File.ReadAllText("base_css.css");
             listener = new HttpListener();
-            listener.IgnoreWriteExceptions = true;
-
+            //listener.IgnoreWriteExceptions = true;
 
             var port = CurrentConfig.server.values["server"]["port"].get_int();
 
