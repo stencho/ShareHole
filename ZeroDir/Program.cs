@@ -21,7 +21,9 @@ namespace ZeroDir {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "threads", new ConfigValue(32) },
-                            { "passdir", new ConfigValue("loot") }
+                            { "passdir", new ConfigValue("loot") },
+                            { "use_html_file", new ConfigValue(false) },
+                            { "use_css_file", new ConfigValue(false) }
                         }
                     }
                 };
@@ -38,7 +40,6 @@ namespace ZeroDir {
           </body>
         </html>
         """;
-
         public static string base_css= """
         img {
           max-width: 100%;
@@ -114,6 +115,12 @@ namespace ZeroDir {
 
             Config.server = new ConfigWithExpectedValues(Config.server_config_values);
 
+            if (Config.server["server"].ContainsKey("use_html_file")) 
+                Config.use_css_file = Config.server["server"]["use_html_file"].get_bool();
+            
+            if (Config.server["server"].ContainsKey("use_css_file")) 
+                Config.use_css_file = Config.server["server"]["use_css_file"].get_bool();
+            
             Logging.Config($"Loaded server config");
 
             Config.shares = new ConfigWithUserValues("shares");
