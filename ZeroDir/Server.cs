@@ -153,7 +153,6 @@ namespace ZeroDir
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data = null;
 
-
                 //Requested CSS file
                 if (request.Url.AbsolutePath.EndsWith("base.css")) {                    
                     absolute_on_disk_path = Path.GetFullPath("base.css");
@@ -248,24 +247,7 @@ namespace ZeroDir
                         }
                     });
 
-                    /*
-                    using (FileStream fs = File.OpenRead(absolute_on_disk_path)) {
-                        context.Response.ContentLength64 = fs.Length;
-                        try {
-                            fs.CopyTo(context.Response.OutputStream);
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
-                            context.Response.OutputStream.Close();
-                            context.Response.Close();
-                            Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
-
-                        } catch (HttpListenerException ex) {
-                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
-                            continue;
-                        }
-                    } */
-
-                    //User gave a very fail URL
+                //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
                     data = Encoding.UTF8.GetBytes(page_data);
