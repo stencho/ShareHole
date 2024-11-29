@@ -11,7 +11,7 @@ namespace ZeroDir.Configuration
         string config_location = "shares";
         string[] sections;
 
-        public int share_count = 0;
+        public int share_count => this.Keys.Count;
 
         public ConfigFileIO config_file;
 
@@ -32,16 +32,9 @@ namespace ZeroDir.Configuration
 
             foreach (var section in sections) {
                 this.Add(section, values[section]);
-                if (!this[section].ContainsKey("path")) {
-                    Logging.ErrorAndThrow($"Share \"{section}\" doesn't contain a 'path' variable");
-                    values.Remove(section);
-                    continue;
-                } 
             }
 
             config_file.WriteAllValuesToConfig(values);
-
-            share_count = sections.Length;
         }
     }
 }

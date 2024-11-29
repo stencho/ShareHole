@@ -13,10 +13,7 @@ namespace ZeroDir.Configuration {
 
         public ConfigFileIO config_file;
 
-        //public Dictionary<string, Dictionary<string, ConfigValue>> expected_values;
-
         public ConfigWithExpectedValues(Dictionary<string, Dictionary<string, ConfigValue>> expected_values) : base() {
-            //this.expected_values = expected_values;
             foreach (string section in expected_values.Keys)
                 this.Add(section, expected_values[section]);
             

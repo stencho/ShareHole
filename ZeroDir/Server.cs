@@ -24,8 +24,8 @@ namespace ZeroDir
             listener.Stop();
 
             for (int i = 0; i < dispatch_threads.Length; i++) {
-                Logging.Message($"Stopping thread {i}");
                 dispatch_threads[i].Join();
+                Logging.ThreadMessage($"Stopped thread", $"{name}:{i}", i);
             }
         }
 
@@ -37,6 +37,16 @@ namespace ZeroDir
 
         int dispatch_thread_count = 64;
         public Thread[] dispatch_threads;
+
+        public bool all_threads_stopped () {
+            int i = 0;
+            foreach(Thread t in dispatch_threads) {
+                if (t.ThreadState != ThreadState.Stopped) {
+                    i++;
+                }
+            }
+            return i == 0;
+        }
 
         async void RequestThread(object? name_id) {
             (string name, int id) nid = (((string, int))name_id);
@@ -277,6 +287,12 @@ namespace ZeroDir
             var prefixes = Config.server["server"]["prefix"].ToString().Trim().Split(' ');
             dispatch_thread_count = Config.server["server"]["threads"].get_int();
 
+            var p = prefixes[0];
+            if (p.StartsWith("http://")) p = p.Remove(0, 7);
+            if (p.StartsWith("https://")) p = p.Remove(0, 8);
+            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
+            name = $"{p}:{port}";
+
             for (int i = 0; i < prefixes.Length; i++) {
                 string prefix = prefixes[i].Trim();
                 
@@ -302,13 +318,6 @@ namespace ZeroDir
                     }
                 }
             }
-            var p = prefixes[0];
-            if (p.StartsWith("http://")) p = p.Remove(0, 7);
-            if (p.StartsWith("https://")) p = p.Remove(0, 8);
-            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
-
-            Logging.Message($"Started {dispatch_thread_count} threads on server \"{p}:{port}\"");
-
         }
     }
 }

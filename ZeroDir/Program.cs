@@ -118,6 +118,15 @@ namespace ZeroDir {
 
             Config.shares = new ConfigWithUserValues("shares");
 
+            foreach (var section in Config.shares.Keys) {
+                if (!Config.shares[section].ContainsKey("path")) {
+                    Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
+                    Config.shares.Remove(section);
+                }
+            }
+
+            Config.shares.config_file.WriteAllValuesToConfig(Config.shares);
+
             if (Config.shares.share_count == 0) {
                 Logging.Config($"No shares configured in shares file!");
                 Logging.Config("Add one to the shares file in your config folder using this format:");
@@ -151,9 +160,18 @@ namespace ZeroDir {
                 string line = Console.ReadLine();
 
                 if (line == "restart") {
-                    Logging.Message("Restarting server!");
+                    Logging.Warning("Restarting all servers!");
                     for (int i = 0; i < servers.Count; i++) {
                         servers[i].StopServer();
+                    }
+
+                    while (true) {
+                        int n = 0;
+                        for (int i = 0; i < servers.Count; i++) {
+                            if (!servers[i].all_threads_stopped())
+                                n++;
+                        }
+                        if (n == 0) break;
                     }
 
                     Config.server = new ConfigWithExpectedValues(Config.server_config_values);
