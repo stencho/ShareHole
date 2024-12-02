@@ -214,8 +214,26 @@ namespace ZeroDir
                     }
                     context.Response.ContentType = mimetype;
 
-                    if (!show_dirs && url_path.Count(x => x == '/') > 1 ) {
+                    if (!show_dirs && url_path.Count(x => x == '/') > 1) {
                         Logging.ThreadError($"Attempted to open file outside of share \"{share_name}\" with directories off", thread_name, thread_id);
+                        context.Response.Abort();
+                        continue;
+                    }
+
+                    var using_extensions = false;
+                    string[] extensions = null;
+
+                    if (Config.shares[share_name].ContainsKey("extensions")) {
+                        extensions = Config.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+                        using_extensions = true;
+                        for (int i = 0; i < extensions.Length; i++) {
+                            extensions[i] = extensions[i].Trim();
+                            extensions[i] = extensions[i].Replace(".", "");
+                        }
+                    }
+
+                    if (using_extensions && (Path.HasExtension(absolute_on_disk_path) && !extensions.Contains(Path.GetExtension(absolute_on_disk_path).Replace(".","")))) {
+                        Logging.ThreadError($"Attempted to open file in \"{share_name}\" with disallowed file extension \"{Path.GetExtension(absolute_on_disk_path)}\"", thread_name, thread_id);
                         context.Response.Abort();
                         continue;
                     }
