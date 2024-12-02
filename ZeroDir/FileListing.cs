@@ -93,26 +93,24 @@ namespace ZeroDir {
             //TODO: hide hidden files/folders + allow forcing them to show through an option
             int file_count;
             string result = "";
-            List<string> listing = new List<string>();
 
             int dir_c = 0;
             int file_c = 0;
 
             //Add up dir if we're showing directories
-            if (info.show_dirs && (uri_path.Trim() != share_name.Trim()) && uri_path.Trim().Length != 0) {
-                result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share_name}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>";
+            if (info.show_dirs && (uri_path.Trim() != share_name.Trim()) && uri_path.Trim().Length != 0 && uri_path.Trim() != "/") {
+                result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share_name}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
             }
 
             if (info.show_dirs) {
-                if (info.grouping != "none" && info.cares_about_groups) {
-                    result += $"<p class=\"head\"><b>Directories</b></p>";
-                }
+                if (info.grouping != "none" && info.cares_about_groups) 
+                    result += $"<p class=\"head\"><b>Directories</b></p>\n";
+                
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {
                     string n = uri_path;
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
-                    listing.Add($"{dir.Name}");
-                    result += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>";
+                    result += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>\n";
                     dir_c++;
                 }
             }            
@@ -123,16 +121,14 @@ namespace ZeroDir {
                     string f = file.Name;
 
                     var ext = new FileInfo(f).Extension.Replace(".", "");
-                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) {
+                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
-                    }
-
+                    
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     while (f.StartsWith('/')) f = f.Remove(0, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
 
-                    listing.Add($"{f}");
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>\n";
 
                     file_c++;
                 }
@@ -141,64 +137,55 @@ namespace ZeroDir {
                 foreach (var file in info.files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     string n = uri_path;
                     string f = file.Name;
-                    //Logging.Message("file: " + f);
 
                     var ext = new FileInfo(f).Extension.Replace(".", "");
-                    if (ext != previous_ext && info.extensions.Contains(ext.ToLower())) {
-                        result += $"<p class=\"head\"><b>{ext}</b></p>";
-                    }
-                    previous_ext = ext;
-                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) {
-                        continue;
-                    }
+                    if (ext != previous_ext && info.extensions.Contains(ext.ToLower())) 
+                        result += $"<p class=\"head\"><b>{ext}</b></p>\n";                    
 
+                    previous_ext = ext;
+
+                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
+                        continue;
+                    
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     while (f.StartsWith('/')) f = f.Remove(0, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
 
-                    listing.Add($"{f}");
-                    //Logging.Message(listing.Last());
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>\n";
                     file_c++;
                 }
 
             } else if (info.grouping == "type" && info.cares_about_groups) {
-                string previous_ext = "";
                 string previous_mime = "";
                 string current_type = "";
+
                 foreach (var file in info.files.OrderBy(x => GetMimeTypeOrOctet(x.Name)).ThenBy(x => x.Name)) {
                     string n = uri_path;
                     string f = file.Name;
-                    //Logging.Message("file: " + f);
-
+                    
                     var ext = new FileInfo(f).Extension.Replace(".", "");
                     var mime = GetMimeTypeOrOctet(file.Name);
-                    //if (ext != previous_ext && extensions.Contains(ext)) {
-                        if (mime != previous_mime) {
-                            var slashi = mime.IndexOf("/");
-                            var t = mime.Substring(0, slashi);
-                            if (current_type != t) {
-                                result += $"<p class=\"head\"><b>{t}</b></p>";
 
-                                current_type = t;
-                            }
+                    if (mime != previous_mime) {
+                        var slashi = mime.IndexOf("/");
+                        var t = mime.Substring(0, slashi);
+                        if (current_type != t) {
+                            result += $"<p class=\"head\"><b>{t}</b></p>\n";
+
+                            current_type = t;
                         }
-                        //result += $"<p class=\"head\"><b>{ext}</b></p>";
-                    //}
+                    }
                 
                     previous_mime = mime;
-                    previous_ext = ext;
-                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) {
-                        continue;
-                    }
 
+                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
+                        continue;
+                    
                     while (n.EndsWith('/')) n = n.Remove(n.Length - 1, 1);
                     while (f.StartsWith('/')) f = f.Remove(0, 1);
                     if (n.Length > 0) n = n.Insert(0, "/");
 
-                    listing.Add($"{f}");
-                    //Logging.Message(listing.Last());
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>";
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share_name}{n}/{Uri.EscapeDataString($"{f}")}\">{f}</a></p>\n";
                     file_c++;
                 }
             }
