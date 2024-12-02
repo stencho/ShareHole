@@ -623,7 +623,5 @@ namespace ZeroDir.Configuration
                 default: throw new Exception();
             }
         }
-
     }
-
 }

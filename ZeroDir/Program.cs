@@ -83,7 +83,7 @@ namespace ZeroDir {
     internal class Program {
         static List<FolderServer> servers = new List<FolderServer>();
 
-        internal static void load_config() {
+        internal static void LoadConfig() {
 
             Config.server = new ConfigWithExpectedValues(Config.server_config_values);
 
@@ -134,9 +134,7 @@ namespace ZeroDir {
             } else {
                 Logging.Config($"Loaded shares");
             }
-
-        }
-   
+        }   
 
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -168,7 +166,7 @@ namespace ZeroDir {
             }
 
             Logging.Config($"Loading configuration");
-            load_config();
+            LoadConfig();
             Logging.Config($"Configuration loaded, starting server!");
 
             //foreach (string section in CurrentConfig.shares.Keys) {
@@ -196,7 +194,7 @@ namespace ZeroDir {
                     }
 
                     Logging.Config($"Re-loading configuration");
-                    load_config();
+                    LoadConfig();
                     Logging.Config($"Configuration loaded, starting server!");
 
                     for (int i = 0; i < servers.Count; i++) {
