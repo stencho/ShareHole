@@ -73,6 +73,7 @@ namespace ZeroDir
 
                 try {
                     context = await listener.GetContextAsync();
+
                 } catch(HttpListenerException ex) {
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
@@ -82,7 +83,7 @@ namespace ZeroDir
                 } catch (ObjectDisposedException ex) {
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
-                    } //if we're not running, then that means Stop was called, so this error is expected
+                    } 
                     return;
                 }
 
@@ -248,8 +249,8 @@ namespace ZeroDir
                         }
                     }
 
-                    if (using_extensions && (Path.HasExtension(absolute_on_disk_path) && !extensions.Contains(Path.GetExtension(absolute_on_disk_path).Replace(".","")))) {
-                        Logging.ThreadError($"Attempted to open file in \"{share_name}\" with disallowed file extension \"{Path.GetExtension(absolute_on_disk_path)}\"", thread_name, thread_id);
+                    if (using_extensions && (Path.HasExtension(absolute_on_disk_path) && !extensions.Contains(Path.GetExtension(absolute_on_disk_path).Replace(".","").ToLower()))) {
+                        Logging.ThreadError($"Attempted to open file in \"{share_name}\" with disallowed file extension \"{Path.GetExtension(absolute_on_disk_path).Replace(".", "").ToLower()}\"", thread_name, thread_id);
                         context.Response.Abort();
                         continue;
                     }
