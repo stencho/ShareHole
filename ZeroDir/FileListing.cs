@@ -157,7 +157,7 @@ namespace ZeroDir {
                 string previous_mime = "";
                 string current_type = "";
 
-                foreach (var file in info.files.OrderBy(x => GetMimeTypeOrOctet(x.Name)).ThenBy(x => x.Name)) {                    
+                foreach (var file in info.files.OrderBy(x => GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name)) {                    
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                     var mime = GetMimeTypeOrOctet(file.Name);
 
@@ -206,6 +206,15 @@ namespace ZeroDir {
                 mimetype = "application/octet-stream";
             }
             return mimetype;
+        }
+        static string GetMimeTypeOrOctetMinusExt(string fn) {
+            string mimetype;
+            try {
+                mimetype = MimeTypesMap.GetMimeType(fn);
+            } catch {
+                mimetype = "application/octet-stream";
+            }
+            return mimetype.Substring(0, mimetype.IndexOf("/"));
         }
     }
 }
