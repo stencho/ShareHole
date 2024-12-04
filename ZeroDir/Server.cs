@@ -24,12 +24,13 @@ namespace ZeroDir
 
         public void StopServer() {
             running = false;
-            listener.Stop();
 
             for (int i = 0; i < dispatch_threads.Length; i++) {
                 dispatch_threads[i].Join();
                 Logging.ThreadMessage($"Stopped thread", $"{name}:{i}", i);
             }
+
+            listener.Stop();
         }
 
         string _pd;
