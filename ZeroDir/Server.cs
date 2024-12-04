@@ -30,6 +30,15 @@ namespace ZeroDir
                 Logging.ThreadMessage($"Stopped thread", $"{name}:{i}", i);
             }
 
+            while (true) {
+                int n = 0;
+
+                if (!all_threads_stopped())
+                    n++;
+                
+                if (n == 0) break;
+            }
+
             listener.Stop();
         }
 
@@ -69,6 +78,10 @@ namespace ZeroDir
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
                     } //if we're not running, then that means Stop was called, so this error is expected
                     return;
+                } catch (ObjectDisposedException ex) {
+                    if (running) {
+                        Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
+                    } //if we're not running, then that means Stop was called, so this error is expected
                 }
 
                 var request = context.Request;

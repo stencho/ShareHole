@@ -184,14 +184,6 @@ namespace ZeroDir {
                         servers[i].StopServer();
                     }
 
-                    while (true) {
-                        int n = 0;
-                        for (int i = 0; i < servers.Count; i++) {
-                            if (!servers[i].all_threads_stopped())
-                                n++;
-                        }
-                        if (n == 0) break;
-                    }
 
                     Logging.Config($"Re-loading configuration");
                     LoadConfig();
