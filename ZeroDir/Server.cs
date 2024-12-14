@@ -35,7 +35,7 @@ namespace ZeroDir
             }
 
             while (true) {
-                if (all_threads_stopped())
+                if (all_threads_stopped() && current_sub_thread_count <= 0)
                     break;
             }
 
@@ -64,7 +64,7 @@ namespace ZeroDir
                 }
             }
 
-            return i + current_sub_thread_count == 0;
+            return i == 0;
         }
         public static byte[] ImageToByte(Image img) {
             ImageConverter converter = new ImageConverter();
@@ -106,10 +106,10 @@ namespace ZeroDir
                 var request = context.Request;
 
                 //Set up response
-                //context.Response.KeepAlive = false;
+                context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
-                //context.Response.AddHeader("Keep-alive", "false");
+                context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "none");
@@ -200,6 +200,8 @@ namespace ZeroDir
                     if (mime.StartsWith("image")|| mime.StartsWith("video")) {
                         enable_cache(context);
                         ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this, mime);
+                        context.Response.StatusCode = (int)HttpStatusCode.OK;
+                        context.Response.StatusDescription = "400 OK";
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE OR VIDEO FILE</b></p>";
@@ -284,7 +286,7 @@ namespace ZeroDir
                         }, context.Response);
                     } catch (HttpListenerException ex) {
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-
+                        current_sub_thread_count--;
                     }
                 //Requested a non-CSS file
                 } else if (File.Exists(absolute_on_disk_path)) {

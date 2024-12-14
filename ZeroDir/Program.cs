@@ -22,7 +22,7 @@ namespace ZeroDir {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "passdir", new ConfigValue("loot") },
-                            { "threads", new ConfigValue(32) },
+                            { "threads", new ConfigValue(16) },
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) }
                         }
@@ -31,7 +31,7 @@ namespace ZeroDir {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
-                            { "thumbnail_builder_threads", new ConfigValue(32) },
+                            { "thumbnail_builder_threads", new ConfigValue(16) },
                         }
                     }
                 };
@@ -67,22 +67,28 @@ namespace ZeroDir {
           text-shadow: 0 0 0 rgb(254, 168, 234); 
         }
         
+        .galleryfoldertext { 
+          font-size: 21px;
+          color: rgb(242, 191, 241); 
+        }
+        
         #gallery {
             align-items: end;
             align-content: normal;        
         }
-
-        span.thumb {
-            width: {thumbnail_size}px;
-            height: {thumbnail_size}px;
-            max-width: {thumbnail_size}px;
-            max-height: {thumbnail_size}px;
-            display: inline-grid;
-            align-items: center;
-            align-content: normal;
-            text-align-last: center;
-            line-height: {thumbnail_size}px;
-            writing-mode: vertical-lr;
+        
+        .thumbnail {
+            min-width: {thumbnail_size}px !important;
+            min-height: {thumbnail_size}px !important;
+            max-width: {thumbnail_size}px !important;
+            max-height: {thumbnail_size}px !important;
+            display: inline-block;
+            text-align-last: center !important;
+            vertical-align: middle;
+            align-content: center;
+        }
+        .thumbnail:hover {
+            background-color: rgb(141, 69, 139);
         }
 
         p.up { 

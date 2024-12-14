@@ -186,6 +186,7 @@ namespace ZeroDir {
             return result;
         }
 
+        //IMAGE/VIDEO GALLERY
         public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
@@ -201,13 +202,26 @@ namespace ZeroDir {
             while (uri.EndsWith("/")) uri = uri.Remove(uri.Length - 1);
             while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
 
+            if (uri.Length > 0) uri = uri + '/';
+
             string result = "";
 
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
 
             result += "<div id=\"gallery\">";
             foreach (var dir in info.directories.OrderBy(a => a.Name)) {
-                result += "<span class=\"thumb\"><text class=\"emojitint\">📁</text></span>";
+                result +=
+                    $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
+                    $"<span class=\"thumbnail\" >" +
+                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].get_int()}px>" +
+                    $"<text class=\"emojitint\">📁</text>" +
+                    $"</font>" +
+                    $"<br>" +
+                    $"<text class=\"galleryfoldertext\">{dir.Name}</text>" +
+                    $"</span>" +
+                    $"</a>" +
+                    $"\n";
+
                 Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
             }
 
@@ -220,7 +234,12 @@ namespace ZeroDir {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    result += $"<span class=\"thumb\"><a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"><img src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/></a></span>\n";
+                    result +=
+                        $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<span class=\"thumbnail\" >" +
+                        $"<img align=center src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/>" +
+                        $"</span>" +
+                        $"</a>\n";
 
                     file_c++;
                 } 
