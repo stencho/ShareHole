@@ -44,7 +44,7 @@ namespace ZeroDir.DBThreads {
         static volatile ThumbnailRequest[] current_requests = new ThumbnailRequest[build_thread_count];
         static int build_thread_count = 32;
 
-        static int thumbnail_size = 128;
+        static int thumbnail_size = 192;
 
         //the queue that the dispatcher uses for starting threads
         static volatile Queue<ThumbnailRequest> request_queue = new Queue<ThumbnailRequest>(build_thread_count*4);
@@ -86,16 +86,13 @@ namespace ZeroDir.DBThreads {
                             lock (request_queue) {
                                 current_requests[t] = request_queue.Dequeue();
                             }
-                            if (current_requests[t] != null) {
-                                current_requests[t].thread_id = t;
-                                current_requests[t].thread_dispatched = true;
+                            
+                            current_requests[t].thread_id = t;
+                            current_requests[t].thread_dispatched = true;
 
-                                build_threads[t] = new Thread(build_thumbnail);
-                                build_threads[t].Start(current_requests[t]);
-                            } else {
-                                Logging.ThreadMessage($"NULL in queue!", "THUMB", 0);
-                            }
-
+                            build_threads[t] = new Thread(build_thumbnail);
+                            build_threads[t].Start(current_requests[t]);
+                            
                             break;
                         }
                     }
@@ -104,19 +101,23 @@ namespace ZeroDir.DBThreads {
         }
 
         internal static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest req) {
-            var stream_output = new MemoryStream();
+            byte[] output;
 
-            var stream_video = FFMpegArguments
-                .FromFileInput(req.file)
-                .OutputToPipe(new StreamPipeSink(stream_output), options => 
-                    options.WithFrameOutputCount(1)                    
-                    .WithVideoCodec(VideoCodec.Png)
-                    .Resize(thumbnail_size,thumbnail_size)                    
-                    .ForceFormat("image2pipe")
-                    )
-                .ProcessSynchronously();
+            using (var stream_output = new MemoryStream()) {
+                var stream_video = FFMpegArguments
+                    .FromFileInput(req.file)
+                    .OutputToPipe(new StreamPipeSink(stream_output), options =>
+                        options.WithFrameOutputCount(1)
+                        .WithVideoCodec(VideoCodec.Png)
+                        .Resize(thumbnail_size, thumbnail_size)
+                        .ForceFormat("image2pipe")
+                        )
+                    .ProcessSynchronously();
 
-            return stream_output.ToArray();
+                output = stream_output.ToArray();
+            }
+
+            return output;
         }
 
         static void build_thumbnail(object request) {
@@ -147,7 +148,6 @@ namespace ZeroDir.DBThreads {
 
             req.thumbnail = thumbnail_cache[req.file.FullName].data;
             req.response.ContentType = thumbnail_cache[req.file.FullName].mime;
-
             req.response.ContentLength64 = req.thumbnail.LongLength;
 
             req.parent_server.current_sub_thread_count++;
@@ -156,11 +156,13 @@ namespace ZeroDir.DBThreads {
                 req.response.StatusDescription = "400 OK";
                 req.response.OutputStream.Close();
                 req.response.Close();
+
                 //Logging.ThreadMessage($"Finished writing thumbnail for {req.file.FullName}", "THUMB", req.thread_id);
                 
                 lock (current_requests) {
                     current_requests[req.thread_id] = null;
                 }
+
                 req.parent_server.current_sub_thread_count--;
             }, req.response);            
         }
