@@ -22,6 +22,8 @@ namespace ZeroDir
         public string id { get; private set; }
         public string name { get; private set; }
 
+        int current_sub_thread_count = 0;
+
         public void StopServer() {
             running = false;
 
@@ -31,12 +33,8 @@ namespace ZeroDir
             }
 
             while (true) {
-                int n = 0;
-
-                if (!all_threads_stopped())
-                    n++;
-                
-                if (n == 0) break;
+                if (all_threads_stopped())
+                    break;
             }
 
             listener.Stop();
@@ -53,12 +51,14 @@ namespace ZeroDir
 
         public bool all_threads_stopped () {
             int i = 0;
+
             foreach(Thread t in dispatch_threads) {
                 if (t.ThreadState != ThreadState.Stopped) {
                     i++;
                 }
             }
-            return i == 0;
+
+            return i + current_sub_thread_count == 0;
         }
 
         async void RequestThread(object? name_id) {
@@ -177,12 +177,14 @@ namespace ZeroDir
                     context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
+                    current_sub_thread_count++;
                     context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                         context.Response.OutputStream.EndWrite(result);
                         context.Response.StatusCode = (int)HttpStatusCode.OK;
                         context.Response.StatusDescription = "400 OK";
                         context.Response.Close();
                         Logging.ThreadMessage("Sent CSS", thread_name, thread_id);
+                        current_sub_thread_count--;
                     }, context.Response);
 
                 //Requested a directory
@@ -211,12 +213,14 @@ namespace ZeroDir
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
+                    current_sub_thread_count++;
                     context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                         context.Response.OutputStream.EndWrite(result);
                         context.Response.StatusCode = (int)HttpStatusCode.OK;
                         context.Response.StatusDescription = "400 OK";
                         context.Response.Close();
                         Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                        current_sub_thread_count--;
                     }, context.Response);
 
                 //Requested a non-CSS file
@@ -265,6 +269,7 @@ namespace ZeroDir
 
                     context.Response.ContentLength64 = fs.Length;
 
+                    current_sub_thread_count++;
                     var task = fs.CopyToAsync(context.Response.OutputStream);
 
                     task.GetAwaiter().OnCompleted(() => {
@@ -276,8 +281,9 @@ namespace ZeroDir
                             Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
                             fs.Close();
                         } catch (HttpListenerException ex) {
-                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);                            
+                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
                         }
+                        current_sub_thread_count--;
                     });
 
                 //User gave a very fail URL
@@ -287,12 +293,14 @@ namespace ZeroDir
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
+                    current_sub_thread_count++;
                     context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
                         context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                         context.Response.StatusDescription = "404 NOT FOUND";
                         context.Response.OutputStream.Close();
                         context.Response.Close();
                         Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
+                        current_sub_thread_count--;
                     }, context.Response);
                 }
             }
