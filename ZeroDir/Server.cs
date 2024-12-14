@@ -26,21 +26,8 @@ namespace ZeroDir
 
         public int current_sub_thread_count = 0;
 
-        public void StopServer() {
-            running = false;
+        CancellationTokenSource token_source;
 
-            for (int i = 0; i < dispatch_threads.Length; i++) {
-                dispatch_threads[i].Join(500);
-                Logging.ThreadMessage($"Stopped thread", $"{name}:{i}", i);
-            }
-
-            while (true) {
-                if (all_threads_stopped() && current_sub_thread_count <= 0)
-                    break;
-            }
-
-            listener.Stop();
-        }
 
         string _pd;
         string page_data_strings_replaced {
@@ -55,7 +42,95 @@ namespace ZeroDir
         int dispatch_thread_count = 64;
         public Thread[] dispatch_threads;
 
-        public bool all_threads_stopped () {
+
+
+        public void StartServer(string id) {
+            this.id = id;
+
+            if (CurrentConfig.use_html_file) {
+                if (File.Exists("base.html"))
+                    page_data_strings_replaced = File.ReadAllText("base.html");
+                else {
+                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
+                    page_data_strings_replaced = CurrentConfig.base_html;
+                    File.WriteAllText("base.html", page_data_strings_replaced);
+                }
+            } else {
+                page_data_strings_replaced = CurrentConfig.base_html;
+            }
+
+            if (CurrentConfig.use_css_file) {
+                if (File.Exists("base.css")) {
+                    CSS = File.ReadAllText("base.css");
+                } else {
+                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
+                    CSS = base_css_data_replaced;
+                    File.WriteAllText("base.css", CSS);
+                }
+            } else {
+                CSS = base_css_data_replaced;
+            }
+
+
+            listener = new HttpListener();
+
+            var port = CurrentConfig.server["server"]["port"].get_int();
+            var prefixes = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ');
+            dispatch_thread_count = CurrentConfig.server["server"]["threads"].get_int();
+
+            var p = prefixes[0];
+            if (p.StartsWith("http://")) p = p.Remove(0, 7);
+            if (p.StartsWith("https://")) p = p.Remove(0, 8);
+            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
+            name = $"{p}:{port}";
+
+            for (int i = 0; i < prefixes.Length; i++) {
+                string prefix = prefixes[i].Trim();
+
+                if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
+                if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
+                if (prefix.EndsWith('/')) prefix = prefix.Remove(prefix.Length - 1, 1);
+
+                listener.Prefixes.Add($"http://{prefix}:{port}/");
+                Logging.Message("Using prefix: " + $"http://{prefix}:{port}/");
+            }
+
+            listener.Start();
+
+            dispatch_threads = new Thread[dispatch_thread_count];
+            token_source = new CancellationTokenSource();
+
+            Logging.Message($"Starting server on port {port}");
+
+            //while (listener.IsListening && running) {
+                for (int i = 0; i < dispatch_thread_count; i++) {
+                //if (dispatch_threads[i] == null) {
+                        dispatch_threads[i] = new Thread(RequestThread);
+                        dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
+                        dispatch_threads[i].Start((dispatch_threads[i].Name, i, token_source.Token));
+                    //}
+                }
+
+                //Thread.Sleep(500);
+            //}
+        }
+
+        public void StopServer() {
+            running = false;
+
+            token_source.Cancel(true);
+
+            while (true) {
+                if (all_threads_stopped() && current_sub_thread_count <= 0)
+                    break;
+            }
+
+            Logging.Message($"All threads stopped");
+
+            listener.Stop();
+        }
+
+        bool all_threads_stopped () {
             int i = 0;
 
             foreach(Thread t in dispatch_threads) {
@@ -66,20 +141,12 @@ namespace ZeroDir
 
             return i == 0;
         }
-        public static byte[] ImageToByte(Image img) {
-            ImageConverter converter = new ImageConverter();
-            return (byte[])converter.ConvertTo(img, typeof(byte[]));
-        }
 
-        void enable_cache(HttpListenerContext context) {
-            context.Response.Headers.Remove("Cache-control");
-            context.Response.AddHeader("Cache-control", "max-age=86400, public");
-        }
-
-        async void RequestThread(object? name_id) {
-            (string name, int id) nid = (((string, int))name_id);
-            string thread_name = nid.name.ToString();
-            int thread_id = nid.id;
+        async void RequestThread(object? name_id_ct) {
+            (string name, int id, CancellationToken ct) nidct = (((string, int, CancellationToken))name_id_ct);
+            string thread_name = nidct.name.ToString();
+            int thread_id = nidct.id;
+            CancellationToken ct = nidct.ct;
 
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
 
@@ -87,7 +154,19 @@ namespace ZeroDir
                 HttpListenerContext context = null;
 
                 try {
-                    context = await listener.GetContextAsync();
+                    //context = await listener.GetContextAsync();
+                    listener.GetContextAsync().ContinueWith(async a => {
+                        context = a.Result;
+                    });
+
+                    while (context == null) {
+                        if (ct.IsCancellationRequested) {
+                            Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                            return;
+                        }
+
+                        Thread.Sleep(3);
+                    }
 
                 } catch(HttpListenerException ex) {
                     //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
@@ -288,6 +367,7 @@ namespace ZeroDir
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                         current_sub_thread_count--;
                     }
+
                 //Requested a non-CSS file
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype;
@@ -346,6 +426,7 @@ namespace ZeroDir
                             context.Response.Close();
                             Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
                             fs.Close();
+
                         } catch (HttpListenerException ex) {
                             Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
                         }
@@ -374,70 +455,14 @@ namespace ZeroDir
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
         }
 
+        public static byte[] ImageToByte(Image img) {
+            ImageConverter converter = new ImageConverter();
+            return (byte[])converter.ConvertTo(img, typeof(byte[]));
+        }
 
-        public void StartServer(string id) {
-            this.id = id;
-
-            if (CurrentConfig.use_html_file) {
-                if (File.Exists("base.html"))
-                    page_data_strings_replaced = File.ReadAllText("base.html");
-                else {
-                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    page_data_strings_replaced = CurrentConfig.base_html;
-                    File.WriteAllText("base.html", page_data_strings_replaced);
-                }
-            } else {
-                page_data_strings_replaced = CurrentConfig.base_html;
-            }
-
-            if (CurrentConfig.use_css_file) {
-                if (File.Exists("base.css")) {
-                    CSS = File.ReadAllText("base.css");
-                } else {
-                    Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    CSS = base_css_data_replaced;
-                    File.WriteAllText("base.css", CSS);
-                }
-            } else {
-                CSS = base_css_data_replaced;
-            }
-
-
-            listener = new HttpListener();
-
-            var port = CurrentConfig.server["server"]["port"].get_int();
-            var prefixes = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = CurrentConfig.server["server"]["threads"].get_int();
-
-            var p = prefixes[0];
-            if (p.StartsWith("http://")) p = p.Remove(0, 7);
-            if (p.StartsWith("https://")) p = p.Remove(0, 8);
-            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
-            name = $"{p}:{port}";
-
-            for (int i = 0; i < prefixes.Length; i++) {
-                string prefix = prefixes[i].Trim();
-
-                if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
-                if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
-                if (prefix.EndsWith('/')) prefix = prefix.Remove(prefix.Length - 1, 1);
-
-                listener.Prefixes.Add($"http://{prefix}:{port}/");
-                Logging.Message("Using prefix: " + $"http://{prefix}:{port}/");
-            }
-
-            listener.Start();
-
-            dispatch_threads = new Thread[dispatch_thread_count];
-
-            Logging.Message($"Starting server on port {port}");
-            for (int i = 0; i < dispatch_thread_count; i++) {
-                if (dispatch_threads[i] == null) {
-                    dispatch_threads[i] = new Thread(RequestThread);
-                    dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
-                    dispatch_threads[i].Start((dispatch_threads[i].Name, i));
-                }
-            }
+        void enable_cache(HttpListenerContext context) {
+            context.Response.Headers.Remove("Cache-control");
+            context.Response.AddHeader("Cache-control", "max-age=86400, public");
         }
     }
 }

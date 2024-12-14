@@ -227,7 +227,7 @@ namespace ZeroDir {
 
             ThumbnailThreadPool.Start();
 
-            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
+            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
 
             while (true) { 
                 string line = Console.ReadLine();
