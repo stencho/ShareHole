@@ -104,6 +104,7 @@ namespace ZeroDir
                 if (context.Request.HttpMethod != "GET") {
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     context.Response.Close();
+                    continue;
                 }
 
                 //No current favicon support
