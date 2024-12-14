@@ -203,7 +203,7 @@ namespace ZeroDir {
 
             string result = "";
 
-            Logging.Custom($"rendering gallery for {uri}", "RENDER][Gallery", ConsoleColor.Magenta);
+            Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
 
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
