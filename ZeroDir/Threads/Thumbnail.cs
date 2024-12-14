@@ -68,7 +68,7 @@ namespace ZeroDir.DBThreads {
         //main dispatch thread loop
         static void handle_requests() {         
             while (true) {
-                if (request_queue.Count > 0) {
+                while (request_queue.Count > 0) {
                     for (int t = 0; t < current_requests.Length; t++) {
                         if (current_requests[t] == null) {
                             current_requests[t] = request_queue.Dequeue();
@@ -83,6 +83,8 @@ namespace ZeroDir.DBThreads {
                         }
                     }
                 }
+
+                Thread.Sleep(100);
             }
         }
 
@@ -92,12 +94,14 @@ namespace ZeroDir.DBThreads {
 
             if (thumbnail_cache.ContainsKey(req.file.Name)) {
                 req.thumbnail = thumbnail_cache[req.file.Name];
+                //Logging.ThreadMessage($"Pulled thumbnail for {req.file.Name} from cache", "THUMB", req.thread_id);
             } else {
                 MagickImage mi = new MagickImage(req.file.FullName);
                 mi.Resize(128, 128);
 
                 thumbnail_cache.Add(req.file.Name, mi.ToByteArray());
                 req.thumbnail = thumbnail_cache[req.file.Name];
+                //Logging.ThreadMessage($"Pulled thumbnail for {req.file.Name} from disk", "THUMB", req.thread_id);
             } 
 
             req.response.ContentType = "image/bmp;";
@@ -109,7 +113,6 @@ namespace ZeroDir.DBThreads {
                 req.response.StatusDescription = "400 OK";
                 req.response.OutputStream.Close();
                 req.response.Close();
-                //Logging.ThreadMessage("Finished writing thumbnail", thread_name, thread_id);
                 //Logging.ThreadMessage($"Finished writing thumbnail for {req.file.Name}", "THUMB", req.thread_id);
                 req.parent_server.current_sub_thread_count--;
                 lock (current_requests) {

@@ -195,7 +195,6 @@ namespace ZeroDir
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (mime.StartsWith("image")) {
-                        Logging.ThreadMessage($"Requested thumbnail for {absolute_on_disk_path}", thread_name, thread_id);
                         enable_cache(context);
                         ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this);
 
