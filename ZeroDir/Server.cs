@@ -195,6 +195,7 @@ namespace ZeroDir
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (mime.StartsWith("image")) {
+                        Logging.ThreadMessage($"Requesting thumbnail for {absolute_on_disk_path}", thread_name, thread_id);
                         enable_cache(context);
                         ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this);
 
@@ -219,7 +220,7 @@ namespace ZeroDir
                 //Requested CSS file  
                 } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
                     absolute_on_disk_path = Path.GetFullPath("base.css");
-                    Logging.ThreadMessage($"Requesting base.css", thread_name, thread_id);
+                    Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
 
                     data = Encoding.UTF8.GetBytes(CSS);
                     context.Response.ContentType = "text/css; charset=utf-8";
