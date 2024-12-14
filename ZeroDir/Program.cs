@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using ZeroDir.Configuration;
 
 namespace ZeroDir {
-    public static class Config {
+    public static class CurrentConfig {
         public static string config_dir = "config";
 
         public static ConfigWithExpectedValues server;
@@ -41,6 +41,7 @@ namespace ZeroDir {
           </body>
         </html>
         """;
+
         public static string base_css= """
         img {
           max-width: 100%;
@@ -85,17 +86,17 @@ namespace ZeroDir {
 
         internal static void LoadConfig() {
 
-            Config.server = new ConfigWithExpectedValues(Config.server_config_values);
+            CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
 
-            if (Config.server["server"].ContainsKey("use_html_file")) {
-                Config.use_css_file = Config.server["server"]["use_html_file"].get_bool();
+            if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
+                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].get_bool();
                 Logging.Config("Using HTML from disk");
             } else {
                 Logging.Config("Using CSS from constant");
             }
 
-            if (Config.server["server"].ContainsKey("use_css_file")) {
-                Config.use_css_file = Config.server["server"]["use_css_file"].get_bool();
+            if (CurrentConfig.server["server"].ContainsKey("use_css_file")) {
+                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].get_bool();
                 Logging.Config("Using CSS from disk");
             } else {
                 Logging.Config("Using CSS from constant");
@@ -103,18 +104,18 @@ namespace ZeroDir {
 
             Logging.Config($"Loaded server config");
 
-            Config.shares = new ConfigWithUserValues("shares");
+            CurrentConfig.shares = new ConfigWithUserValues("shares");
 
-            foreach (var section in Config.shares.Keys) {
-                if (!Config.shares[section].ContainsKey("path")) {
+            foreach (var section in CurrentConfig.shares.Keys) {
+                if (!CurrentConfig.shares[section].ContainsKey("path")) {
                     Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
-                    Config.shares.Remove(section);
+                    CurrentConfig.shares.Remove(section);
                 }
             }
 
-            Config.shares.config_file.WriteAllValuesToConfig(Config.shares);
+            CurrentConfig.shares.config_file.WriteAllValuesToConfig(CurrentConfig.shares);
 
-            if (Config.shares.share_count == 0) {
+            if (CurrentConfig.shares.share_count == 0) {
                 Logging.Config($"No shares configured in shares file!");
                 Logging.Config("Add one to the shares file in your config folder using this format:");
 
@@ -155,12 +156,12 @@ namespace ZeroDir {
                     }
                 }
             } else {
-                Logging.Config($"Using {Path.GetFullPath(Config.config_dir)} as config directory");
-                if (Directory.Exists(Path.GetFullPath(Config.config_dir))) {
-                    Directory.SetCurrentDirectory(Path.GetFullPath(Config.config_dir));
+                Logging.Config($"Using {Path.GetFullPath(CurrentConfig.config_dir)} as config directory");
+                if (Directory.Exists(Path.GetFullPath(CurrentConfig.config_dir))) {
+                    Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
                 } else {
-                    Directory.CreateDirectory(Path.GetFullPath(Config.config_dir));
-                    Directory.SetCurrentDirectory(Path.GetFullPath(Config.config_dir));
+                    Directory.CreateDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                    Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
                     Logging.Config("Config directory missing. Creating a new one and loading defaults.");
                 }
             }
@@ -197,8 +198,8 @@ namespace ZeroDir {
 
                 } else if (line == "threadstatus") {
                     for (int i = 0; i < servers.Count; i++) {
-                        var port = Config.server["server"]["port"].get_int();
-                        var p = Config.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
+                        var port = CurrentConfig.server["server"]["port"].get_int();
+                        var p = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
 
                         if (p.StartsWith("http://")) p = p.Remove(0, 7);
                         if (p.StartsWith("https://")) p = p.Remove(0, 8);
@@ -214,10 +215,10 @@ namespace ZeroDir {
                     
                 } else if (line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
-                    Config.server.config_file.ChangeValueByString(Config.server, line);
+                    CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server, line);
                 } else if (line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
-                    Config.shares.config_file.ChangeValueByString(Config.shares, line);
+                    CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
                 }
             }
         }

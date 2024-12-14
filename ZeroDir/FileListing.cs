@@ -37,7 +37,7 @@ namespace ZeroDir {
                 prefix = prefix.Remove(prefix.Length - 1, 1);
             }
 
-            info.passdir = Config.server["server"]["passdir"].get_string().Trim();
+            info.passdir = CurrentConfig.server["server"]["passdir"].get_string().Trim();
 
             if (!directory.EndsWith('/')) directory = directory + "/";
 
@@ -57,15 +57,15 @@ namespace ZeroDir {
             Logging.Custom($"up_dir: {info.up_dir}", "RENDER][BuildListing", ConsoleColor.DarkYellow);
 
             info.show_dirs = true;
-            if (Config.shares[share_name].ContainsKey("show_directories")) {
-                info.show_dirs = Config.shares[share_name]["show_directories"].get_bool();
+            if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
+                info.show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
             }
 
             info.grouping = "";
             info.cares_about_groups = false;
-            if (Config.shares[share_name].ContainsKey("group_by")) {
+            if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
                 info.cares_about_groups = true;
-                info.grouping = Config.shares[share_name]["group_by"].get_string();
+                info.grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
                 if (info.grouping.Trim().ToLower() != "type" && info.grouping.Trim().ToLower() != "extension" && info.grouping.Trim().ToLower() != "none") {
                     info.cares_about_groups = false;
                     info.grouping = "none";
@@ -75,8 +75,8 @@ namespace ZeroDir {
 
             info.using_extensions = false;
             info.extensions = null;
-            if (Config.shares[share_name].ContainsKey("extensions")) {
-                info.extensions = Config.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+            if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
+                info.extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                 info.using_extensions = true;
                 for (int i = 0; i < info.extensions.Length; i++) {
                     info.extensions[i] = info.extensions[i].Trim();

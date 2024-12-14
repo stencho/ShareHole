@@ -75,9 +75,10 @@ namespace ZeroDir
                     context = await listener.GetContextAsync();
 
                 } catch(HttpListenerException ex) {
+                    //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
-                    } //if we're not running, then that means Stop was called, so this error is expected
+                    } 
                     return;
 
                 } catch (ObjectDisposedException ex) {
@@ -111,11 +112,8 @@ namespace ZeroDir
                     continue;
                 }
 
-                //Logging.ThreadMessage($"REQ {request.Url.AbsolutePath} | {request.HttpMethod} | {request.UserHostName} {(CurrentConfig.log_headers ? "\n" + request.Headers.ToString() : "")} ", thread_name, thread_id);
-                
-                //Fuck around with the path a whole bunch
                 string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
-                string passdir = Config.server["server"]["passdir"].get_string().Trim();
+                string passdir = CurrentConfig.server["server"]["passdir"].get_string().Trim();
 
                 string share_name = "";
                 string folder_path = "";
@@ -151,13 +149,13 @@ namespace ZeroDir
                 bool show_dirs = true;
 
                 //if requested share exists
-                if (Config.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
+                if (CurrentConfig.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
                     //Check if directories should be listed
-                    if (Config.shares[share_name].ContainsKey("show_directories")) {
-                        show_dirs = Config.shares[share_name]["show_directories"].get_bool();
+                    if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
+                        show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
                     }
 
-                    folder_path = Config.shares[share_name]["path"].ToString();
+                    folder_path = CurrentConfig.shares[share_name]["path"].ToString();
                     //Logging.Message($"Accessing share: {share_name}");
 
                 } else if (!request.Url.AbsolutePath.EndsWith("base.css")) {
@@ -193,11 +191,11 @@ namespace ZeroDir
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
                     } else {
-                        if (Config.shares[share_name].ContainsKey("style")) {
-                            switch (Config.shares[share_name]["style"].get_string()) {
+                        if (CurrentConfig.shares[share_name].ContainsKey("style")) {
+                            switch (CurrentConfig.shares[share_name]["style"].get_string()) {
                                 case "gallery":
                                     page_content = FileListing.BuildGallery(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(Config.base_html);
+                                    data = Encoding.UTF8.GetBytes(CurrentConfig.base_html);
                                     break;
                                 default:
                                     page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
@@ -240,8 +238,8 @@ namespace ZeroDir
                     var using_extensions = false;
                     string[] extensions = null;
 
-                    if (Config.shares[share_name].ContainsKey("extensions")) {
-                        extensions = Config.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+                    if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
+                        extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                         using_extensions = true;
                         for (int i = 0; i < extensions.Length; i++) {
                             extensions[i] = extensions[i].Trim();
@@ -306,36 +304,36 @@ namespace ZeroDir
         public void StartServer(string id) {
             this.id = id;
 
-            if (Config.use_html_file) {
+            if (CurrentConfig.use_html_file) {
                 if (File.Exists("base.html"))
                     page_data = File.ReadAllText("base.html");
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    page_data = Config.base_html;
+                    page_data = CurrentConfig.base_html;
                     File.WriteAllText("base.html", page_data);                    
                 }                    
             } else {
-                page_data = Config.base_html;
+                page_data = CurrentConfig.base_html;
             }
 
-            if (Config.use_css_file) {
+            if (CurrentConfig.use_css_file) {
                 if (File.Exists("base.css")) {
                     CSS = File.ReadAllText("base.css");
                 } else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    CSS = Config.base_css;
+                    CSS = CurrentConfig.base_css;
                     File.WriteAllText("base.css", CSS);               
                 }
             } else { 
-                CSS = Config.base_css;
+                CSS = CurrentConfig.base_css;
             }
 
 
             listener = new HttpListener();
 
-            var port = Config.server["server"]["port"].get_int();
-            var prefixes = Config.server["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = Config.server["server"]["threads"].get_int();
+            var port = CurrentConfig.server["server"]["port"].get_int();
+            var prefixes = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ');
+            dispatch_thread_count = CurrentConfig.server["server"]["threads"].get_int();
 
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
