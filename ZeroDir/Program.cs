@@ -137,6 +137,24 @@ namespace ZeroDir {
             }
         }   
 
+        static void Exit() {
+            Logging.Warning("Shutting down!");
+
+            for (int i = 0; i < servers.Count; i++) {
+                servers[i].StopServer();
+            }
+
+            Logging.Config($"Flushing config");
+            CurrentConfig.server.config_file.Flush();
+
+            Logging.Message("Goodbye!");
+
+            Console.CursorVisible = true;
+            Console.ForegroundColor = ConsoleColor.White;
+
+            System.Environment.Exit(0);
+        }
+
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -173,10 +191,12 @@ namespace ZeroDir {
             //foreach (string section in CurrentConfig.shares.Keys) {
             servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                server_thread.Start(0.ToString());                
+                server_thread.Start(0.ToString());
             //}
 
-            while (true) {
+            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
+
+            while (true) { 
                 string line = Console.ReadLine();
 
                 if (line == "restart") {
@@ -184,7 +204,6 @@ namespace ZeroDir {
                     for (int i = 0; i < servers.Count; i++) {
                         servers[i].StopServer();
                     }
-
 
                     Logging.Config($"Re-loading configuration");
                     LoadConfig();
@@ -195,6 +214,10 @@ namespace ZeroDir {
                         server_thread = new Thread(new ParameterizedThreadStart(start_server));
                         server_thread.Start(0.ToString());
                     }
+
+                } else if (line == "shutdown") {
+                    Exit();
+                    return;
 
                 } else if (line == "threadstatus") {
                     for (int i = 0; i < servers.Count; i++) {
@@ -213,10 +236,10 @@ namespace ZeroDir {
                         }
                     }
                     
-                } else if (line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
+                } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
                     CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server, line);
-                } else if (line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
+                } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
                     line = line.Remove(0, 1);
                     CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
                 }
@@ -226,6 +249,7 @@ namespace ZeroDir {
         static void start_server(object? id) {
             servers[servers.Count - 1].StartServer(id.ToString());
         }
+
         ~Program() {
             Console.CursorVisible = true;
             Console.ForegroundColor = ConsoleColor.White;
