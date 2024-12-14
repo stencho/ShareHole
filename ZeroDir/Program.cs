@@ -27,8 +27,10 @@ namespace ZeroDir {
                             { "use_css_file", new ConfigValue(false) }
                         }
                     },
+
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
+                            { "thumbnail_size", new ConfigValue(192) },
                             { "thumbnail_builder_threads", new ConfigValue(32) },
                         }
                     }
@@ -60,7 +62,7 @@ namespace ZeroDir {
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
         }
 
-        span.emojitint { 
+        .emojitint { 
           color: transparent; 
           text-shadow: 0 0 0 rgb(254, 168, 234); 
         }
@@ -71,15 +73,15 @@ namespace ZeroDir {
         }
 
         span.thumb {
-            width: 128px;
-            height: 128px;
-            max-width: 128px;
-            max-height: 128px;
+            width: {thumbnail_size}px;
+            height: {thumbnail_size}px;
+            max-width: {thumbnail_size}px;
+            max-height: {thumbnail_size}px;
             display: inline-grid;
             align-items: center;
             align-content: normal;
             text-align-last: center;
-            line-height: 128px;
+            line-height: {thumbnail_size}px;
             writing-mode: vertical-lr;
         }
 

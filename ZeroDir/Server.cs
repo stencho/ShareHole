@@ -48,6 +48,10 @@ namespace ZeroDir
             set { _pd = value; }
         }
 
+        string base_css_data_replaced {
+            get { return CurrentConfig.base_css.Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].get_int().ToString()); }
+        }
+
         int dispatch_thread_count = 64;
         public Thread[] dispatch_threads;
 
@@ -269,15 +273,19 @@ namespace ZeroDir
                     context.Response.ContentLength64 = data.LongLength;
 
                     current_sub_thread_count++;
-                    context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                        context.Response.OutputStream.EndWrite(result);
-                        context.Response.StatusCode = (int)HttpStatusCode.OK;
-                        context.Response.StatusDescription = "400 OK";
-                        context.Response.Close();
-                        Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                        current_sub_thread_count--;
-                    }, context.Response);
+                    try {
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.OutputStream.EndWrite(result);
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.Close();
+                            Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                            current_sub_thread_count--;
+                        }, context.Response);
+                    } catch (HttpListenerException ex) {
+                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
 
+                    }
                 //Requested a non-CSS file
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype;
@@ -385,11 +393,11 @@ namespace ZeroDir
                     CSS = File.ReadAllText("base.css");
                 } else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    CSS = CurrentConfig.base_css;
+                    CSS = base_css_data_replaced;
                     File.WriteAllText("base.css", CSS);               
                 }
             } else { 
-                CSS = CurrentConfig.base_css;
+                CSS = base_css_data_replaced;
             }
 
 

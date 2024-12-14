@@ -206,6 +206,11 @@ namespace ZeroDir {
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
 
             result += "<div id=\"gallery\">";
+            foreach (var dir in info.directories.OrderBy(a => a.Name)) {
+                result += "<span class=\"thumb\"><text class=\"emojitint\">📁</text></span>";
+                Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
+            }
+
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
