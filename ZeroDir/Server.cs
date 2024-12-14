@@ -422,7 +422,7 @@ namespace ZeroDir
             dispatch_threads = new Thread[dispatch_thread_count];
             Logging.Message($"Starting server on port {port}");
 
-            while (listener.IsListening) {
+            while (listener.IsListening && running) {
                 for (int i = 0; i < dispatch_thread_count; i++) {
                     if (dispatch_threads[i] == null) {
                         dispatch_threads[i] = new Thread(RequestThread);
