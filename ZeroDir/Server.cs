@@ -8,6 +8,8 @@ using System.Net.Mime;
 using HeyRed.Mime;
 using ZeroDir.Configuration;
 using System.ComponentModel.Design;
+using System.Drawing;
+using ImageMagick;
 
 namespace ZeroDir
 {
@@ -59,6 +61,10 @@ namespace ZeroDir
             }
 
             return i + current_sub_thread_count == 0;
+        }
+        public static byte[] ImageToByte(Image img) {
+            ImageConverter converter = new ImageConverter();
+            return (byte[])converter.ConvertTo(img, typeof(byte[]));
         }
 
         async void RequestThread(object? name_id) {
@@ -181,14 +187,13 @@ namespace ZeroDir
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (mime.StartsWith("image")) {
+                        context.Response.ContentType = "image/bmp;";
 
-                        
+                        MagickImage mi = new MagickImage(absolute_on_disk_path);
 
-
-
-                        page_content = $"<p class=\"head\"><b>OH BABY A TRIPLE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                        context.Response.ContentType = $"{mime};";
+                        mi.Resize(128, 128);
+                        data = mi.ToByteArray();
+                        // } catch ()
                         context.Response.ContentLength64 = data.LongLength;
 
                         current_sub_thread_count++;

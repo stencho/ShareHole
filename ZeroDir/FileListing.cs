@@ -189,6 +189,18 @@ namespace ZeroDir {
         public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
+            int dir_c = 0;
+            int file_c = 0;
+
+            var share = share_name.Trim();
+            var uri = uri_path.Trim();
+
+            while (share.EndsWith("/")) share = share.Remove(share.Length - 1);
+            while (share.StartsWith("/")) share = share.Remove(0, 1);
+
+            while (uri.EndsWith("/")) uri = uri.Remove(uri.Length - 1);
+            while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
+
             string result = "";
 
             foreach (var file in info.files.OrderBy(a => a.Name)) {
@@ -197,10 +209,16 @@ namespace ZeroDir {
 
                 if (mime.StartsWith("image")) {
                     //get thumbnail from gallery DB thread
+                    if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
+                        continue;
+
+                    result += $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"><img src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/></a>\n";
+
+                    file_c++;
                 }
             }           
             
-            return "";
+            return result;
         }
         public static string MusicPlayer(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
