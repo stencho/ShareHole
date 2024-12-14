@@ -384,8 +384,8 @@ namespace ZeroDir
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
                     page_data_strings_replaced = CurrentConfig.base_html;
-                    File.WriteAllText("base.html", page_data_strings_replaced);                    
-                }                    
+                    File.WriteAllText("base.html", page_data_strings_replaced);
+                }
             } else {
                 page_data_strings_replaced = CurrentConfig.base_html;
             }
@@ -396,9 +396,9 @@ namespace ZeroDir
                 } else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
                     CSS = base_css_data_replaced;
-                    File.WriteAllText("base.css", CSS);               
+                    File.WriteAllText("base.css", CSS);
                 }
-            } else { 
+            } else {
                 CSS = base_css_data_replaced;
             }
 
@@ -417,7 +417,7 @@ namespace ZeroDir
 
             for (int i = 0; i < prefixes.Length; i++) {
                 string prefix = prefixes[i].Trim();
-                
+
                 if (prefix.StartsWith("http://")) prefix = prefix.Remove(0, 7);
                 if (prefix.StartsWith("https://")) prefix = prefix.Remove(0, 8);
                 if (prefix.EndsWith('/')) prefix = prefix.Remove(prefix.Length - 1, 1);
@@ -429,18 +429,14 @@ namespace ZeroDir
             listener.Start();
 
             dispatch_threads = new Thread[dispatch_thread_count];
+
             Logging.Message($"Starting server on port {port}");
-
-            while (listener.IsListening && running) {
-                for (int i = 0; i < dispatch_thread_count; i++) {
-                    if (dispatch_threads[i] == null) {
-                        dispatch_threads[i] = new Thread(RequestThread);
-                        dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
-                        dispatch_threads[i].Start((dispatch_threads[i].Name, i));
-                    }
+            for (int i = 0; i < dispatch_thread_count; i++) {
+                if (dispatch_threads[i] == null) {
+                    dispatch_threads[i] = new Thread(RequestThread);
+                    dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
+                    dispatch_threads[i].Start((dispatch_threads[i].Name, i));
                 }
-
-                Thread.Sleep(500);
             }
         }
     }
