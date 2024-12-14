@@ -193,12 +193,12 @@ namespace ZeroDir
                     var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-                    if (mime.StartsWith("image")) {
+                    if (mime.StartsWith("image")|| mime.StartsWith("video")) {
                         enable_cache(context);
-                        ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this);
+                        ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this, mime);
 
                     } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
+                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE OR VIDEO FILE</b></p>";
                         data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;

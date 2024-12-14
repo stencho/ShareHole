@@ -205,23 +205,22 @@ namespace ZeroDir {
 
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
 
+            result += "<div id=\"gallery\">";
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
 
-                if (mime.StartsWith("image")) {
+                if (mime.StartsWith("image") || mime.StartsWith("video")) {
                     //get thumbnail from gallery DB thread
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    result += $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"><img src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/></a>\n";
+                    result += $"<span class=\"thumb\"><a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"><img src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/></a></span>\n";
 
                     file_c++;
-                } else if (mime.StartsWith("video")) {
-                    //ffmpeg I guess
-                }
+                } 
             }
-
+            result += "</div>";
             Logging.Custom($"listed {dir_c} folders and {file_c} files", "RENDER][Gallery", ConsoleColor.Magenta);
 
             return result;

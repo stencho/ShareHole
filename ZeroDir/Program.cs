@@ -21,11 +21,15 @@ namespace ZeroDir {
                         new Dictionary<string, ConfigValue>() {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
-                            { "threads", new ConfigValue(32) },
-                            { "thumbnail_builder_threads", new ConfigValue(32) },
                             { "passdir", new ConfigValue("loot") },
+                            { "threads", new ConfigValue(32) },
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) }
+                        }
+                    },
+                    { "gallery",
+                        new Dictionary<string, ConfigValue>() {
+                            { "thumbnail_builder_threads", new ConfigValue(32) },
                         }
                     }
                 };
@@ -59,6 +63,24 @@ namespace ZeroDir {
         span.emojitint { 
           color: transparent; 
           text-shadow: 0 0 0 rgb(254, 168, 234); 
+        }
+        
+        #gallery {
+            align-items: end;
+            align-content: normal;        
+        }
+
+        span.thumb {
+            width: 128px;
+            height: 128px;
+            max-width: 128px;
+            max-height: 128px;
+            display: inline-grid;
+            align-items: center;
+            align-content: normal;
+            text-align-last: center;
+            line-height: 128px;
+            writing-mode: vertical-lr;
         }
 
         p.up { 
