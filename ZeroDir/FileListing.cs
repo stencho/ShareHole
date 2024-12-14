@@ -226,6 +226,7 @@ namespace ZeroDir {
 
             return result;
         }
+
         public static string MusicPlayer(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 

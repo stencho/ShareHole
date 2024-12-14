@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Drawing;
 using System.Linq;
 using System.Net;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 using ImageMagick;
 
 namespace ZeroDir.DBThreads {
-    public class ThumbnailDBRequest {
+    public class ThumbnailRequest {
         public FileInfo file;
         public byte[] thumbnail = null;
         
@@ -21,7 +22,7 @@ namespace ZeroDir.DBThreads {
 
         public FolderServer parent_server;
 
-        public ThumbnailDBRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server) {
+        public ThumbnailRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server) {
             this.file = file;
             this.response = response;
             this.parent_server = parent_server;
@@ -34,14 +35,18 @@ namespace ZeroDir.DBThreads {
 
         //threads for building thumbnails
         static volatile Thread[] build_threads = new Thread[build_thread_count];
-        static volatile ThumbnailDBRequest[] current_requests = new ThumbnailDBRequest[build_thread_count];
+        static volatile ThumbnailRequest[] current_requests = new ThumbnailRequest[build_thread_count];
         static int build_thread_count = 32;
 
-        static Queue<ThumbnailDBRequest> request_queue = new Queue<ThumbnailDBRequest>();
+        //the queue that the dispatcher uses for starting threads
+        static Queue<ThumbnailRequest> request_queue = new Queue<ThumbnailRequest>();
+
+        //cache for thumbnails which have been loaded at least once
+        volatile static Dictionary<string, byte[]> thumbnail_cache = new Dictionary<string, byte[]>();
 
         public static void Start() {
             build_thread_count = CurrentConfig.server["server"]["thumbnail_builder_threads"].get_int();
-            current_requests = new ThumbnailDBRequest[build_thread_count];
+            current_requests = new ThumbnailRequest[build_thread_count];
             build_threads = new Thread[build_thread_count];
 
             Logging.ThreadMessage($"Starting dispatcher thread, using {build_thread_count} builder threads", "THUMB", 0);
@@ -57,9 +62,10 @@ namespace ZeroDir.DBThreads {
 
         public static void RequestThumbnail(FileInfo file, HttpListenerResponse response, FolderServer parent_server) {
             //Logging.ThreadMessage($"Requesting thumbnail for {file.Name}", "THUMB", 0);
-            request_queue.Enqueue(new ThumbnailDBRequest(file, response, parent_server));
+            request_queue.Enqueue(new ThumbnailRequest(file, response, parent_server));
         }
 
+        //main dispatch thread loop
         static void handle_requests() {         
             while (true) {
                 if (request_queue.Count > 0) {
@@ -81,15 +87,20 @@ namespace ZeroDir.DBThreads {
         }
 
         static void build_thumbnail(object request) {
-            ThumbnailDBRequest req = (ThumbnailDBRequest)request;
+            ThumbnailRequest req = (ThumbnailRequest)request;
             //Logging.ThreadMessage($"Building thumbnail for {req.file.Name}", "THUMB", req.thread_id);
 
-            MagickImage mi = new MagickImage(req.file.FullName);
-            mi.Resize(128, 128);
+            if (thumbnail_cache.ContainsKey(req.file.Name)) {
+                req.thumbnail = thumbnail_cache[req.file.Name];
+            } else {
+                MagickImage mi = new MagickImage(req.file.FullName);
+                mi.Resize(128, 128);
 
-            req.thumbnail = mi.ToByteArray();
+                thumbnail_cache.Add(req.file.Name, mi.ToByteArray());
+                req.thumbnail = thumbnail_cache[req.file.Name];
+            } 
+
             req.response.ContentType = "image/bmp;";
-
             req.response.ContentLength64 = req.thumbnail.LongLength;
 
             req.parent_server.current_sub_thread_count++;
