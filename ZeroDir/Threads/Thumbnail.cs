@@ -126,10 +126,10 @@ namespace ZeroDir.DBThreads {
 
             if (thumbnail_cache.ContainsKey(req.file.FullName)) {
                 //cache hit, do nothing
-                //Logging.ThreadMessage($"Cache hit for {req.file.Name}", "THUMB", req.thread_id);
+                Logging.ThreadMessage($"Cache hit for {req.file.Name}", "THUMB", req.thread_id);
 
             } else if (req.mime_type.StartsWith("image")) {
-                //Logging.ThreadMessage($"Building thumbnail for image {req.file.Name}", "THUMB", req.thread_id);
+                Logging.ThreadMessage($"Building thumbnail for image {req.file.Name}", "THUMB", req.thread_id);
                 MagickImage mi = new MagickImage(req.file.FullName);
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
@@ -138,7 +138,7 @@ namespace ZeroDir.DBThreads {
                 }
 
             } else if (req.mime_type.StartsWith("video")) {
-                //Logging.ThreadMessage($"Building thumbnail for video {req.file.Name}", "THUMB", req.thread_id);
+                Logging.ThreadMessage($"Building thumbnail for video {req.file.Name}", "THUMB", req.thread_id);
 
                 var thumb = get_first_video_frame_from_ffmpeg(req);
 
