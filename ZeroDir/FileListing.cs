@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace ZeroDir {
-    internal static class FileListing {
+    internal static class Renderer {
         struct listing_info {
             public string passdir;
             public string up_dir;
@@ -87,7 +87,7 @@ namespace ZeroDir {
             return info;
         }
 
-        public static string BuildListing(string directory, string prefix, string uri_path, string share_name) {
+        public static string FileListing(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
             //TODO: hide hidden files/folders + allow forcing them to show through an option
@@ -136,6 +136,7 @@ namespace ZeroDir {
 
                     file_c++;
                 }
+
             } else if (info.grouping == "extension" && info.cares_about_groups) {
                 string previous_ext = "";
                 foreach (var file in info.files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
@@ -185,20 +186,38 @@ namespace ZeroDir {
             return result;
         }
 
-        public static string BuildGallery(string directory, string prefix, string uri_path, string share_name) {
+        public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
             string result = "";
 
             foreach (var file in info.files.OrderBy(a => a.Name)) {
-                
-            }
-            
+                var ext = new FileInfo(file.Name).Extension.Replace(".", "");
+                var mime = GetMimeTypeOrOctet(file.Name);
+
+                if (mime.StartsWith("image")) {
+                    //get thumbnail from gallery DB thread
+                }
+            }           
             
             return "";
         }
+        public static string MusicPlayer(string directory, string prefix, string uri_path, string share_name) {
+            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
-        static string GetMimeTypeOrOctet(string fn) {
+            string result = "";
+
+            Logging.Custom($"Not implemented!", "RENDER][MusicPlayer", ConsoleColor.Magenta);
+            return "Not implemented!";
+
+            foreach (var file in info.files.OrderBy(a => a.Name)) {
+
+            }
+
+            return "";
+        }
+
+        public static string GetMimeTypeOrOctet(string fn) {
             string mimetype;
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);
@@ -207,7 +226,7 @@ namespace ZeroDir {
             }
             return mimetype;
         }
-        static string GetMimeTypeOrOctetMinusExt(string fn) {
+        public static string GetMimeTypeOrOctetMinusExt(string fn) {
             string mimetype;
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);

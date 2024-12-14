@@ -85,7 +85,6 @@ namespace ZeroDir {
         static List<FolderServer> servers = new List<FolderServer>();
 
         internal static void LoadConfig() {
-
             CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
 
             if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {

@@ -41,7 +41,7 @@ namespace ZeroDir
         }
 
         string _pd;
-        string page_data {
+        string page_data_strings_replaced {
             get { return _pd.Replace("{page_content}", page_content).Replace("{page_title}", page_title); }
             set { _pd = value; }
         }
@@ -119,12 +119,19 @@ namespace ZeroDir
                 string share_name = "";
                 string folder_path = "";
 
+                bool thumbnail = false;
+
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
                     context.Response.Abort();
                     continue;
                 } else {
-                    url_path = url_path.Remove(0, 5);
+                    url_path = url_path.Remove(0, passdir.Length + 1);
+                }
+
+                if (url_path.StartsWith("/thumbnail/")) {
+                    url_path = url_path.Remove(0, "/thumbnail/".Length);
+                    thumbnail = true;
                 }
 
                 //Clean URL
@@ -169,8 +176,51 @@ namespace ZeroDir
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data = null;
 
-                //Requested CSS file
-                if (request.Url.AbsolutePath.EndsWith("base.css")) {                    
+                if (thumbnail && File.Exists(absolute_on_disk_path)) {
+                    var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
+                    var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
+
+                    if (mime.StartsWith("image")) {
+
+                        
+
+
+
+                        page_content = $"<p class=\"head\"><b>OH BABY A TRIPLE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = $"{mime};";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        current_sub_thread_count++;
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.OutputStream.Close();
+                            context.Response.Close();
+                            Logging.ThreadMessage("Finished writing thumbnail", thread_name, thread_id);
+                            current_sub_thread_count--;
+                        }, context.Response);
+                    } else {
+
+                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        current_sub_thread_count++;
+                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
+                            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                            context.Response.StatusDescription = "404 NOT FOUND";
+                            context.Response.OutputStream.Close();
+                            context.Response.Close();
+                            Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
+                            current_sub_thread_count--;
+                        }, context.Response);
+                    }
+
+
+                        //Requested CSS file  
+                    } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
                     absolute_on_disk_path = Path.GetFullPath("base.css");
                     Logging.ThreadMessage($"Requesting base.css", thread_name, thread_id);
 
@@ -194,20 +244,26 @@ namespace ZeroDir
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
                     } else {
+                        //Get the page content based on the share's chosen render style
                         if (CurrentConfig.shares[share_name].ContainsKey("style")) {
-                            switch (CurrentConfig.shares[share_name]["style"].get_string()) {
+                            switch (CurrentConfig.shares[share_name]["style"].get_string()) {                                
                                 case "gallery":
-                                    page_content = FileListing.BuildGallery(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(CurrentConfig.base_html);
+                                    page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                                    break;
+                                case "music":
+                                    page_content = Renderer.MusicPlayer(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                                     break;
                                 default:
-                                    page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_data);
+                                    page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                                     break;
                             }
                         } else {
-                            page_content = FileListing.BuildListing(folder_path, request.UserHostName, url_path, share_name);
-                            data = Encoding.UTF8.GetBytes(page_data);
+                            //There isn't a render style given in the config, so just use the regular list style
+                            page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
+                            data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         }                    
                     }
 
@@ -290,7 +346,7 @@ namespace ZeroDir
                 //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
-                    data = Encoding.UTF8.GetBytes(page_data);
+                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
@@ -315,14 +371,14 @@ namespace ZeroDir
 
             if (CurrentConfig.use_html_file) {
                 if (File.Exists("base.html"))
-                    page_data = File.ReadAllText("base.html");
+                    page_data_strings_replaced = File.ReadAllText("base.html");
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    page_data = CurrentConfig.base_html;
-                    File.WriteAllText("base.html", page_data);                    
+                    page_data_strings_replaced = CurrentConfig.base_html;
+                    File.WriteAllText("base.html", page_data_strings_replaced);                    
                 }                    
             } else {
-                page_data = CurrentConfig.base_html;
+                page_data_strings_replaced = CurrentConfig.base_html;
             }
 
             if (CurrentConfig.use_css_file) {
