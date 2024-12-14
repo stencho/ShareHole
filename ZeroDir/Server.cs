@@ -9,7 +9,7 @@ using HeyRed.Mime;
 using ZeroDir.Configuration;
 using System.ComponentModel.Design;
 using System.Drawing;
-using ImageMagick;
+using ZeroDir.DBThreads;
 
 namespace ZeroDir
 {
@@ -24,7 +24,7 @@ namespace ZeroDir
         public string id { get; private set; }
         public string name { get; private set; }
 
-        int current_sub_thread_count = 0;
+        public int current_sub_thread_count = 0;
 
         public void StopServer() {
             running = false;
@@ -67,6 +67,12 @@ namespace ZeroDir
             return (byte[])converter.ConvertTo(img, typeof(byte[]));
         }
 
+        void enable_cache(HttpListenerContext context) {
+            context.Response.Headers.Remove("Cache-control");
+            context.Response.AddHeader("Cache-control", "max-age=86400, public");
+        }
+
+
         async void RequestThread(object? name_id) {
             (string name, int id) nid = (((string, int))name_id);
             string thread_name = nid.name.ToString();
@@ -101,7 +107,7 @@ namespace ZeroDir
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
                 context.Response.AddHeader("Keep-alive", "false");
-                context.Response.AddHeader("Cache-control", "no-store");
+                context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "none");
                 context.Response.SendChunked = false;
@@ -182,31 +188,17 @@ namespace ZeroDir
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data = null;
 
+
+                //Requested thumbnail
                 if (thumbnail && File.Exists(absolute_on_disk_path)) {
                     var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (mime.StartsWith("image")) {
-                        context.Response.ContentType = "image/bmp;";
+                        enable_cache(context);
+                        ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this);
 
-                        MagickImage mi = new MagickImage(absolute_on_disk_path);
-
-                        mi.Resize(128, 128);
-                        data = mi.ToByteArray();
-                        // } catch ()
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        current_sub_thread_count++;
-                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
-                            context.Response.OutputStream.Close();
-                            context.Response.Close();
-                            Logging.ThreadMessage("Finished writing thumbnail", thread_name, thread_id);
-                            current_sub_thread_count--;
-                        }, context.Response);
                     } else {
-
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
                         data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
@@ -218,20 +210,22 @@ namespace ZeroDir
                             context.Response.StatusDescription = "404 NOT FOUND";
                             context.Response.OutputStream.Close();
                             context.Response.Close();
-                            Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
+                            //Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
                             current_sub_thread_count--;
                         }, context.Response);
                     }
 
 
-                        //Requested CSS file  
-                    } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
+                //Requested CSS file  
+                } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
                     absolute_on_disk_path = Path.GetFullPath("base.css");
                     Logging.ThreadMessage($"Requesting base.css", thread_name, thread_id);
 
                     data = Encoding.UTF8.GetBytes(CSS);
                     context.Response.ContentType = "text/css; charset=utf-8";
-                    context.Response.ContentLength64 = data.LongLength;
+                    context.Response.ContentLength64 = data.LongLength; 
+                    
+                    enable_cache(context);
 
                     current_sub_thread_count++;
                     context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
@@ -320,7 +314,8 @@ namespace ZeroDir
                     }
 
                     Logging.ThreadMessage($"[Share] {share_name} [Filename]: {absolute_on_disk_path} [Content-type] {mimetype}", thread_name, thread_id);
-                    
+
+                    enable_cache(context);
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                     context.Response.ContentType = mimetype;                        
                     context.Response.SendChunked = false;
@@ -435,6 +430,8 @@ namespace ZeroDir
                         dispatch_threads[i].Start((dispatch_threads[i].Name, i));
                     }
                 }
+
+                Thread.Sleep(500);
             }
         }
     }

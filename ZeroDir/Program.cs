@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Runtime.CompilerServices;
 using ZeroDir.Configuration;
+using ZeroDir.DBThreads;
 
 namespace ZeroDir {
     public static class CurrentConfig {
@@ -21,6 +22,7 @@ namespace ZeroDir {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "threads", new ConfigValue(32) },
+                            { "thumbnail_builder_threads", new ConfigValue(32) },
                             { "passdir", new ConfigValue("loot") },
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) }
@@ -192,6 +194,8 @@ namespace ZeroDir {
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start(0.ToString());
             //}
+
+            ThumbnailThreadPool.Start();
 
             Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
 

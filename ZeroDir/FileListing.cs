@@ -181,7 +181,7 @@ namespace ZeroDir {
                 }
             }
 
-            Logging.Custom($"listed {dir_c} folders and {file_c} files", "RENDER][BuildListing", ConsoleColor.DarkYellow);
+            Logging.Custom($"listed {dir_c} folders and {file_c} files", "RENDER][FileListing", ConsoleColor.DarkYellow);
 
             return result;
         }
@@ -203,6 +203,8 @@ namespace ZeroDir {
 
             string result = "";
 
+            Logging.Custom($"rendering gallery for {uri}", "RENDER][Gallery", ConsoleColor.Magenta);
+
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
@@ -215,9 +217,13 @@ namespace ZeroDir {
                     result += $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"><img src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/></a>\n";
 
                     file_c++;
+                } else if (mime.StartsWith("video")) {
+                    //ffmpeg I guess
                 }
-            }           
-            
+            }
+
+            Logging.Custom($"listed {dir_c} folders and {file_c} files", "RENDER][Gallery", ConsoleColor.Magenta);
+
             return result;
         }
         public static string MusicPlayer(string directory, string prefix, string uri_path, string share_name) {
