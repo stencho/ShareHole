@@ -79,7 +79,8 @@ namespace ZeroDir.DBThreads {
 
         //main dispatch thread loop
         static void handle_requests() {
-            while (true) {                
+            while (true) {
+                Thread.Sleep(10);
                 while (request_queue.Count > 0) {
                     for (int t = 0; t < current_requests.Length; t++) {
                         if (current_requests[t] == null) {
