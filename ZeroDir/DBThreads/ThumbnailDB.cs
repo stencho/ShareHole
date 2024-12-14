@@ -33,8 +33,8 @@ namespace ZeroDir.DBThreads {
         static Thread request_thread = new Thread(handle_requests);
 
         //threads for building thumbnails
-        static Thread[] build_threads = new Thread[build_thread_count];
-        static ThumbnailDBRequest[] current_requests = new ThumbnailDBRequest[build_thread_count];
+        static volatile Thread[] build_threads = new Thread[build_thread_count];
+        static volatile ThumbnailDBRequest[] current_requests = new ThumbnailDBRequest[build_thread_count];
         static int build_thread_count = 32;
 
         static Queue<ThumbnailDBRequest> request_queue = new Queue<ThumbnailDBRequest>();
@@ -65,13 +65,14 @@ namespace ZeroDir.DBThreads {
                 if (request_queue.Count > 0) {
                     for (int t = 0; t < current_requests.Length; t++) {
                         if (current_requests[t] == null) {
-                            if (request_queue.Peek() == null) { request_queue.Dequeue(); break; }
-                            //Logging.ThreadMessage($"Dispatching thread for thumbnail for {request_queue.Peek().file.Name}", "THUMB", 0);
-                            build_threads[t] = new Thread(build_thumbnail);
                             current_requests[t] = request_queue.Dequeue();
-                            current_requests[t].thread_dispatched = true;
-                            current_requests[t].thread_id = t;
-                            build_threads[t].Start(current_requests[t]);
+                            if (current_requests[t] != null) {
+                                current_requests[t].thread_id = t;
+                                current_requests[t].thread_dispatched = true;
+
+                                build_threads[t] = new Thread(build_thumbnail);
+                                build_threads[t].Start(current_requests[t]);
+                            }           
                             break;
                         }
                     }
@@ -102,9 +103,12 @@ namespace ZeroDir.DBThreads {
                 //Logging.ThreadMessage("Finished writing thumbnail", thread_name, thread_id);
                 //Logging.ThreadMessage($"Finished writing thumbnail for {req.file.Name}", "THUMB", req.thread_id);
                 req.parent_server.current_sub_thread_count--;
-                current_requests[req.thread_id] = null;
+                lock (current_requests) {
+                    current_requests[req.thread_id] = null;
+                }
             }, req.response);
 
+            
         }
     }
 }
