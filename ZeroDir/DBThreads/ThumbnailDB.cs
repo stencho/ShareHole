@@ -77,8 +77,6 @@ namespace ZeroDir.DBThreads {
                         }
                     }
                 }
-
-                //Thread.Sleep(50);
             }
         }
 
@@ -106,9 +104,7 @@ namespace ZeroDir.DBThreads {
                 lock (current_requests) {
                     current_requests[req.thread_id] = null;
                 }
-            }, req.response);
-
-            
+            }, req.response);            
         }
     }
 }

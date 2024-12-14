@@ -72,7 +72,6 @@ namespace ZeroDir
             context.Response.AddHeader("Cache-control", "max-age=86400, public");
         }
 
-
         async void RequestThread(object? name_id) {
             (string name, int id) nid = (((string, int))name_id);
             string thread_name = nid.name.ToString();
@@ -103,10 +102,10 @@ namespace ZeroDir
                 var request = context.Request;
 
                 //Set up response
-                context.Response.KeepAlive = false;
+                //context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
-                context.Response.AddHeader("Keep-alive", "false");
+                //context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "none");
@@ -195,7 +194,7 @@ namespace ZeroDir
                     var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (mime.StartsWith("image")) {
-                        Logging.ThreadMessage($"Requesting thumbnail for {absolute_on_disk_path}", thread_name, thread_id);
+                        Logging.ThreadMessage($"Requested thumbnail for {absolute_on_disk_path}", thread_name, thread_id);
                         enable_cache(context);
                         ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this);
 
