@@ -31,6 +31,7 @@ namespace ZeroDir
 
             for (int i = 0; i < dispatch_threads.Length; i++) {
                 dispatch_threads[i].Join();
+                dispatch_threads[i].Abort();
                 Logging.ThreadMessage($"Stopped thread", $"{name}:{i}", i);
             }
 
