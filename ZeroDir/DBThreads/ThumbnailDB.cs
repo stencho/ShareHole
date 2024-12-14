@@ -62,7 +62,7 @@ namespace ZeroDir.DBThreads {
 
         static void handle_requests() {         
             while (true) {
-                while (request_queue.Count > 0) {
+                if (request_queue.Count > 0) {
                     for (int t = 0; t < current_requests.Length; t++) {
                         if (current_requests[t] == null) {
                             if (request_queue.Peek() == null) { request_queue.Dequeue(); break; }
@@ -77,7 +77,7 @@ namespace ZeroDir.DBThreads {
                     }
                 }
 
-                Thread.Sleep(50);
+                //Thread.Sleep(50);
             }
         }
 
