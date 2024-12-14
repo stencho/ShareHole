@@ -1,5 +1,5 @@
 ## ZeroDir
-An HTTP file server designed to share files with low (but not zero) security, with a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file.
+An HTTP file server for sharing directories with low (but not zero) security, and a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file.
 
 ### Configuration and usage
 Use the -c command line argument to set the current config directory.
