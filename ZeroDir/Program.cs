@@ -22,7 +22,7 @@ namespace ZeroDir {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "passdir", new ConfigValue("loot") },
-                            { "threads", new ConfigValue(16) },
+                            { "threads", new ConfigValue(4) },
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) }
                         }
@@ -31,7 +31,7 @@ namespace ZeroDir {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
-                            { "thumbnail_builder_threads", new ConfigValue(16) },
+                            { "thumbnail_builder_threads", new ConfigValue(8) },
                         }
                     }
                 };
