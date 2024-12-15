@@ -151,10 +151,9 @@ namespace ShareHole {
                 }
             }
 
-            public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {
-                Logging.Message($"Attempting to convert {file.Name} to MP4");
-                
+            public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {                
                 try {
+                    Logging.Message($"Converting {file.Name} to MP4");
                     var anal = FFProbe.Analyse(file.FullName);
                     video_data data;
 
@@ -176,7 +175,7 @@ namespace ShareHole {
                                     .WithFastStart()
 
                                     .WithCustomArgument("-loglevel verbose")
-                                    .WithCustomArgument("-movflags frag_keyframe")
+                                    .WithCustomArgument("-movflags frag_keyframe+empty_moov")
 
                                 ).ProcessAsynchronously();
 
