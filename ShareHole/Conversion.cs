@@ -27,10 +27,9 @@ namespace ShareHole {
                 if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
 
             } else if (mime.StartsWith("video")) {
-                //wmv soon
                 if (mime.EndsWith("x-ms-wmv")) return "/to_mp4";
-                if (mime.EndsWith("x-msvideo")) return "/to_mp4";
-                if (mime.EndsWith("x-matroska")) return "/to_mp4";
+                //if (mime.EndsWith("x-msvideo")) return "/to_mp4";
+                //if (mime.EndsWith("x-matroska")) return "/to_mp4";
             }
 
             return "";
@@ -197,18 +196,20 @@ namespace ShareHole {
                         data = VideoCache.cache[file.FullName];
                     }
 
+                    //implement header checks for range
+                    var r = context.Request.Headers["Range"];
+
                     context.Response.ContentType = "video/mp4";
                     context.Response.ContentLength64 = data.length;
 
                     using (var ds = new MemoryStream(data.data)) {
-                        await ds.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                        await ds.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token);
+                        
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
                             context.Response.StatusDescription = "400 OK";
                             context.Response.Close();
 
-                            Logging.Message($"Done copying MP4 chunk of {file.Name}");
-                     
-                        }, CurrentConfig.cancellation_token);
+                            Logging.Message($"Done copying MP4 chunk of {file.Name}");                        
                     }
                 } catch (Exception ex) {
                     Logging.Error($"MP4 {file.Name} :: {ex.Message}");
