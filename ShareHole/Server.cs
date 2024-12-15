@@ -175,10 +175,10 @@ namespace ShareHole
                 var request = context.Request;
 
                 //Set up response
-                context.Response.KeepAlive = false;
+                context.Response.KeepAlive = true;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
-                context.Response.AddHeader("Keep-alive", "false");
+                //context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "bytes");
