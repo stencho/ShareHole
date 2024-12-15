@@ -154,7 +154,7 @@ namespace ShareHole.DBThreads {
 
             try {
                 MemoryStream ms = new MemoryStream(request.thumbnail, false);
-                var t = ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r => {
+                ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r => {
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;
                     request.response.StatusDescription = "400 OK";
