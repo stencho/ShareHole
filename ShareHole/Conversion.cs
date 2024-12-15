@@ -159,39 +159,39 @@ namespace ShareHole {
                     video_data data;
 
                     if (!VideoCache.Test(file.FullName)) {
-                        var ms = new MemoryStream();
-                        await FFMpegArguments
-                            .FromFileInput(file//, options => options
-                                //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
-                                )
-                            .OutputToPipe(new StreamPipeSink(ms), options => options
-                                .ForceFormat("mp4")
-                                .WithVideoCodec("libx264")
-                                .WithAudioCodec("aac")
-                                .UsingMultithreading(true)
+                        using (var ms = new MemoryStream()) {
+                            await FFMpegArguments
+                                .FromFileInput(file//, options => options
+                                                   //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
+                                    )
+                                .OutputToPipe(new StreamPipeSink(ms), options => options
+                                    .ForceFormat("mp4")
+                                    .WithVideoCodec("libx264")
+                                    .WithAudioCodec("aac")
+                                    .UsingMultithreading(true)
 
-                                .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
-                                .WithVideoBitrate(CurrentConfig.server["conversion"]["mp4_bitrate"].get_int())
+                                    .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
+                                    .WithVideoBitrate(CurrentConfig.server["conversion"]["mp4_bitrate"].get_int())
 
-                                .WithFastStart()
+                                    .WithFastStart()
 
-                                .WithCustomArgument("-loglevel verbose")
-                                .WithCustomArgument("-movflags frag_keyframe+empty_moov")
+                                    .WithCustomArgument("-loglevel verbose")
+                                    .WithCustomArgument("-movflags frag_keyframe+empty_moov")
 
-                            ).ProcessAsynchronously();
+                                ).ProcessAsynchronously();
 
-                        data = new video_data(anal.Duration.TotalSeconds + (60 * 10), "video/mp4");
+                            data = new video_data(anal.Duration.TotalSeconds + (60 * 10), "video/mp4");
 
-                        data.data = new byte[ms.Length];
-                        ms.Seek(0, SeekOrigin.Begin);
+                            data.data = new byte[ms.Length];
+                            ms.Seek(0, SeekOrigin.Begin);
 
-                        using (var data_stream = new MemoryStream(data.data)) {
-                            await ms.CopyToAsync(data_stream);
+                            using (var data_stream = new MemoryStream(data.data)) {
+                                await ms.CopyToAsync(data_stream);
+                            }
+
+                            VideoCache.Store(file.FullName, data);
+
                         }
-
-                        VideoCache.Store(file.FullName, data);
-
-                        ms.Close();
                     } else {
                         data = VideoCache.cache[file.FullName];
                     }
@@ -203,13 +203,14 @@ namespace ShareHole {
                     context.Response.ContentLength64 = data.length;
 
                     using (var ds = new MemoryStream(data.data)) {
-                        await ds.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token);
-                        
+                        ds.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(res => {
+
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
                             context.Response.StatusDescription = "400 OK";
                             context.Response.Close();
 
-                            Logging.Message($"Done copying MP4 chunk of {file.Name}");                        
+                            Logging.Message($"Done copying MP4 chunk of {file.Name}");
+                        });
                     }
                 } catch (Exception ex) {
                     Logging.Error($"MP4 {file.Name} :: {ex.Message}");
