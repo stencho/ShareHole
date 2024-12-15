@@ -344,7 +344,8 @@ namespace ShareHole {
                 if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
 
             } else if (mime.StartsWith("video")) {
-
+                //wmv soon
+                //if (mime.EndsWith("x-ms-wmv")) return "/to_mp4";
             }
 
             return "";

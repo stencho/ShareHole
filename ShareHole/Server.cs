@@ -150,10 +150,10 @@ namespace ShareHole
                     while (context == null) {
                         if (CurrentConfig.cancellation_token.IsCancellationRequested) {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
-                            return;
+                            continue;
                         }
 
-                        Thread.Sleep(5);
+                        Thread.Sleep(Random.Shared.Next(5, 100));
                     }
 
                 } catch(HttpListenerException ex) {
@@ -161,13 +161,13 @@ namespace ShareHole
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
                     } 
-                    return;
+                    continue;
 
                 } catch (ObjectDisposedException ex) {
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
-                    } 
-                    return;
+                    }
+                    continue;
                 }
 
                 var request = context.Request;

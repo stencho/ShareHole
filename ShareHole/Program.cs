@@ -162,7 +162,7 @@ namespace ShareHole {
 
         p.head {
           color: rgb(255, 255, 255) !important;
-          font-size: 32;
+          font-size: 22;
         }
 
         p {
