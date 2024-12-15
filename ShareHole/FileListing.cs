@@ -5,6 +5,7 @@ using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -251,8 +252,26 @@ namespace ShareHole {
 
                 Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
             }
-                        
-            foreach (var file in info.files.OrderBy(a => a.Name)) {            
+
+            IOrderedEnumerable<FileInfo> files;
+
+            bool group_by_type = false;
+            bool group_by_ext  = false;
+            if (info.grouping == "type") {
+                files = info.files.OrderBy(x => GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name);
+                group_by_type = true;
+            } else if (info.grouping == "extension") {
+                files = info.files.OrderBy(x => x.Extension.Replace(".","")).ThenBy(x => x.Name);
+                group_by_ext = true;
+            } else {
+                files = info.files.OrderBy(a => a.Name);
+            }
+
+            string previous_ext = "";
+            string previous_mime = "";
+            string current_type = "";
+
+            foreach (var file in files) {            
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
                 
@@ -265,6 +284,22 @@ namespace ShareHole {
                         continue;
 
                     conversion = check_conversion(mime);
+
+                    if (group_by_type && mime != previous_mime) {
+                        var slashi = mime.IndexOf("/");
+                        var t = mime.Substring(0, slashi);
+                        if (current_type != t) {
+                            result += $"<p class=\"head\"><b>{t}</b></p>\n";
+                            current_type = t;
+                        }
+                    }
+
+                    if (group_by_ext && ext != previous_ext) {
+                        result += $"<p class=\"head\"><b>{ext}</b></p>\n";                        
+                    }
+
+                    previous_mime = mime;
+                    previous_ext = ext;
 
                     result +=
                         $"<a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
@@ -335,9 +370,9 @@ namespace ShareHole {
             string mimetype;
 
             var fi = new FileInfo(fn);
-            if (fi.Extension.ToLower() == ".dng") return "image/dng";
-            if (fi.Extension.ToLower() == ".raw") return "image/raw";
-            if (fi.Extension.ToLower() == ".avif") return "image/avif";
+            if (fi.Extension.ToLower() == ".dng") return "image";
+            if (fi.Extension.ToLower() == ".raw") return "image";
+            if (fi.Extension.ToLower() == ".avif") return "image";
 
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);
