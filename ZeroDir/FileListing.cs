@@ -211,6 +211,22 @@ namespace ZeroDir {
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
 
             result += "<div id=\"gallery\">";
+            //Add up dir if we're showing directories
+            if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
+                result +=
+                    $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
+                    $"<span class=\"thumbnail\" >" +
+                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].get_int()}px>" +
+                    $"<text class=\"emojitint\">⮝</text>" +
+                    $"</font>" +
+                    $"<br>" +
+                    $"<text class=\"galleryfoldertext\">/{info.up_dir}</text>" +
+                    $"</span>" +
+                    $"</a>" +
+                    $"\n";
+                //result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
+            }
+
             foreach (var dir in info.directories.OrderBy(a => a.Name)) {
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
@@ -226,7 +242,7 @@ namespace ZeroDir {
 
                 Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
             }
-
+            
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
@@ -266,6 +282,10 @@ namespace ZeroDir {
 
         public static string GetMimeTypeOrOctet(string fn) {
             string mimetype;
+
+            var fi = new FileInfo(fn);
+            if (fi.Extension == ".dng") return "image/dng";
+            
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);
             } catch {
@@ -275,6 +295,10 @@ namespace ZeroDir {
         }
         public static string GetMimeTypeOrOctetMinusExt(string fn) {
             string mimetype;
+
+            var fi = new FileInfo(fn);
+            if (fi.Extension == ".dng") return "image/dng";
+
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);
             } catch {
