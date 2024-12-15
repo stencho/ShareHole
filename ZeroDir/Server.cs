@@ -152,7 +152,7 @@ namespace ZeroDir
                             return;
                         }
 
-                        Thread.Sleep(3);
+                        Thread.Sleep(1);
                     }
 
                 } catch(HttpListenerException ex) {

@@ -107,27 +107,38 @@ namespace ZeroDir.DBThreads {
             thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
 
             //cache hit, do nothing
-            if (thumbnail_cache.ContainsKey(request.file.FullName)) {                
-                //Logging.ThreadMessage($"Cache hit for {request.file.Name}", "THUMB", request.thread_id);
+            if (thumbnail_cache.ContainsKey(request.file.FullName)) {
+                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                    Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
             //build new thumbnail for an image and add it to the cache
-            } else if (request.mime_type.StartsWith("image")) {                
-                Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+            } else if (request.mime_type.StartsWith("image")) {
+                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                    Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
-                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/bmp", mi.ToByteArray()));
-                if (use_compression) compress_thumbnail(request.file.FullName);
+                try {
+                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/bmp", mi.ToByteArray()));
+                    if (use_compression) compress_thumbnail(request.file.FullName);
+                } catch (Exception ex) {
+                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                }
 
             //build one for a video
-            } else if (request.mime_type.StartsWith("video")) {
-                Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+            } else if (request.mime_type.StartsWith("video")) {         
+                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                    Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 var thumb = get_first_video_frame_from_ffmpeg(request);
 
-                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));
-                if (use_compression) compress_thumbnail(request.file.FullName);
+                try {
+                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));
+                    if (use_compression) compress_thumbnail(request.file.FullName);
+                } catch (Exception ex) {
+                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                }
             }
 
             //pull byte array from the cache and set up a few requirements
@@ -138,9 +149,6 @@ namespace ZeroDir.DBThreads {
             try {
                 MemoryStream ms = new MemoryStream(request.thumbnail, false);
                 var t = ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r => {
-
-                    Logging.ThreadMessage($"Build thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
-
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;
                     request.response.StatusDescription = "400 OK";
@@ -149,10 +157,13 @@ namespace ZeroDir.DBThreads {
 
                     ms.Close();
                     ms.Dispose();
+
+                    if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                        Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
                 });
 
-            } catch (HttpListenerException e) {
-                Logging.Error($"{request.file.Name} :: {e.Message}");
+            } catch (HttpListenerException ex) {
+                Logging.Error($"{request.file.Name} :: {ex.Message}");
             }
 
         }
