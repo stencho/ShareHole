@@ -121,7 +121,7 @@ namespace ZeroDir.DBThreads {
             return output;
         }
 
-        static void build_thumbnail(object request) {
+        static async void build_thumbnail(object request) {
             ThumbnailRequest req = (ThumbnailRequest)request;
 
             if (thumbnail_cache.ContainsKey(req.file.FullName)) {
@@ -151,27 +151,19 @@ namespace ZeroDir.DBThreads {
             req.response.ContentType = thumbnail_cache[req.file.FullName].mime;
             req.response.ContentLength64 = req.thumbnail.LongLength;
 
-            req.parent_server.current_sub_thread_count++;
-            try {
-                req.response.OutputStream.BeginWrite(req.thumbnail, 0, req.thumbnail.Length, result => {
-                    req.response.StatusCode = (int)HttpStatusCode.OK;
-                    req.response.StatusDescription = "400 OK";
-                    req.response.OutputStream.Close();
-                    req.response.Close();
+            using (MemoryStream ms = new MemoryStream(req.thumbnail, false)) {
+                await ms.CopyToAsync(req.response.OutputStream, CurrentConfig.cancellation_token);
+                
+                req.response.StatusCode = (int)HttpStatusCode.OK;
+                req.response.StatusDescription = "400 OK";
+                req.response.OutputStream.Close();
+                req.response.Close();
 
-                    //Logging.ThreadMessage($"Finished writing thumbnail for {req.file.FullName}", "THUMB", req.thread_id);
-
-                    lock (current_requests) {
-                        current_requests[req.thread_id] = null;
-                    }
-
-                    req.parent_server.current_sub_thread_count--;
-                }, req.response);
-
-            } catch (Exception ex) {
-                Logging.Error(ex.Message);
-                req.parent_server.current_sub_thread_count--;
+                lock (current_requests) {
+                    current_requests[req.thread_id] = null;
+                }
             }
+
         }
     }
 }

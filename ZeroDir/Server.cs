@@ -24,10 +24,6 @@ namespace ZeroDir
         public string id { get; private set; }
         public string name { get; private set; }
 
-        public int current_sub_thread_count = 0;
-
-        CancellationTokenSource token_source;
-
 
         string _pd;
         string page_data_strings_replaced {
@@ -41,8 +37,6 @@ namespace ZeroDir
 
         int dispatch_thread_count = 64;
         public Thread[] dispatch_threads;
-
-
 
         public void StartServer(string id) {
             this.id = id;
@@ -71,7 +65,6 @@ namespace ZeroDir
                 CSS = base_css_data_replaced;
             }
 
-
             listener = new HttpListener();
 
             var port = CurrentConfig.server["server"]["port"].get_int();
@@ -98,30 +91,23 @@ namespace ZeroDir
             listener.Start();
 
             dispatch_threads = new Thread[dispatch_thread_count];
-            token_source = new CancellationTokenSource();
 
             Logging.Message($"Starting server on port {port}");
 
-            //while (listener.IsListening && running) {
-                for (int i = 0; i < dispatch_thread_count; i++) {
-                //if (dispatch_threads[i] == null) {
-                        dispatch_threads[i] = new Thread(RequestThread);
-                        dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
-                        dispatch_threads[i].Start((dispatch_threads[i].Name, i, token_source.Token));
-                    //}
-                }
-
-                //Thread.Sleep(500);
-            //}
+            for (int i = 0; i < dispatch_thread_count; i++) {
+                dispatch_threads[i] = new Thread(RequestThread);
+                dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
+                dispatch_threads[i].Start((dispatch_threads[i].Name, i));
+            }
         }
 
         public void StopServer() {
             running = false;
 
-            token_source.Cancel(true);
+            CurrentConfig.cancellation_token_source.Cancel(true);
 
             while (true) {
-                if (all_threads_stopped() && current_sub_thread_count <= 0)
+                if (all_threads_stopped())
                     break;
             }
 
@@ -142,25 +128,26 @@ namespace ZeroDir
             return i == 0;
         }
 
-        async void RequestThread(object? name_id_ct) {
-            (string name, int id, CancellationToken ct) nidct = (((string, int, CancellationToken))name_id_ct);
-            string thread_name = nidct.name.ToString();
-            int thread_id = nidct.id;
-            CancellationToken ct = nidct.ct;
+        async void RequestThread(object? name_id) {
+            (string name, int id) nid = (((string, int))name_id);
+            string thread_name = nid.name.ToString();
+            int thread_id = nid.id;
 
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
 
-            while (listener.IsListening && running) {
+            while (listener.IsListening && running) {                
                 HttpListenerContext context = null;
-
                 try {
-                    //context = await listener.GetContextAsync();
-                    listener.GetContextAsync().ContinueWith(async a => {
+                    //Asynchronously begin waiting for a new HTTP event,
+                    //but continue on to the while loop below to make it
+                    //possible to exit idly waiting threads 
+                    listener.GetContextAsync().ContinueWith(a => {
                         context = a.Result;
-                    });
+                    }, CurrentConfig.cancellation_token);
 
+                    //Wait for a new HTTP request
                     while (context == null) {
-                        if (ct.IsCancellationRequested) {
+                        if (CurrentConfig.cancellation_token.IsCancellationRequested) {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                             return;
                         }
@@ -288,15 +275,13 @@ namespace ZeroDir
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;
 
-                        current_sub_thread_count++;
-                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                            context.Response.StatusDescription = "404 NOT FOUND";
-                            context.Response.OutputStream.Close();
-                            context.Response.Close();
-                            //Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
-                            current_sub_thread_count--;
-                        }, context.Response);
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                                context.Response.StatusDescription = "404 NOT FOUND";
+                                context.Response.Close();
+                            }, CurrentConfig.cancellation_token);
+                        }
                     }
 
 
@@ -311,17 +296,15 @@ namespace ZeroDir
                     
                     enable_cache(context);
 
-                    current_sub_thread_count++;
-                    context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                        context.Response.OutputStream.EndWrite(result);
-                        context.Response.StatusCode = (int)HttpStatusCode.OK;
-                        context.Response.StatusDescription = "400 OK";
-                        context.Response.Close();
-                        Logging.ThreadMessage("Sent CSS", thread_name, thread_id);
-                        current_sub_thread_count--;
-                    }, context.Response);
+                    using (MemoryStream ms = new MemoryStream(data, false)) {
+                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {                            
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.Close();
+                        }, CurrentConfig.cancellation_token);                        
+                    }
 
-                //Requested a directory
+                    //Requested a directory
                 } else if (Directory.Exists(absolute_on_disk_path)) {
                     if (!show_dirs && url_path != "/") {
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
@@ -353,19 +336,19 @@ namespace ZeroDir
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
-                    current_sub_thread_count++;
                     try {
-                        context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                            context.Response.OutputStream.EndWrite(result);
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
-                            context.Response.Close();
-                            Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                            current_sub_thread_count--;
-                        }, context.Response);
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "400 OK";
+                                context.Response.Close();
+
+                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                            }, CurrentConfig.cancellation_token);
+                        }
+
                     } catch (HttpListenerException ex) {
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                        current_sub_thread_count--;
                     }
 
                 //Requested a non-CSS file
@@ -415,40 +398,38 @@ namespace ZeroDir
 
                     context.Response.ContentLength64 = fs.Length;
 
-                    current_sub_thread_count++;
-                    var task = fs.CopyToAsync(context.Response.OutputStream);
+                    var task = fs.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
 
-                    task.GetAwaiter().OnCompleted(() => {
                         try {
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
                             context.Response.StatusDescription = "400 OK";
                             context.Response.OutputStream.Close();
                             context.Response.Close();
+
                             Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
                             fs.Close();
 
                         } catch (HttpListenerException ex) {
                             Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
+                            fs.Close();
                         }
-                        current_sub_thread_count--;
-                    });
+                    }, CurrentConfig.cancellation_token);
 
-                //User gave a very fail URL
+
+                    //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
                     data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                     context.Response.ContentType = "text/html; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
-                    current_sub_thread_count++;
-                    context.Response.OutputStream.BeginWrite(data, 0, data.Length, result => {
-                        context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                        context.Response.StatusDescription = "404 NOT FOUND";
-                        context.Response.OutputStream.Close();
-                        context.Response.Close();
-                        Logging.ThreadMessage("Finished writing 404", thread_name, thread_id);
-                        current_sub_thread_count--;
-                    }, context.Response);
+                    using (MemoryStream ms = new MemoryStream(data, false)) {
+                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                            context.Response.StatusDescription = "404 NOT FOUND";
+                            context.Response.Close();
+                        }, CurrentConfig.cancellation_token);
+                    }
                 }
             }
 

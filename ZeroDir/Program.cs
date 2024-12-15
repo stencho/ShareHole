@@ -15,6 +15,9 @@ namespace ZeroDir {
         public static bool use_html_file = false;
         public static bool use_css_file = false;
 
+        internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
+        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
+
         public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values = 
             new Dictionary<string, Dictionary<string, ConfigValue>>() {
                     { "server",
@@ -228,7 +231,7 @@ namespace ZeroDir {
             ThumbnailThreadPool.Start();
 
             Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
-
+            
             while (true) { 
                 string line = Console.ReadLine();
 

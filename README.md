@@ -16,9 +16,8 @@ port=8080
 # For example: example.com:8080/loot/share
 passdir=loot
 
-# The amount of threads for handling requests
-# These threads dispatch other threads and thus not many are needed
-threads=4
+# The number of threads for handling requests and uploads
+threads=32
 
 # Look for base.html and base.css in the config directory
 use_html_file=false
@@ -27,7 +26,7 @@ use_css_file=false
 # Image/Video thumbnail gallery options
 [gallery]
 thumbnail_size=192
-thumbnail_builder_threads=8
+thumbnail_builder_threads=64
 ```
 
 'shares' config file
