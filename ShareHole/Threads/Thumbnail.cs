@@ -86,9 +86,7 @@ namespace ShareHole.DBThreads {
             image.Quality = (uint)compression_quality;
         }
 
-        static async void build_thumbnail(object data) {
-            var request = (ThumbnailRequest)data;
-
+        static async void build_thumbnail(ThumbnailRequest request) {
             thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
 
             //cache hit, do nothing
@@ -145,7 +143,7 @@ namespace ShareHole.DBThreads {
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;
                     request.response.StatusDescription = "400 OK";
-                    request.response.OutputStream.Close();
+
                     request.response.Close();
 
                     ms.Close();
