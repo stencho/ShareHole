@@ -27,86 +27,39 @@ namespace ZeroDir.DBThreads {
 
         public FolderServer parent_server;
 
-        public ThumbnailRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type) {
+        public ThumbnailRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             this.file = file;
             this.response = response;
             this.parent_server = parent_server;
+            this.thread_id = thread_id;
             this.mime_type = mime_type;
         }
     }
 
-    public static class ThumbnailThreadPool {
-        //thread for handling thumbnail requests
-        static volatile Thread request_thread = new Thread(handle_requests);
-
-        //threads for building thumbnails
-        static volatile Thread[] build_threads = new Thread[build_thread_count];
-        static volatile ThumbnailRequest[] current_requests = new ThumbnailRequest[build_thread_count];
-        static int build_thread_count = 32;
-
+    public static class ThumbnailManager {
         static int thumbnail_size = 192;
-
-        //the queue that the dispatcher uses for starting threads
-        static volatile Queue<ThumbnailRequest> request_queue = new Queue<ThumbnailRequest>(build_thread_count*4);
 
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
-        public static void Start() {
-            build_thread_count = CurrentConfig.server["gallery"]["thumbnail_builder_threads"].get_int();
-            thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
-
-            current_requests = new ThumbnailRequest[build_thread_count];
-            build_threads = new Thread[build_thread_count];
-
-            Logging.ThreadMessage($"Starting dispatcher thread, using {build_thread_count} builder threads", "THUMB", 0);
-            request_thread.Start();
-        }
-
-        public static void RequestThumbnail(string filename, HttpListenerResponse response, FolderServer parent_server, string mime_type) {
+        public static void RequestThumbnail(string filename, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             FileInfo f = new FileInfo(filename);
             if (f.Exists) {
-                RequestThumbnail(f, response, parent_server, mime_type);
+                RequestThumbnail(f, response, parent_server, mime_type, thread_id);
             } else return;
         }
 
-        public static void RequestThumbnail(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type) {
-            //Logging.ThreadMessage($"Requesting thumbnail for {file.Name}", "THUMB", 0);
-            lock (request_queue) {
-                request_queue.Enqueue(new ThumbnailRequest(file, response, parent_server, mime_type));
-            }
+        public static void RequestThumbnail(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
+            var tr = new ThumbnailRequest(file, response, parent_server, mime_type, thread_id);
+            build_thumbnail(tr);
         }
 
-        //main dispatch thread loop
-        static void handle_requests() {
-            while (true) {
-                Thread.Sleep(10);
-                while (request_queue.Count > 0) {
-                    for (int t = 0; t < current_requests.Length; t++) {
-                        if (current_requests[t] == null) {
-                            lock (request_queue) {
-                                current_requests[t] = request_queue.Dequeue();
-                            }
-                            
-                            current_requests[t].thread_id = t;
-                            current_requests[t].thread_dispatched = true;
-
-                            build_threads[t] = new Thread(build_thumbnail);
-                            build_threads[t].Start(current_requests[t]);
-                            
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        internal static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest req) {
+        static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest request) {
             byte[] output;
 
             using (var stream_output = new MemoryStream()) {
                 var stream_video = FFMpegArguments
-                    .FromFileInput(req.file)
+                    .FromFileInput(request.file)
                     .OutputToPipe(new StreamPipeSink(stream_output), options =>
                         options.WithFrameOutputCount(1)
                         .WithVideoCodec(VideoCodec.Png)
@@ -121,52 +74,51 @@ namespace ZeroDir.DBThreads {
             return output;
         }
 
-        static async void build_thumbnail(object request) {
-            ThumbnailRequest req = (ThumbnailRequest)request;
+        static async void build_thumbnail(ThumbnailRequest request) {
+            thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
 
-            if (thumbnail_cache.ContainsKey(req.file.FullName)) {
-                //cache hit, do nothing
-                //Logging.ThreadMessage($"Cache hit for {req.file.Name}", "THUMB", req.thread_id);
+            //cache hit, do nothing
+            if (thumbnail_cache.ContainsKey(request.file.FullName)) {                
+                //Logging.ThreadMessage($"Cache hit for {request.file.Name}", "THUMB", request.thread_id);
 
-            } else if (req.mime_type.StartsWith("image")) {
-                //Logging.ThreadMessage($"Building thumbnail for image {req.file.Name}", "THUMB", req.thread_id);
-                MagickImage mi = new MagickImage(req.file.FullName);
+            //build new thumbnail for an image and add it to the cache
+            } else if (request.mime_type.StartsWith("image")) {
+                Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+
+                MagickImage mi = new MagickImage(request.file.FullName);
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
-                lock (thumbnail_cache) {
-                    thumbnail_cache.Add(req.file.FullName, ("image/bmp", mi.ToByteArray()));
-                }
+                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/bmp", mi.ToByteArray()));
+                
 
-            } else if (req.mime_type.StartsWith("video")) {
-                //Logging.ThreadMessage($"Building thumbnail for video {req.file.Name}", "THUMB", req.thread_id);
+            //build one for a video
+            } else if (request.mime_type.StartsWith("video")) {
+                Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
-                var thumb = get_first_video_frame_from_ffmpeg(req);
+                var thumb = get_first_video_frame_from_ffmpeg(request);
 
-                lock (thumbnail_cache) {
-                    thumbnail_cache.Add(req.file.FullName, ("image/png", thumb));
-                }
+                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));                
             }
 
-            req.thumbnail = thumbnail_cache[req.file.FullName].data;
-            req.response.ContentType = thumbnail_cache[req.file.FullName].mime;
-            req.response.ContentLength64 = req.thumbnail.LongLength;
+            //pull byte array from the cache and set up a few requirements
+            request.thumbnail = thumbnail_cache[request.file.FullName].data;
+            request.response.ContentType = thumbnail_cache[request.file.FullName].mime;
+            request.response.ContentLength64 = request.thumbnail.LongLength;
 
-            MemoryStream ms = new MemoryStream(req.thumbnail, false);
+            MemoryStream ms = new MemoryStream(request.thumbnail, false);
 
             try {
-                await ms.CopyToAsync(req.response.OutputStream, CurrentConfig.cancellation_token);
+                //copy the thumbnail over the network
+                await ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token);
 
-                req.response.StatusCode = (int)HttpStatusCode.OK;
-                req.response.StatusDescription = "400 OK";
-                req.response.OutputStream.Close();
-                req.response.Close();
-
-                lock (current_requests) {
-                    current_requests[req.thread_id] = null;
-                }
+                //success
+                request.response.StatusCode = (int)HttpStatusCode.OK;
+                request.response.StatusDescription = "400 OK";
+                request.response.OutputStream.Close();
+                request.response.Close();
 
             } catch (HttpListenerException e) {
-                Logging.Error($"{req.file.Name} :: {e.Message}");               
+                Logging.Error($"{request.file.Name} :: {e.Message}");
             }
 
             ms.Close();

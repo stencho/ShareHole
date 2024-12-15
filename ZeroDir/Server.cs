@@ -265,9 +265,7 @@ namespace ZeroDir
 
                     if (mime.StartsWith("image")|| mime.StartsWith("video")) {
                         enable_cache(context);
-                        ThumbnailThreadPool.RequestThumbnail(absolute_on_disk_path, context.Response, this, mime);
-                        context.Response.StatusCode = (int)HttpStatusCode.OK;
-                        context.Response.StatusDescription = "400 OK";
+                        ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context.Response, this, mime, thread_id);
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE OR VIDEO FILE</b></p>";

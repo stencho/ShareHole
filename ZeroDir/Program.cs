@@ -10,8 +10,6 @@ namespace ZeroDir {
         public static ConfigWithExpectedValues server;
         public static ConfigWithUserValues shares;
 
-        public static bool log_headers = false;
-
         public static bool use_html_file = false;
         public static bool use_css_file = false;
 
@@ -33,8 +31,7 @@ namespace ZeroDir {
 
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
-                            { "thumbnail_size", new ConfigValue(192) },
-                            { "thumbnail_builder_threads", new ConfigValue(8) },
+                            { "thumbnail_size", new ConfigValue(192) }
                         }
                     }
                 };
@@ -222,13 +219,9 @@ namespace ZeroDir {
             LoadConfig();
             Logging.Config($"Configuration loaded, starting server!");
 
-            //foreach (string section in CurrentConfig.shares.Keys) {
             servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start(0.ToString());
-            //}
-
-            ThumbnailThreadPool.Start();
 
             Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
             

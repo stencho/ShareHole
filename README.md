@@ -17,6 +17,8 @@ port=8080
 passdir=loot
 
 # The number of threads for handling requests and uploads
+# This includes thumbnails, so if you're using gallery mode,
+# you may want to increase this
 threads=32
 
 # Look for base.html and base.css in the config directory
@@ -26,7 +28,6 @@ use_css_file=false
 # Image/Video thumbnail gallery options
 [gallery]
 thumbnail_size=192
-thumbnail_builder_threads=64
 ```
 
 'shares' config file
