@@ -105,14 +105,14 @@ namespace ShareHole {
         public static ConsoleColor RandomConsoleColor() {
             var cc_list = Enum.GetNames(typeof(ConsoleColor));
             var cc_count = cc_list.Length;
-            var rng = Random.Shared.Next(0, cc_count);
-            
+            var rng = Random.Shared.Next(1, cc_count-1);
+                        
             return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
         }
         public static ConsoleColor SeededRandomConsoleColor(int seed) {
             var cc_list = Enum.GetNames(typeof(ConsoleColor));
             var cc_count = cc_list.Length;
-            var rng = new Random(seed).Next(0, cc_count);
+            var rng = new Random(seed).Next(1, cc_count-1);
 
             return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
         }
