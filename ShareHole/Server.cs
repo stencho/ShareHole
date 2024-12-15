@@ -11,6 +11,7 @@ using System.ComponentModel.Design;
 using System.Drawing;
 using ShareHole.DBThreads;
 using ImageMagick;
+using System.Net.Http.Headers;
 
 namespace ShareHole
 {
@@ -139,7 +140,7 @@ namespace ShareHole
             while (listener.IsListening && running) {                
                 HttpListenerContext context = null;
                 try {
-                    //Asynchronously begin waiting for a new HTTP event,
+                    //Asynchronously begin waiting for a new HTTP request,
                     //but continue on to the while loop below to make it
                     //possible to exit idly waiting threads 
                     listener.GetContextAsync().ContinueWith(a => {
@@ -153,7 +154,8 @@ namespace ShareHole
                             return;
                         }
 
-                        Thread.Sleep(Random.Shared.Next(5, 100));
+                        //sleep for a random amount of time, purely to reduce cpu usage at idle. 
+                        Thread.Sleep(Random.Shared.Next(5, 50));
                     }
 
                 } catch(HttpListenerException ex) {
@@ -204,6 +206,8 @@ namespace ShareHole
                 bool thumbnail = false;
                 bool to_jpg = false;
                 bool to_png = false;
+                bool to_mp4 = false;
+                bool to_webm = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
@@ -223,6 +227,12 @@ namespace ShareHole
                 } else if (url_path.StartsWith("/to_png/")) {
                     url_path = url_path.Remove(0, "/to_png/".Length);
                     to_png = true;
+                } else if (url_path.StartsWith("/to_mp4/")) {
+                    url_path = url_path.Remove(0, "/to_mp4/".Length);
+                    to_mp4 = true;
+                } else if (url_path.StartsWith("/to_webm/")) {
+                    url_path = url_path.Remove(0, "/to_webm/".Length);
+                    to_webm = true;
                 }
 
                 //Clean URL
@@ -268,7 +278,7 @@ namespace ShareHole
                 byte[] data = null;
 
                 var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
-                var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
+                var mime = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     //Requested thumbnail
                 if (thumbnail && File.Exists(absolute_on_disk_path)) {
@@ -329,7 +339,7 @@ namespace ShareHole
                         }
 
                     } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT A RAW FILE</b></p>";
+                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
                         data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;
@@ -366,7 +376,7 @@ namespace ShareHole
                         }
 
                     } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT A RAW FILE</b></p>";
+                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
                         data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;
@@ -379,6 +389,49 @@ namespace ShareHole
                             }, CurrentConfig.cancellation_token);
                         }
                     }
+
+                    //Requested video to MP4
+                } else if (to_mp4 && File.Exists(absolute_on_disk_path)) {
+                    if (mime.StartsWith("video")) {
+                        enable_cache(context);
+                        Conversion.Video.MP4ByteStream(new FileInfo(absolute_on_disk_path), context); 
+
+                    } else {
+                        page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                                context.Response.StatusDescription = "404 NOT FOUND";
+                                context.Response.Close();
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    }
+
+                    //Requested video to webm
+                } else if (to_webm && File.Exists(absolute_on_disk_path)) {
+                    if (mime.StartsWith("video")) {
+                        enable_cache(context);
+                        Conversion.Video.WebmByteStream(new FileInfo(absolute_on_disk_path), context);
+
+                    } else {
+                        page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                                context.Response.StatusDescription = "404 NOT FOUND";
+                                context.Response.Close();
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    }
+
 
                     //Requested CSS file  
                 } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
@@ -404,6 +457,8 @@ namespace ShareHole
                     if (!show_dirs && url_path != "/") {
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
+                        context.Response.Abort();
+                        continue;
                     } else {
                         //Get the page content based on the share's chosen render style
                         if (CurrentConfig.shares[share_name].ContainsKey("style")) {
@@ -448,7 +503,7 @@ namespace ShareHole
 
                     //Requested a file
                 } else if (File.Exists(absolute_on_disk_path)) {
-                    string mimetype = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
+                    string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (!show_dirs && url_path.Count(x => x == '/') > 1) {
                         Logging.ThreadError($"Attempted to open file outside of share \"{share_name}\" with directories off", thread_name, thread_id);

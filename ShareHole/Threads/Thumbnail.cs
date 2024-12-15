@@ -64,13 +64,27 @@ namespace ShareHole.DBThreads {
         static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest request) {
             byte[] output;
 
+            var anal = FFProbe.Analyse(request.file.FullName);
+
+            double final_x, final_y;
+
+            double aspect = (double)anal.PrimaryVideoStream.Width / (double)anal.PrimaryVideoStream.Height;
+
+            if (aspect >= 0) {
+                final_x = thumbnail_size * aspect;
+                final_y = thumbnail_size;
+            } else {
+                final_y = thumbnail_size * aspect;
+                final_x = thumbnail_size;
+            }
+
             using (var stream_output = new MemoryStream()) {
                 var stream_video = FFMpegArguments
                     .FromFileInput(request.file)
                     .OutputToPipe(new StreamPipeSink(stream_output), options =>
                         options.WithFrameOutputCount(1)
                         .WithVideoCodec(VideoCodec.Png)
-                        .Resize(thumbnail_size, thumbnail_size)
+                        .Resize((int)Math.Round(final_x), (int)Math.Round(final_y))
                         .ForceFormat("image2pipe")
                         )
                     .ProcessSynchronously();
@@ -79,17 +93,6 @@ namespace ShareHole.DBThreads {
             }
 
             return output;
-        }
-
-
-        static void ConvertToJpeg(MagickImage image) {
-            image.Settings.Format = MagickFormat.Jpg;
-            image.Settings.Compression = CompressionMethod.JPEG;
-            image.Quality = (uint)thumb_compression_quality;
-        }
-        static void ConvertToPng(MagickImage image) {
-            image.Settings.Format = MagickFormat.Png;            
-            image.Quality = (uint)thumb_compression_quality;
         }
 
         static async void build_thumbnail(ThumbnailRequest request) {
@@ -110,7 +113,7 @@ namespace ShareHole.DBThreads {
                 if (mi.Orientation != OrientationType.Undefined)
                     mi.AutoOrient();
 
-                ConvertToJpeg(mi);
+                Conversion.Image.ConvertToJpeg(mi, (uint)CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int());
 
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
@@ -136,7 +139,7 @@ namespace ShareHole.DBThreads {
                         if (mi.Orientation != OrientationType.Undefined)
                             mi.AutoOrient();
 
-                        ConvertToJpeg(mi);
+                        Conversion.Image.ConvertToJpeg(mi, (uint)CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int());
                         jpeg_data = mi.ToByteArray();
                     }
 

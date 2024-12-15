@@ -47,6 +47,11 @@ jpeg_compression=true
 # Quality level, from 0-100
 jpeg_quality=85
 
+# Determines how many threads are used by each /to_mp4/ and /to_webm/ converter
+threads_per_video_conversion=16
+# The output bitrate of those mp4s
+mp4_bitrate=1500
+
 # Settings for the 'gallery' view style
 [gallery]
 thumbnail_size=192

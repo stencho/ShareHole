@@ -133,12 +133,12 @@ namespace ShareHole {
             if (info.grouping == "none" || !info.cares_about_groups) {
                 foreach (var file in info.files.OrderBy(a => a.Name)) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = GetMimeTypeOrOctet(file.Name);
+                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    conversion = check_conversion(mime);
+                    conversion = Conversion.CheckConversion(mime);
 
                     result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
 
@@ -149,7 +149,7 @@ namespace ShareHole {
                 string previous_ext = "";
                 foreach (var file in info.files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = GetMimeTypeOrOctet(file.Name);
+                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
 
                     if (ext != previous_ext && info.extensions.Contains(ext.ToLower())) 
                         result += $"<p class=\"head\"><b>{ext}</b></p>\n";                    
@@ -159,7 +159,7 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    conversion = check_conversion(mime);
+                    conversion = Conversion.CheckConversion(mime);
 
                     result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
@@ -169,14 +169,14 @@ namespace ShareHole {
                 string previous_mime = "";
                 string current_type = "";
 
-                foreach (var file in info.files.OrderBy(x => GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name)) {                    
+                foreach (var file in info.files.OrderBy(x => Conversion.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name)) {                    
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = GetMimeTypeOrOctet(file.Name);
+                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    conversion = check_conversion(mime);
+                    conversion = Conversion.CheckConversion(mime);
 
                     if (mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
@@ -258,7 +258,7 @@ namespace ShareHole {
             bool group_by_type = false;
             bool group_by_ext  = false;
             if (info.grouping == "type") {
-                files = info.files.OrderBy(x => GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name);
+                files = info.files.OrderBy(x => Conversion.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name);
                 group_by_type = true;
             } else if (info.grouping == "extension") {
                 files = info.files.OrderBy(x => x.Extension.Replace(".","")).ThenBy(x => x.Name);
@@ -273,7 +273,7 @@ namespace ShareHole {
 
             foreach (var file in files) {            
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                var mime = GetMimeTypeOrOctet(file.Name);
+                var mime = Conversion.GetMimeTypeOrOctet(file.Name);
                 
                 string conversion = "";
                 bool raw = false;
@@ -283,7 +283,7 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    conversion = check_conversion(mime);
+                    conversion = Conversion.CheckConversion(mime);
 
                     if (group_by_type && mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
@@ -325,62 +325,5 @@ namespace ShareHole {
             return result;
         }
 
-        static bool is_raw(string mime) {
-            if (mime == "image/dng") return true;
-            else if (mime == "image/raw") return true;
-            else return false;
-        }
-
-        static string check_conversion(string mime) {
-            if (mime.StartsWith("image")) {
-                //raw formats
-                if (mime.EndsWith("/dng")) return "/to_jpg";
-                if (mime.EndsWith("/raw")) return "/to_jpg";
-
-                //should work without this, doesn't in chome
-                if (mime.EndsWith("/avif")) return "/to_png";
-
-                //adobe
-                if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
-
-            } else if (mime.StartsWith("video")) {
-                //wmv soon
-                //if (mime.EndsWith("x-ms-wmv")) return "/to_mp4";
-            }
-
-            return "";
-        }
-
-        public static string GetMimeTypeOrOctet(string fn) {
-            string mimetype;
-
-            var fi = new FileInfo(fn);
-            if (fi.Extension.ToLower() == ".dng") return "image/dng";
-            if (fi.Extension.ToLower() == ".raw") return "image/raw";
-            if (fi.Extension.ToLower() == ".avif") return "image/avif";
-
-            try {
-                mimetype = MimeTypesMap.GetMimeType(fn);
-            } catch {
-                mimetype = "application/octet-stream";
-            }
-            return mimetype;
-        }
-
-        public static string GetMimeTypeOrOctetMinusExt(string fn) {
-            string mimetype;
-
-            var fi = new FileInfo(fn);
-            if (fi.Extension.ToLower() == ".dng") return "image";
-            if (fi.Extension.ToLower() == ".raw") return "image";
-            if (fi.Extension.ToLower() == ".avif") return "image";
-
-            try {
-                mimetype = MimeTypesMap.GetMimeType(fn);
-            } catch {
-                mimetype = "application/octet-stream";
-            }
-            return mimetype.Substring(0, mimetype.IndexOf("/"));
-        }
     }
 }

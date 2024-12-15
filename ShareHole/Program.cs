@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using ShareHole.Configuration;
 using ShareHole.DBThreads;
+using static ShareHole.Conversion.Video;
 using static ShareHole.Logging;
 
 namespace ShareHole {
@@ -34,9 +35,12 @@ namespace ShareHole {
                     },
 
                     { "conversion",
-                        new Dictionary<string, ConfigValue>() {                            
+                        new Dictionary<string, ConfigValue>() {
                             { "jpeg_compression", new ConfigValue(true) },
-                            { "jpeg_quality", new ConfigValue(85) }                            
+                            { "jpeg_quality", new ConfigValue(85) },
+                            { "threads_per_video_conversion", new ConfigValue(16) },
+                            //{ "hardware_accel", new ConfigValue("auto") },
+                            { "mp4_bitrate", new ConfigValue(1500) }
                         }
                     },
 
@@ -92,6 +96,14 @@ namespace ShareHole {
                 Quality level, from 0-100
                 """);
 
+            ConfigFileIO.comment_manager.AddBefore("conversion", "threads_per_video_conversion", """
+                
+                Determines how many threads are used by each /to_mp4/ and /to_webm/ converter
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("conversion", "mp4_bitrate", """
+                The output bitrate of those mp4s
+                """);
 
             ConfigFileIO.comment_manager.AddBefore("gallery", """
                 Settings for the 'gallery' view style
@@ -232,6 +244,10 @@ namespace ShareHole {
                 return;
             } else {
                 Logging.Config($"Loaded shares");
+            }
+
+            if (!VideoCache.currently_pruning) {
+                VideoCache.StartPruning();
             }
         }   
 
