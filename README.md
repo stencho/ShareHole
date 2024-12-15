@@ -79,6 +79,8 @@ show_directories=true
 extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
 ```
 
-### TODO
-- Better thumbnails for videos; correct aspect ratio, icons to denote that the video has sound and that it is a video, maybe animated gif thumbnails on mouseover?
-- Pop-over image/video viewer for the gallery view style
+- path: required, the folder you want to be visible at this URL
+- show_directories: enables or disables viewing sub-directories
+- extensions: limit the listed files to these extensions
+- group_by: 'extension' or 'type'
+- style: only list or gallery for now. list is default. 
