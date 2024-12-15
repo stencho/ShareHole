@@ -176,7 +176,7 @@ namespace ShareHole {
                                     .WithFastStart()
 
                                     .WithCustomArgument("-loglevel verbose")
-                                    .WithCustomArgument("-movflags frag_keyframe+empty_moov")
+                                    .WithCustomArgument("-movflags frag_keyframe")
 
                                 ).ProcessAsynchronously();
 
