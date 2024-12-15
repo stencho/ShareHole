@@ -26,7 +26,7 @@ namespace ZeroDir.DBThreads {
         public HttpListenerResponse response;
 
         public FolderServer parent_server;
-
+        
         public ThumbnailRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             this.file = file;
             this.response = response;
@@ -42,6 +42,9 @@ namespace ZeroDir.DBThreads {
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
+        static bool use_compression => CurrentConfig.server["gallery"]["use_thumbnail_compression"].get_bool();
+        static int compression_quality => CurrentConfig.server["gallery"]["jpeg_compression_quality"].get_int();
+
         public static void RequestThumbnail(string filename, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             FileInfo f = new FileInfo(filename);
             if (f.Exists) {
@@ -51,7 +54,10 @@ namespace ZeroDir.DBThreads {
 
         public static void RequestThumbnail(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             var tr = new ThumbnailRequest(file, response, parent_server, mime_type, thread_id);
-            build_thumbnail(tr);
+
+            Task.Run(() => { build_thumbnail(tr); }, CurrentConfig.cancellation_token);
+
+            //Task bt = new Task(build_thumbnail, CurrentConfig.cancellation_token);
         }
 
         static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest request) {
@@ -74,7 +80,30 @@ namespace ZeroDir.DBThreads {
             return output;
         }
 
-        static async void build_thumbnail(ThumbnailRequest request) {
+        static void compress_thumbnail(string key) {
+            MagickFormat format = MagickFormat.Bmp;
+                
+            if (thumbnail_cache[key].mime.EndsWith("png"))
+                format = MagickFormat.Png;
+
+
+            lock (thumbnail_cache) {
+                byte[] data;
+                using (MagickImage image = new MagickImage(thumbnail_cache[key].data)) {
+
+                    image.Settings.Format = MagickFormat.Jpg;
+                    image.Settings.Compression = CompressionMethod.JPEG;
+                    image.Quality = (uint)compression_quality;
+
+                    data = image.ToByteArray();
+                    thumbnail_cache[key] = ("image/jpeg", data);
+                }
+            }
+        }
+
+        static async void build_thumbnail(object data) {
+            var request = (ThumbnailRequest)data;
+
             thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
 
             //cache hit, do nothing
@@ -82,22 +111,23 @@ namespace ZeroDir.DBThreads {
                 //Logging.ThreadMessage($"Cache hit for {request.file.Name}", "THUMB", request.thread_id);
 
             //build new thumbnail for an image and add it to the cache
-            } else if (request.mime_type.StartsWith("image")) {
-                Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+            } else if (request.mime_type.StartsWith("image")) {                
+                //Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
                 lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/bmp", mi.ToByteArray()));
-                
+                if (use_compression) compress_thumbnail(request.file.FullName);
 
             //build one for a video
             } else if (request.mime_type.StartsWith("video")) {
-                Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                //Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 var thumb = get_first_video_frame_from_ffmpeg(request);
 
-                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));                
+                lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));
+                if (use_compression) compress_thumbnail(request.file.FullName);
             }
 
             //pull byte array from the cache and set up a few requirements

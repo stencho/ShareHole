@@ -31,7 +31,9 @@ namespace ZeroDir {
 
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
-                            { "thumbnail_size", new ConfigValue(192) }
+                            { "thumbnail_size", new ConfigValue(192) },
+                            { "use_thumbnail_compression", new ConfigValue(true) },
+                            { "jpeg_compression_quality", new ConfigValue(60) }
                         }
                     }
                 };
