@@ -88,6 +88,7 @@ namespace ShareHole {
             }
         }
 
+
         public static class Video {
             internal struct video_data {
                 internal double birth;
@@ -161,8 +162,8 @@ namespace ShareHole {
                     if (!VideoCache.Test(file.FullName)) {
                         var ms = new MemoryStream();
                         await FFMpegArguments
-                            .FromFileInput(file, options => options
-                                .WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
+                            .FromFileInput(file//, options => options
+                                //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
                                 )
                             .OutputToPipe(new StreamPipeSink(ms), options => options
                                 .ForceFormat("mp4")
