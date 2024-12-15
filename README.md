@@ -15,6 +15,8 @@ There are also several "command dirs", which go after the passdir:
 
 This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
 
+The config loader will write the default server config below to config_dir/server on first start, and the server will do its best to keep this config file structure.
+
 'server' config file
 ```ini
 # General server settings
@@ -51,6 +53,8 @@ thumbnail_size=192
 # JPEG compression quality; 0-100
 thumbnail_compression_quality=35
 ```
+
+The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"
 
 'shares' config file
 ```ini
