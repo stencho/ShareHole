@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace ShareHole {
-    internal static class Logging {
+    public static class Logging {
         static String printing = "";
         enum LOG_TYPES { MSG, WRN, ERR, CNF }
 
@@ -16,9 +16,7 @@ namespace ShareHole {
             HIGH_IMPORTANCE = 1,
             ALL = 2
         };
-
-        public static LogLevel CurrentLogLevel = LogLevel.HIGH_IMPORTANCE;
-
+        
         public static void Message(string text, bool show_caller=true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername);
         }

@@ -97,12 +97,12 @@ namespace ShareHole.DBThreads {
 
             //cache hit, do nothing
             if (thumbnail_cache.ContainsKey(request.file.FullName)) {
-                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
             //build new thumbnail for an image and add it to the cache
             } else if (request.mime_type.StartsWith("image")) {
-                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
@@ -122,7 +122,7 @@ namespace ShareHole.DBThreads {
 
             //build one for a video
             } else if (request.mime_type.StartsWith("video")) {         
-                if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
                 
                 try {
@@ -164,7 +164,7 @@ namespace ShareHole.DBThreads {
                     ms.Close();
                     ms.Dispose();
 
-                    if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
+                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                         Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
                 });
 

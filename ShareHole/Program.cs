@@ -2,10 +2,13 @@
 using System.Runtime.CompilerServices;
 using ShareHole.Configuration;
 using ShareHole.DBThreads;
+using static ShareHole.Logging;
 
 namespace ShareHole {
     public static class CurrentConfig {
         public static string config_dir = "config";
+
+        public static LogLevel LogLevel = LogLevel.HIGH_IMPORTANCE;
 
         public static ConfigWithExpectedValues server;
         public static ConfigWithUserValues shares;
