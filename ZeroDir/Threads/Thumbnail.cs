@@ -112,7 +112,7 @@ namespace ZeroDir.DBThreads {
 
             //build new thumbnail for an image and add it to the cache
             } else if (request.mime_type.StartsWith("image")) {                
-                //Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
@@ -122,7 +122,7 @@ namespace ZeroDir.DBThreads {
 
             //build one for a video
             } else if (request.mime_type.StartsWith("video")) {
-                //Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 var thumb = get_first_video_frame_from_ffmpeg(request);
 
@@ -135,24 +135,26 @@ namespace ZeroDir.DBThreads {
             request.response.ContentType = thumbnail_cache[request.file.FullName].mime;
             request.response.ContentLength64 = request.thumbnail.LongLength;
 
-            MemoryStream ms = new MemoryStream(request.thumbnail, false);
-
             try {
-                //copy the thumbnail over the network
-                await ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token);
+                MemoryStream ms = new MemoryStream(request.thumbnail, false);
+                var t = ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r => {
 
-                //success
-                request.response.StatusCode = (int)HttpStatusCode.OK;
-                request.response.StatusDescription = "400 OK";
-                request.response.OutputStream.Close();
-                request.response.Close();
+                    Logging.ThreadMessage($"Build thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+
+                    //success
+                    request.response.StatusCode = (int)HttpStatusCode.OK;
+                    request.response.StatusDescription = "400 OK";
+                    request.response.OutputStream.Close();
+                    request.response.Close();
+
+                    ms.Close();
+                    ms.Dispose();
+                });
 
             } catch (HttpListenerException e) {
                 Logging.Error($"{request.file.Name} :: {e.Message}");
             }
 
-            ms.Close();
-            ms.Dispose();
         }
     }
 }
