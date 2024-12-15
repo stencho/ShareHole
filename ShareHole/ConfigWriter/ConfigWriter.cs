@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir.Configuration
+namespace ShareHole.Configuration
 {
     public enum ValueType { STRING, INT, BOOL, IP, COLOR }
 

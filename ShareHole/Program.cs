@@ -1,9 +1,9 @@
 ﻿using System.Drawing;
 using System.Runtime.CompilerServices;
-using ZeroDir.Configuration;
-using ZeroDir.DBThreads;
+using ShareHole.Configuration;
+using ShareHole.DBThreads;
 
-namespace ZeroDir {
+namespace ShareHole {
     public static class CurrentConfig {
         public static string config_dir = "config";
 

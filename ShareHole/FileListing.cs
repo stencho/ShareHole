@@ -9,7 +9,7 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir {
+namespace ShareHole {
     internal static class Renderer {
         struct listing_info {
             public string passdir;

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir.Configuration
+namespace ShareHole.Configuration
 {
     public class ConfigWithUserValues : Dictionary<string, Dictionary<string, ConfigValue>>
     {

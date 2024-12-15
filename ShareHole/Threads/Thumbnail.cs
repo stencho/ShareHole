@@ -11,7 +11,7 @@ using FFMpegCore.Enums;
 using FFMpegCore.Pipes;
 using ImageMagick;
 
-namespace ZeroDir.DBThreads {
+namespace ShareHole.DBThreads {
     public class ThumbnailRequest {
         public FileInfo file;
         public byte[] thumbnail = null;

@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ZeroDir {
+namespace ShareHole {
     internal static class Logging {
         static String printing = "";
         enum LOG_TYPES { MSG, WRN, ERR, CNF }

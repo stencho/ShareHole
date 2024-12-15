@@ -6,12 +6,12 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Mime;
 using HeyRed.Mime;
-using ZeroDir.Configuration;
+using ShareHole.Configuration;
 using System.ComponentModel.Design;
 using System.Drawing;
-using ZeroDir.DBThreads;
+using ShareHole.DBThreads;
 
-namespace ZeroDir
+namespace ShareHole
 {
     public class FolderServer {
         bool running = true;
