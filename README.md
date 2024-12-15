@@ -4,6 +4,17 @@ An HTTP file server for sharing directories with low (but not zero) security, an
 ### Configuration and usage
 Use the -c command line argument to set the current config directory.
 
+ShareHole uses a "passdir", a directory which goes at the start of the URL, to let the server know you're cool. The default is "loot", so you would access a share called "share" though "example.com:8080/loot/share/".
+
+There are also several "command dirs", which go after the passdir:
+- /thumbnail/ will produce a thumbnail
+- /to_jpg/ will convert an image to JPG, with compression settings defined in the server config's \[conversion\] section
+- /to_png/ will convert an image to lossless PNG
+
+"/loot/to_png/share/image.jpg" would return PNG data, for example.
+
+This means that the server is able to render RAWs and Adobe files for you.
+
 'server' config file
 ```ini
 # General server options

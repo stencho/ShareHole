@@ -23,13 +23,15 @@ namespace ShareHole.DBThreads {
 
         public int thread_id = 0;
 
-        public HttpListenerResponse response;
+        public HttpListenerContext context;
+        public HttpListenerResponse response => context.Response;
+        public HttpListenerRequest request => context.Request;
 
         public FolderServer parent_server;
         
-        public ThumbnailRequest(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
+        public ThumbnailRequest(FileInfo file, HttpListenerContext context, FolderServer parent_server, string mime_type, int thread_id) {
             this.file = file;
-            this.response = response;
+            this.context = context;
             this.parent_server = parent_server;
             this.thread_id = thread_id;
             this.mime_type = mime_type;
@@ -42,17 +44,17 @@ namespace ShareHole.DBThreads {
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
-        static int compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int();
+        static int thumb_compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int();
 
-        public static void RequestThumbnail(string filename, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
+        public static void RequestThumbnail(string filename, HttpListenerContext context, FolderServer parent_server, string mime_type, int thread_id) {
             FileInfo f = new FileInfo(filename);
             if (f.Exists) {
-                RequestThumbnail(f, response, parent_server, mime_type, thread_id);
+                RequestThumbnail(f, context, parent_server, mime_type, thread_id);
             } else return;
         }
 
-        public static void RequestThumbnail(FileInfo file, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
-            var tr = new ThumbnailRequest(file, response, parent_server, mime_type, thread_id);
+        public static void RequestThumbnail(FileInfo file, HttpListenerContext context, FolderServer parent_server, string mime_type, int thread_id) {
+            var tr = new ThumbnailRequest(file, context, parent_server, mime_type, thread_id);
 
             Task.Run(() => { build_thumbnail(tr); }, CurrentConfig.cancellation_token);
 
@@ -80,10 +82,14 @@ namespace ShareHole.DBThreads {
         }
 
 
-        static void convert_to_jpeg(ref MagickImage image) {
+        static void ConvertToJpeg(MagickImage image) {
             image.Settings.Format = MagickFormat.Jpg;
             image.Settings.Compression = CompressionMethod.JPEG;
-            image.Quality = (uint)compression_quality;
+            image.Quality = (uint)thumb_compression_quality;
+        }
+        static void ConvertToPng(MagickImage image) {
+            image.Settings.Format = MagickFormat.Png;            
+            image.Quality = (uint)thumb_compression_quality;
         }
 
         static async void build_thumbnail(ThumbnailRequest request) {
@@ -100,35 +106,44 @@ namespace ShareHole.DBThreads {
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
+                
+                if (mi.Orientation != OrientationType.Undefined)
+                    mi.AutoOrient();
 
-                convert_to_jpeg(ref mi);
+                ConvertToJpeg(mi);
 
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
                 try {
                     lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
                 } catch (Exception ex) {
-                    Logging.ErrorAndThrow($"{request.file.Name} :: {ex.Message}");
+                    Logging.Error($"{request.file.Name} :: {ex.Message}");
                 }
 
             //build one for a video
             } else if (request.mime_type.StartsWith("video")) {         
                 if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
-
-                var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
-                byte[] jpeg_data;
-
-                using (MemoryStream ms = new MemoryStream(ffmpeg_thumb)) {
-                    MagickImage mi = new MagickImage(ms);
-                    convert_to_jpeg(ref mi);
-                    jpeg_data = mi.ToByteArray();
-                }
-
+                
                 try {
+                    var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
+
+                    byte[] jpeg_data;
+
+                    using (MemoryStream ms = new MemoryStream(ffmpeg_thumb)) {
+                        MagickImage mi = new MagickImage(ms);
+
+                        if (mi.Orientation != OrientationType.Undefined)
+                            mi.AutoOrient();
+
+                        ConvertToJpeg(mi);
+                        jpeg_data = mi.ToByteArray();
+                    }
+
                     lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", jpeg_data));
                 } catch (Exception ex) {
-                    Logging.ErrorAndThrow($"{request.file.Name} :: {ex.Message}");
+                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                    request.context.Response.Close();
                 }
             }
 

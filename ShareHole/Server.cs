@@ -10,6 +10,7 @@ using ShareHole.Configuration;
 using System.ComponentModel.Design;
 using System.Drawing;
 using ShareHole.DBThreads;
+using ImageMagick;
 
 namespace ShareHole
 {
@@ -152,7 +153,7 @@ namespace ShareHole
                             return;
                         }
 
-                        Thread.Sleep(1);
+                        Thread.Sleep(5);
                     }
 
                 } catch(HttpListenerException ex) {
@@ -201,6 +202,8 @@ namespace ShareHole
                 string folder_path = "";
 
                 bool thumbnail = false;
+                bool to_jpg = false;
+                bool to_png = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
@@ -210,9 +213,16 @@ namespace ShareHole
                     url_path = url_path.Remove(0, passdir.Length + 1);
                 }
 
+                //check for command directory
                 if (url_path.StartsWith("/thumbnail/")) {
                     url_path = url_path.Remove(0, "/thumbnail/".Length);
                     thumbnail = true;
+                } else if (url_path.StartsWith("/to_jpg/")) {
+                    url_path = url_path.Remove(0, "/to_jpg/".Length);
+                    to_jpg = true;
+                } else if (url_path.StartsWith("/to_png/")) {
+                    url_path = url_path.Remove(0, "/to_png/".Length);
+                    to_png = true;
                 }
 
                 //Clean URL
@@ -257,15 +267,14 @@ namespace ShareHole
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
                 byte[] data = null;
 
+                var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
+                var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-                //Requested thumbnail
+                    //Requested thumbnail
                 if (thumbnail && File.Exists(absolute_on_disk_path)) {
-                    var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
-                    var mime = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
-
-                    if (mime.StartsWith("image")|| mime.StartsWith("video")) {
+                    if (mime.StartsWith("image") || mime.StartsWith("video")) {
                         enable_cache(context);
-                        ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context.Response, this, mime, thread_id);
+                        ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE OR VIDEO FILE</b></p>";
@@ -283,7 +292,95 @@ namespace ShareHole
                     }
 
 
-                //Requested CSS file  
+                    //Requested RAW to JPG
+                } else if (to_jpg && File.Exists(absolute_on_disk_path)) {
+                    if (mime.StartsWith("image")) {
+                        enable_cache(context);
+                        using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
+                            if (mi.Orientation != OrientationType.Undefined)
+                                mi.AutoOrient();
+
+                            mi.Settings.Format = MagickFormat.Jpg;
+
+                            var compress = CurrentConfig.server["conversion"]["jpeg_compression"].get_bool();
+                            var quality = CurrentConfig.server["conversion"]["jpeg_quality"].get_int();
+
+                            if (quality < 0) quality = 0;
+                            if (quality > 100) quality = 100;
+
+                            if (compress) {
+                                mi.Settings.Compression = CompressionMethod.JPEG;
+                                mi.Quality = (uint)quality;
+                            } else {
+                                mi.Settings.Compression = CompressionMethod.LosslessJPEG;
+                                mi.Quality = 100;
+                            }
+
+                            context.Response.ContentType = "image/jpeg";
+
+                            var bytes = mi.ToByteArray();
+                            using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                    context.Response.StatusDescription = "400 OK";
+                                    context.Response.Close();
+                                }, CurrentConfig.cancellation_token);
+                            }
+                        }
+
+                    } else {
+                        page_content = $"<p class=\"head\"><color=white><b>NOT A RAW FILE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                                context.Response.StatusDescription = "404 NOT FOUND";
+                                context.Response.Close();
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    }
+
+                    //Requested image to PNG
+                } else if (to_png && File.Exists(absolute_on_disk_path)) {
+                    if (mime.StartsWith("image")) {
+                        enable_cache(context);
+                        using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
+
+                            if (mi.Orientation != OrientationType.Undefined)
+                                mi.AutoOrient();
+
+                            mi.Settings.Format = MagickFormat.Png;
+                            context.Response.ContentType = "image/png";
+
+                            var bytes = mi.ToByteArray();
+                            using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                    context.Response.StatusDescription = "400 OK";
+                                    context.Response.Close();
+                                }, CurrentConfig.cancellation_token);
+                            }
+                        }
+
+                    } else {
+                        page_content = $"<p class=\"head\"><color=white><b>NOT A RAW FILE</b></p>";
+                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        context.Response.ContentType = "text/html; charset=utf-8";
+                        context.Response.ContentLength64 = data.LongLength;
+
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                                context.Response.StatusDescription = "404 NOT FOUND";
+                                context.Response.Close();
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    }
+
+                    //Requested CSS file  
                 } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
                     absolute_on_disk_path = Path.GetFullPath("base.css");
                     Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
@@ -349,15 +446,9 @@ namespace ShareHole
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                     }
 
-                //Requested a non-CSS file
+                    //Requested a file
                 } else if (File.Exists(absolute_on_disk_path)) {
-                    string mimetype;
-                    try {
-                        mimetype = MimeTypesMap.GetMimeType(absolute_on_disk_path);
-                    } catch {
-                        mimetype = "application/octet-stream";
-                    }
-                    context.Response.ContentType = mimetype;
+                    string mimetype = Renderer.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     if (!show_dirs && url_path.Count(x => x == '/') > 1) {
                         Logging.ThreadError($"Attempted to open file outside of share \"{share_name}\" with directories off", thread_name, thread_id);
@@ -432,6 +523,7 @@ namespace ShareHole
             }
 
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
+
         }
 
         public static byte[] ImageToByte(Image img) {

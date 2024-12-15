@@ -124,17 +124,22 @@ namespace ShareHole {
                     result += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>\n";
                     dir_c++;
                 }
-            }            
+            }
+
+            string conversion = "";
 
             // FILES
             if (info.grouping == "none" || !info.cares_about_groups) {
                 foreach (var file in info.files.OrderBy(a => a.Name)) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
+                    var mime = GetMimeTypeOrOctet(file.Name);
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
-                    
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+
+                    conversion = check_conversion(mime);
+
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
 
                     file_c++;
                 }
@@ -143,6 +148,7 @@ namespace ShareHole {
                 string previous_ext = "";
                 foreach (var file in info.files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
+                    var mime = GetMimeTypeOrOctet(file.Name);
 
                     if (ext != previous_ext && info.extensions.Contains(ext.ToLower())) 
                         result += $"<p class=\"head\"><b>{ext}</b></p>\n";                    
@@ -151,8 +157,10 @@ namespace ShareHole {
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
-                    
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+
+                    conversion = check_conversion(mime);
+
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
                 }
 
@@ -167,6 +175,8 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
+                    conversion = check_conversion(mime);
+
                     if (mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
                         var t = mime.Substring(0, slashi);
@@ -178,7 +188,7 @@ namespace ShareHole {
                 
                     previous_mime = mime;
                     
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
                 }
             }
@@ -224,10 +234,9 @@ namespace ShareHole {
                     $"</span>" +
                     $"</a>" +
                     $"\n";
-                //result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
             }
 
-            foreach (var dir in info.directories.OrderBy(a => a.Name)) {
+            foreach (var dir in info.directories.OrderBy(a => a.Name)) {                
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
                     $"<span class=\"thumbnail\" >" +
@@ -242,25 +251,26 @@ namespace ShareHole {
 
                 Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
             }
-            
-            foreach (var file in info.files.OrderBy(a => a.Name)) {
+                        
+            foreach (var file in info.files.OrderBy(a => a.Name)) {            
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = GetMimeTypeOrOctet(file.Name);
+                
+                string conversion = "";
+                bool raw = false;
 
                 if (mime.StartsWith("image") || mime.StartsWith("video")) {
                     //get thumbnail from gallery DB thread
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    if (mime.StartsWith("image")) {
-                        if (mime.EndsWith("photoshop")) continue;
-                    } else if (mime.StartsWith("video")) {
-                    }
+                    conversion = check_conversion(mime);
 
                     result +=
-                        $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                         $"<span class=\"thumbnail\" >" +
                         $"<img align=center src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/>" +
+                        //(is_raw(mime) ? $"<text>RAW</text>" : "") +
                         $"</span>" +
                         $"</a>\n";
 
@@ -280,12 +290,39 @@ namespace ShareHole {
             return result;
         }
 
+        static bool is_raw(string mime) {
+            if (mime == "image/dng") return true;
+            else if (mime == "image/raw") return true;
+            else return false;
+        }
+
+        static string check_conversion(string mime) {
+            if (mime.StartsWith("image")) {
+                //raw formats
+                if (mime.EndsWith("/dng")) return "/to_png";
+                if (mime.EndsWith("/raw")) return "/to_png";
+
+                //should work without this, doesn't in chome
+                if (mime.EndsWith("/avif")) return "/to_png";
+
+                //adobe
+                if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
+
+            } else if (mime.StartsWith("video")) {
+
+            }
+
+            return "";
+        }
+
         public static string GetMimeTypeOrOctet(string fn) {
             string mimetype;
 
             var fi = new FileInfo(fn);
-            if (fi.Extension == ".dng") return "image/dng";
-            
+            if (fi.Extension.ToLower() == ".dng") return "image/dng";
+            if (fi.Extension.ToLower() == ".raw") return "image/raw";
+            if (fi.Extension.ToLower() == ".avif") return "image/avif";
+
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);
             } catch {
@@ -293,11 +330,14 @@ namespace ShareHole {
             }
             return mimetype;
         }
+
         public static string GetMimeTypeOrOctetMinusExt(string fn) {
             string mimetype;
 
             var fi = new FileInfo(fn);
-            if (fi.Extension == ".dng") return "image/dng";
+            if (fi.Extension.ToLower() == ".dng") return "image/dng";
+            if (fi.Extension.ToLower() == ".raw") return "image/raw";
+            if (fi.Extension.ToLower() == ".avif") return "image/avif";
 
             try {
                 mimetype = MimeTypesMap.GetMimeType(fn);

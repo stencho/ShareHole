@@ -30,6 +30,13 @@ namespace ShareHole {
                         }
                     },
 
+                    { "conversion",
+                        new Dictionary<string, ConfigValue>() {
+                            { "jpeg_compression", new ConfigValue(true) },
+                            { "jpeg_quality", new ConfigValue(85) }                            
+                        }
+                    },
+
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
