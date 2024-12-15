@@ -56,6 +56,7 @@ namespace ShareHole {
         }
 
         static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
+            if (CurrentConfig.LogLevel == 0) return;
             lock (printing) {
                 WriteColor($"[{tag}]", color);
                 if (show_caller) {
@@ -69,6 +70,7 @@ namespace ShareHole {
         }
 
         static void LogExtra(string text, string tag, ConsoleColor color, string extra_tag, ConsoleColor extra_color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
+            if (CurrentConfig.LogLevel == 0) return;
             lock (printing) {
                 WriteColor($"[{tag}]", color);
                 if (show_caller) {
@@ -82,19 +84,20 @@ namespace ShareHole {
             }
         }
 
-        public static void CustomTag(string text, string tag_text, ConsoleColor tag_color, [CallerFilePath] string callerfilename = "") {
+        static void CustomTag(string text, string tag_text, ConsoleColor tag_color, [CallerFilePath] string callerfilename = "") {
             var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
             var stripped = callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash);
-
         }
 
         public static void WriteLineColor(string str, ConsoleColor color) {
+            if (CurrentConfig.LogLevel == 0) return;
             Console.ForegroundColor = color;
             Console.WriteLine(str);
             Console.ForegroundColor = ConsoleColor.White;
         }
 
         public static void WriteColor(string str, ConsoleColor color) {
+            if (CurrentConfig.LogLevel == 0) return;
             Console.ForegroundColor = color;
             Console.Write(str);
             Console.ForegroundColor = ConsoleColor.White;

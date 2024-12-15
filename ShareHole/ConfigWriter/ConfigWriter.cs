@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -13,8 +14,128 @@ namespace ShareHole.Configuration
 {
     public enum ValueType { STRING, INT, BOOL, IP, COLOR }
 
-    public  class ConfigFileIO
+    public class ConfigFileCommentManager {
+        public class ConfigFileComment {
+            public string comment = "";
+
+            internal string section, key;
+
+            internal bool added = false;
+
+            public enum CommentPosition { Before, After };
+            public CommentPosition position = CommentPosition.Before;
+
+            //literally just adds "# " to the start of each line
+            public string comment_insertable() {
+                string c = comment; string ci = "";
+                using (StringReader sr = new StringReader(c)) {
+                    while (sr.Peek() > 0) {
+                        var l = sr.ReadLine();
+                        if (string.IsNullOrWhiteSpace(l))
+                            ci += $"\r\n";
+                        else
+                            ci += $"# {l}\r\n";
+                    }
+                } return ci;
+            }
+
+            public ConfigFileComment(string section, string comment, CommentPosition position) {
+                this.comment = comment;
+                this.position = position;
+                this.section = section;
+            }
+
+            public ConfigFileComment(string section, string key, string comment, CommentPosition position) {
+                this.comment = comment;
+                this.position = position;
+                this.section = section;
+                this.key = key;
+            }
+        }
+
+        public List<ConfigFileComment> comments = new List<ConfigFileComment>();
+
+        public void AddBefore(string section, string comment) {
+            comments.Add(new ConfigFileComment(section, comment, ConfigFileComment.CommentPosition.Before));
+        }
+
+        public void AddBefore(string section, string key, string comment) {
+            comments.Add(new ConfigFileComment(section, key, comment, ConfigFileComment.CommentPosition.Before));
+        }
+        public void AddAfter(string section, string comment) {
+            comments.Add(new ConfigFileComment(section, comment, ConfigFileComment.CommentPosition.After));
+        }
+
+        public void AddAfter(string section, string key, string comment) {
+            comments.Add(new ConfigFileComment(section, key, comment, ConfigFileComment.CommentPosition.After));
+        }
+
+        void reset_all_added_vars() {
+            for (int i = 0; i < comments.Count; i++) { comments[i].added = false; };
+        }
+
+        public List<string> InsertAllComments(List<string> config_file) {
+            List<string> output = config_file;
+            restart:
+            string section = "";
+            for (int cfi = 0; cfi < output.Count; cfi++) {
+                var line = output[cfi]; 
+                if (string.IsNullOrEmpty(line)) continue;
+
+                string key = "";
+
+                //section header
+                if (line.StartsWith("[") && line.EndsWith("]")) {
+                    section = line.Remove(0, 1).Remove(line.Length - 2);
+
+                    for (int coi = 0; coi < comments.Count; coi++) {
+                        var comment = comments[coi];
+                        if (!comment.added && comment.section == section && string.IsNullOrEmpty(comment.key)) {
+                            using (StringReader sr = new StringReader(comment.comment_insertable())) {
+                                while (sr.Peek() > -1) {
+                                    output.Insert(cfi, sr.ReadLine());
+                                    comment.added = true;
+                                    cfi++;
+                                }
+                            }
+                            goto restart;
+                        }
+                    }
+                } else
+                
+                //key
+                if (line.Contains("=")) {
+                    var s = line.Split("=");
+                    key = s[0].Trim();
+
+                    for (int coi = 0; coi < comments.Count; coi++) {
+                        var comment = comments[coi];
+                        if (!comment.added && comment.section == section && comment.key == key) {
+
+                            using (StringReader sr = new StringReader(comment.comment_insertable())) {
+                                while (sr.Peek() > -1) {
+                                    output.Insert(cfi, sr.ReadLine());
+                                    comment.added = true;
+                                    cfi++;
+                                }
+                            }
+                            goto restart;
+                        }
+                    }
+                }                
+
+
+
+            }
+            return output;
+        }
+        
+    }
+
+    public class ConfigFileIO
     {
+        public static ConfigFileCommentManager comment_manager = new ConfigFileCommentManager();
+
         internal List<string> config_file_text;
         internal string file_path;
 
@@ -439,7 +560,7 @@ namespace ShareHole.Configuration
         }
 
         public void Flush() {
-            File.WriteAllText(file_path, string.Join('\n', config_file_text));
+            File.WriteAllText(file_path, string.Join('\n', comment_manager.InsertAllComments(config_file_text)));
         }
 
         public void Clean(Dictionary<string, Dictionary<string, ConfigValue>> values) {
@@ -454,7 +575,6 @@ namespace ShareHole.Configuration
 
         }
     }
-
 
     public class ConfigValue {
         public readonly ValueType value_type;

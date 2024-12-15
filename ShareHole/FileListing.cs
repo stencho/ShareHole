@@ -299,8 +299,8 @@ namespace ShareHole {
         static string check_conversion(string mime) {
             if (mime.StartsWith("image")) {
                 //raw formats
-                if (mime.EndsWith("/dng")) return "/to_png";
-                if (mime.EndsWith("/raw")) return "/to_png";
+                if (mime.EndsWith("/dng")) return "/to_jpg";
+                if (mime.EndsWith("/raw")) return "/to_jpg";
 
                 //should work without this, doesn't in chome
                 if (mime.EndsWith("/avif")) return "/to_png";

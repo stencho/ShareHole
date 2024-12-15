@@ -13,11 +13,11 @@ There are also several "command dirs", which go after the passdir:
 
 "/loot/to_png/share/image.jpg" would return PNG data, for example.
 
-This means that the server is able to render RAWs and Adobe files for you.
+This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
 
 'server' config file
 ```ini
-# General server options
+# General server settings
 [server]
 # Specify which adapter and port to bind to
 prefix=localhost
@@ -27,18 +27,29 @@ port=8080
 # For example: example.com:8080/loot/share
 passdir=loot
 
-# The number of threads for handling requests and uploads
-# This includes thumbnails, so if you're using gallery mode,
-# you may want to increase this
+# The number of threads for handling requests and uploads 
+# This includes thumbnails, so if you're using gallery mode, you may want to increase this
 threads=100
 
-# Look for base.html and base.css in the config directory
+# Look for base.html and base.css in the config directory instead of loading them from memory
 use_html_file=false
 use_css_file=false
 
-# Image/Video thumbnail gallery options
+# 0 = Logging off, 1 = high importance only, 2 = all messages
+log_level=1
+
+# Settings for converting between different file types
+[conversion]
+# Toggle between lossless and compressed JPEG when using /to_jpg
+jpeg_compression=true
+# Quality level, from 0-100
+jpeg_quality=85
+
+# Settings for the 'gallery' view style
 [gallery]
 thumbnail_size=192
+# JPEG compression quality; 0-100
+thumbnail_compression_quality=35
 ```
 
 'shares' config file

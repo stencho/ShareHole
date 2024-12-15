@@ -19,7 +19,7 @@ namespace ShareHole {
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         internal static CancellationToken cancellation_token => cancellation_token_source.Token;
 
-        public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values = 
+        public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values =
             new Dictionary<string, Dictionary<string, ConfigValue>>() {
                     { "server",
                         new Dictionary<string, ConfigValue>() {
@@ -34,7 +34,7 @@ namespace ShareHole {
                     },
 
                     { "conversion",
-                        new Dictionary<string, ConfigValue>() {
+                        new Dictionary<string, ConfigValue>() {                            
                             { "jpeg_compression", new ConfigValue(true) },
                             { "jpeg_quality", new ConfigValue(85) }                            
                         }
@@ -47,6 +47,59 @@ namespace ShareHole {
                         }
                     }
                 };
+
+        public static void InitializeComments() {
+            ConfigFileIO.comment_manager.AddBefore("server",
+                "General server settings");
+
+            ConfigFileIO.comment_manager.AddBefore("server", "prefix", 
+                "Specify which adapter and port to bind to");
+
+            ConfigFileIO.comment_manager.AddBefore("server", "passdir", """                                
+
+                The name of the first section of the URL, required to access shares
+                For example: example.com:8080/loot/share
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("server", "threads",
+                """
+                            
+                The number of threads for handling requests and uploads 
+                This includes thumbnails, so if you're using gallery mode, you may want to increase this
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("server", "use_html_file",
+                """
+                
+                Look for base.html and base.css in the config directory instead of loading them from memory
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("server", "log_level",
+                """
+                
+                0 = Logging off, 1 = high importance only, 2 = all messages
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("conversion","""
+                Settings for converting between different file types
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("conversion", "jpeg_compression", """                
+                Toggle between lossless and compressed JPEG when using /to_jpg
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("conversion", "jpeg_quality", """
+                Quality level, from 0-100
+                """);
+
+
+            ConfigFileIO.comment_manager.AddBefore("gallery", """
+                Settings for the 'gallery' view style
+                """);
+            ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression_quality", """
+                JPEG compression quality; 0-100
+                """);
+        }
 
         public static string base_html = """
         <!DOCTYPE>
@@ -129,8 +182,10 @@ namespace ShareHole {
         static List<FolderServer> servers = new List<FolderServer>();
 
         internal static void LoadConfig() {
-            CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
+            CurrentConfig.InitializeComments();
 
+            CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
+            
             if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
                 CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].get_bool();
                 Logging.Config("Using HTML from disk");
