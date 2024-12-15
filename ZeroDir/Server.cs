@@ -191,8 +191,8 @@ namespace ZeroDir
                 context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
-                context.Response.AddHeader("Accept-ranges", "none");
-                context.Response.SendChunked = false;
+                context.Response.AddHeader("Accept-ranges", "bytes");
+                context.Response.SendChunked = true;
 
                 //only support GET
                 if (context.Request.HttpMethod != "GET") {
