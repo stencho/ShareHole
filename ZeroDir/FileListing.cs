@@ -1,4 +1,6 @@
-﻿using HeyRed.Mime;
+﻿using FFMpegCore;
+using HeyRed.Mime;
+using ImageMagick;
 using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
@@ -234,6 +236,11 @@ namespace ZeroDir {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
+                    if (mime.StartsWith("image")) {
+                        if (mime.EndsWith("photoshop")) continue;
+                    } else if (mime.StartsWith("video")) {
+                    }
+
                     result +=
                         $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                         $"<span class=\"thumbnail\" >" +
@@ -254,15 +261,7 @@ namespace ZeroDir {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
             string result = "";
-
-            Logging.Custom($"Not implemented!", "RENDER][MusicPlayer", ConsoleColor.Magenta);
-            return "Not implemented!";
-
-            foreach (var file in info.files.OrderBy(a => a.Name)) {
-
-            }
-
-            return "";
+            return result;
         }
 
         public static string GetMimeTypeOrOctet(string fn) {
