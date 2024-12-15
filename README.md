@@ -1,4 +1,4 @@
-## ZeroDir
+## ShareHole
 An HTTP file server for sharing directories with low (but not zero) security, and a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file. Very asynchronous.
 
 ### Configuration and usage
@@ -19,7 +19,7 @@ passdir=loot
 # The number of threads for handling requests and uploads
 # This includes thumbnails, so if you're using gallery mode,
 # you may want to increase this
-threads=32
+threads=100
 
 # Look for base.html and base.css in the config directory
 use_html_file=false

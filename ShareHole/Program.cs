@@ -23,7 +23,7 @@ namespace ShareHole {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "passdir", new ConfigValue("loot") },
-                            { "threads", new ConfigValue(4) },
+                            { "threads", new ConfigValue(100) },
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
                             { "log_level", new ConfigValue(1)} // 0 = off, 1 = high importance only, 2 = all
