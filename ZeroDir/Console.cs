@@ -53,17 +53,8 @@ namespace ZeroDir {
         }
 
         public static void ErrorAndThrow(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            lock (printing) {
-                WriteColor("[ERR]", ConsoleColor.Red);
-                if (show_caller) {
-                    var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-                    var fn = callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash);
-                    fn = fn.Remove(callerfilename.Length - 3);
-                    WriteColor($"[{fn}->{membername}] ", ConsoleColor.Red);
-                } else Console.Write(" ");
-                Console.WriteLine(text);
-                throw new Exception($"{text}");
-            }
+            Log(text, "ERR", ConsoleColor.Red, show_caller, callerfilename, membername);
+            throw new Exception($"{text}");            
         }
 
         static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
