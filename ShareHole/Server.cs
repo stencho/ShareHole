@@ -150,7 +150,7 @@ namespace ShareHole
                     while (context == null) {
                         if (CurrentConfig.cancellation_token.IsCancellationRequested) {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
-                            continue;
+                            return;
                         }
 
                         Thread.Sleep(Random.Shared.Next(5, 100));
