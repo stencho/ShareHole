@@ -33,8 +33,7 @@ namespace ZeroDir {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
-                            { "use_thumbnail_compression", new ConfigValue(true) },
-                            { "jpeg_compression_quality", new ConfigValue(60) }
+                            { "thumbnail_compression_quality", new ConfigValue(60) }
                         }
                     }
                 };
@@ -71,7 +70,7 @@ namespace ZeroDir {
         }
         
         .galleryfoldertext { 
-          font-size: 21px;
+          font-size: 12px;
           color: rgb(242, 191, 241); 
         }
         

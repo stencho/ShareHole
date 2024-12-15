@@ -42,8 +42,7 @@ namespace ZeroDir.DBThreads {
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
-        static bool use_compression => CurrentConfig.server["gallery"]["use_thumbnail_compression"].get_bool();
-        static int compression_quality => CurrentConfig.server["gallery"]["jpeg_compression_quality"].get_int();
+        static int compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int();
 
         public static void RequestThumbnail(string filename, HttpListenerResponse response, FolderServer parent_server, string mime_type, int thread_id) {
             FileInfo f = new FileInfo(filename);
@@ -80,25 +79,11 @@ namespace ZeroDir.DBThreads {
             return output;
         }
 
-        static void compress_thumbnail(string key) {
-            MagickFormat format = MagickFormat.Bmp;
-                
-            if (thumbnail_cache[key].mime.EndsWith("png"))
-                format = MagickFormat.Png;
 
-
-            lock (thumbnail_cache) {
-                byte[] data;
-                using (MagickImage image = new MagickImage(thumbnail_cache[key].data)) {
-
-                    image.Settings.Format = MagickFormat.Jpg;
-                    image.Settings.Compression = CompressionMethod.JPEG;
-                    image.Quality = (uint)compression_quality;
-
-                    data = image.ToByteArray();
-                    thumbnail_cache[key] = ("image/jpeg", data);
-                }
-            }
+        static void convert_to_jpeg(ref MagickImage image) {
+            image.Settings.Format = MagickFormat.Jpg;
+            image.Settings.Compression = CompressionMethod.JPEG;
+            image.Quality = (uint)compression_quality;
         }
 
         static async void build_thumbnail(object data) {
@@ -117,13 +102,15 @@ namespace ZeroDir.DBThreads {
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
+
+                convert_to_jpeg(ref mi);
+
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
                 try {
-                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/bmp", mi.ToByteArray()));
-                    if (use_compression) compress_thumbnail(request.file.FullName);
+                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
                 } catch (Exception ex) {
-                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                    Logging.ErrorAndThrow($"{request.file.Name} :: {ex.Message}");
                 }
 
             //build one for a video
@@ -131,13 +118,19 @@ namespace ZeroDir.DBThreads {
                 if (Logging.CurrentLogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
-                var thumb = get_first_video_frame_from_ffmpeg(request);
+                var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
+                byte[] jpeg_data;
+
+                using (MemoryStream ms = new MemoryStream(ffmpeg_thumb)) {
+                    MagickImage mi = new MagickImage(ms);
+                    convert_to_jpeg(ref mi);
+                    jpeg_data = mi.ToByteArray();
+                }
 
                 try {
-                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", thumb));
-                    if (use_compression) compress_thumbnail(request.file.FullName);
+                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", jpeg_data));
                 } catch (Exception ex) {
-                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                    Logging.ErrorAndThrow($"{request.file.Name} :: {ex.Message}");
                 }
             }
 
