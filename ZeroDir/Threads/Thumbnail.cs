@@ -150,23 +150,27 @@ namespace ZeroDir.DBThreads {
             req.thumbnail = thumbnail_cache[req.file.FullName].data;
             req.response.ContentType = thumbnail_cache[req.file.FullName].mime;
             req.response.ContentLength64 = req.thumbnail.LongLength;
+
+            MemoryStream ms = new MemoryStream(req.thumbnail, false);
+
             try {
-                using (MemoryStream ms = new MemoryStream(req.thumbnail, false)) {
-                    await ms.CopyToAsync(req.response.OutputStream, CurrentConfig.cancellation_token);
+                await ms.CopyToAsync(req.response.OutputStream, CurrentConfig.cancellation_token);
 
-                    req.response.StatusCode = (int)HttpStatusCode.OK;
-                    req.response.StatusDescription = "400 OK";
-                    req.response.OutputStream.Close();
-                    req.response.Close();
+                req.response.StatusCode = (int)HttpStatusCode.OK;
+                req.response.StatusDescription = "400 OK";
+                req.response.OutputStream.Close();
+                req.response.Close();
 
-                    lock (current_requests) {
-                        current_requests[req.thread_id] = null;
-                    }
+                lock (current_requests) {
+                    current_requests[req.thread_id] = null;
                 }
+
             } catch (HttpListenerException e) {
-                Logging.Error(e.Message);
+                Logging.Error($"{req.file.Name} :: {e.Message}");               
             }
 
+            ms.Close();
+            ms.Dispose();
         }
     }
 }
