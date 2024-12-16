@@ -684,26 +684,22 @@ namespace ShareHole.Configuration
         }
 
         // GET VALUES
-        public string get_string() {
-            if (value_type == ValueType.STRING) return (string)value;
-            else throw new TypeAccessException();
-        }
 
-        public int get_int() {
+        public int ToInt() {
             if (value_type == ValueType.INT) return (int)value;
             else throw new TypeAccessException();
         }
 
-        public bool get_bool() {
+        public bool ToBool() {
             if (value_type == ValueType.BOOL) return (bool)value;
             else throw new TypeAccessException();
         }
 
-        public byte[] get_ip() {
+        public byte[] ToIP() {
             if (value_type == ValueType.IP) return (byte[])value;
             else throw new TypeAccessException();
         }
-        public Color get_color() {
+        public Color ToColor() {
             if (value_type == ValueType.COLOR) return (Color)value;
             else throw new TypeAccessException();
         }

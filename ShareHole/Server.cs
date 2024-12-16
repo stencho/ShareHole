@@ -35,7 +35,7 @@ namespace ShareHole
         }
 
         string base_css_data_replaced {
-            get { return CurrentConfig.base_css.Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].get_int().ToString()); }
+            get { return CurrentConfig.base_css.Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].ToInt().ToString()); }
         }
 
         int dispatch_thread_count = 64;
@@ -70,9 +70,9 @@ namespace ShareHole
 
             listener = new HttpListener();
 
-            var port = CurrentConfig.server["server"]["port"].get_int();
+            var port = CurrentConfig.server["server"]["port"].ToInt();
             var prefixes = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = CurrentConfig.server["server"]["threads"].get_int();
+            dispatch_thread_count = CurrentConfig.server["server"]["threads"].ToInt();
 
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
@@ -199,7 +199,7 @@ namespace ShareHole
                 }
 
                 string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
-                string passdir = CurrentConfig.server["server"]["passdir"].get_string().Trim();
+                string passdir = CurrentConfig.server["server"]["passdir"].ToString().Trim();
 
                 string share_name = "";
                 string folder_path = "";
@@ -258,7 +258,7 @@ namespace ShareHole
                 if (CurrentConfig.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
                     //Check if directories should be listed
                     if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                        show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
+                        show_dirs = CurrentConfig.shares[share_name]["show_directories"].ToBool();
                     }
 
                     folder_path = CurrentConfig.shares[share_name]["path"].ToString();
@@ -279,12 +279,12 @@ namespace ShareHole
 
                     //Requested thumbnail
                 if (thumbnail && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("image") || mime.StartsWith("video")) {
+                    if (mime.StartsWith("video") || Conversion.IsValidImage(mime)) {
                         enable_cache(context);
                         ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
 
                     } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE OR VIDEO FILE</b></p>";
+                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
                         data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;
@@ -301,7 +301,7 @@ namespace ShareHole
 
                     //Requested RAW to JPG
                 } else if (to_jpg && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("image")) {
+                    if (Conversion.IsValidImage(mime)) {
                         enable_cache(context);
                         using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
                             if (mi.Orientation != OrientationType.Undefined)
@@ -309,8 +309,8 @@ namespace ShareHole
 
                             mi.Settings.Format = MagickFormat.Jpg;
 
-                            var compress = CurrentConfig.server["conversion"]["jpeg_compression"].get_bool();
-                            var quality = CurrentConfig.server["conversion"]["jpeg_quality"].get_int();
+                            var compress = CurrentConfig.server["conversion"]["jpeg_compression"].ToBool();
+                            var quality = CurrentConfig.server["conversion"]["jpeg_quality"].ToInt();
 
                             if (quality < 0) quality = 0;
                             if (quality > 100) quality = 100;
@@ -352,14 +352,28 @@ namespace ShareHole
 
                     //Requested image to PNG
                 } else if (to_png && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("image")) {
+                    if (Conversion.IsValidImage(mime)) {
                         enable_cache(context);
-                        using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
+                        MagickReadSettings settings = null;
+
+                        var vector = mime == "application/pdf" || mime == "application/postscript";
+
+                        if (vector) {
+                            settings = new MagickReadSettings {
+                                Density = new Density(300)
+                            };
+                        }
+
+                        using (MagickImage mi = new MagickImage(absolute_on_disk_path, settings)) {
 
                             if (mi.Orientation != OrientationType.Undefined)
                                 mi.AutoOrient();
 
+
                             mi.Settings.Format = MagickFormat.Png;
+
+                            //if (pdf) mi.Resize(new Percentage(300), new Percentage(300));
+
                             context.Response.ContentType = "image/png";
 
                             var bytes = mi.ToByteArray();
@@ -437,7 +451,7 @@ namespace ShareHole
                     } else {
                         //Get the page content based on the share's chosen render style
                         if (CurrentConfig.shares[share_name].ContainsKey("style")) {
-                            switch (CurrentConfig.shares[share_name]["style"].get_string()) {                                
+                            switch (CurrentConfig.shares[share_name]["style"].ToString()) {                                
                                 case "gallery":
                                     page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
                                     data = Encoding.UTF8.GetBytes(page_data_strings_replaced);

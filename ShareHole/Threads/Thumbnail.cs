@@ -44,7 +44,7 @@ namespace ShareHole.DBThreads {
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
-        static int thumb_compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int();
+        static int thumb_compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].ToInt();
 
         public static void RequestThumbnail(string filename, HttpListenerContext context, FolderServer parent_server, string mime_type, int thread_id) {
             FileInfo f = new FileInfo(filename);
@@ -96,7 +96,7 @@ namespace ShareHole.DBThreads {
         }
 
         static async void build_thumbnail(ThumbnailRequest request) {
-            thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].get_int();
+            thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].ToInt();
 
             //cache hit, do nothing
             if (thumbnail_cache.ContainsKey(request.file.FullName)) {
@@ -104,7 +104,7 @@ namespace ShareHole.DBThreads {
                     Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
             //build new thumbnail for an image and add it to the cache
-            } else if (request.mime_type.StartsWith("image")) {
+            } else if (request.mime_type.StartsWith("image") || request.mime_type == "application/postscript" || request.mime_type == "application/pdf") {
                 if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
@@ -113,15 +113,27 @@ namespace ShareHole.DBThreads {
                 if (mi.Orientation != OrientationType.Undefined)
                     mi.AutoOrient();
 
-                Conversion.Image.ConvertToJpeg(mi, (uint)CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int());
-
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
-                try {
-                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
-                } catch (Exception ex) {
-                    Logging.Error($"{request.file.Name} :: {ex.Message}");
+                if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool()) {
+                    Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
+                    
+                    try {
+                        lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
+                    } catch (Exception ex) {
+                        Logging.Error($"{request.file.Name} :: {ex.Message}");
+                    }
+
+                } else {
+                    Conversion.Image.ConvertToPng(mi);
+
+                    try {
+                        lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", mi.ToByteArray()));
+                    } catch (Exception ex) {
+                        Logging.Error($"{request.file.Name} :: {ex.Message}");
+                    }
                 }
+
 
             //build one for a video
             } else if (request.mime_type.StartsWith("video")) {         
@@ -131,19 +143,25 @@ namespace ShareHole.DBThreads {
                 try {
                     var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
 
-                    byte[] jpeg_data;
+                    byte[] img_data;
 
                     using (MemoryStream ms = new MemoryStream(ffmpeg_thumb)) {
                         MagickImage mi = new MagickImage(ms);
 
                         if (mi.Orientation != OrientationType.Undefined)
                             mi.AutoOrient();
-
-                        Conversion.Image.ConvertToJpeg(mi, (uint)CurrentConfig.server["gallery"]["thumbnail_compression_quality"].get_int());
-                        jpeg_data = mi.ToByteArray();
+                        
+                        if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool()) {
+                            Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
+                            img_data = mi.ToByteArray();
+                            lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", img_data));
+                        } else {
+                            Conversion.Image.ConvertToPng(mi);
+                            img_data = mi.ToByteArray();
+                            lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", img_data));
+                        }
                     }
 
-                    lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", jpeg_data));
                 } catch (Exception ex) {
                     Logging.Error($"{request.file.Name} :: {ex.Message}");
                     request.context.Response.Close();

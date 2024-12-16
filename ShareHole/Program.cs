@@ -53,6 +53,7 @@ namespace ShareHole {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
+                            { "thumbnail_compression", new ConfigValue(false) },
                             { "thumbnail_compression_quality", new ConfigValue(60) },
 
                             { "convert_images_automatically", new ConfigValue(true) },
@@ -132,6 +133,9 @@ namespace ShareHole {
                 """);
             ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_size", """
                 Thumbnail maximum resolution for both x and y axes
+                """);
+            ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression", """
+                true = JPEG thumbnails, false = PNG thumbnails, prettier, but uses more data
                 """);
             ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression_quality", """
                 JPEG compression quality; 0-100
@@ -238,14 +242,14 @@ namespace ShareHole {
             CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
             
             if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
-                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].get_bool();
+                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].ToBool();
                 Logging.Config("Using HTML from disk");
             } else {
                 Logging.Config("Using CSS from constant");
             }
 
             if (CurrentConfig.server["server"].ContainsKey("use_css_file")) {
-                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].get_bool();
+                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].ToBool();
                 Logging.Config("Using CSS from disk");
             } else {
                 Logging.Config("Using CSS from constant");
@@ -372,7 +376,7 @@ namespace ShareHole {
 
                 } else if (line == "threadstatus") {
                     for (int i = 0; i < servers.Count; i++) {
-                        var port = CurrentConfig.server["server"]["port"].get_int();
+                        var port = CurrentConfig.server["server"]["port"].ToInt();
                         var p = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
 
                         if (p.StartsWith("http://")) p = p.Remove(0, 7);

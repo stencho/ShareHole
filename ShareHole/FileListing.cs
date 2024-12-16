@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace ShareHole {
     internal static class Renderer {
         struct listing_info {
-            public string passdir => CurrentConfig.server["server"]["passdir"].get_string().Trim();
+            public string passdir => CurrentConfig.server["server"]["passdir"].ToString().Trim();
             public string up_dir;
             public string grouping;
             public string[] extensions;
@@ -22,7 +22,7 @@ namespace ShareHole {
             public bool cares_about_groups;
             public bool using_extensions;
             public bool show_dirs;
-            public bool auto_convert_videos => CurrentConfig.server["conversion"]["convert_videos_automatically"].get_bool();
+            public bool auto_convert_videos => CurrentConfig.server["conversion"]["convert_videos_automatically"].ToBool();
             
             public DirectoryInfo[] directories;
             public FileInfo[] files;
@@ -60,14 +60,14 @@ namespace ShareHole {
 
             info.show_dirs = true;
             if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                info.show_dirs = CurrentConfig.shares[share_name]["show_directories"].get_bool();
+                info.show_dirs = CurrentConfig.shares[share_name]["show_directories"].ToBool();
             }
 
             info.grouping = "";
             info.cares_about_groups = false;
             if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
                 info.cares_about_groups = true;
-                info.grouping = CurrentConfig.shares[share_name]["group_by"].get_string();
+                info.grouping = CurrentConfig.shares[share_name]["group_by"].ToString();
                 if (info.grouping.Trim().ToLower() != "type" && info.grouping.Trim().ToLower() != "extension" && info.grouping.Trim().ToLower() != "none") {
                     info.cares_about_groups = false;
                     info.grouping = "none";
@@ -91,7 +91,7 @@ namespace ShareHole {
 
         static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
-            if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].get_bool()) {
+            if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].ToBool()) {
                 converters += $"⸢<text class=\"list_extra\"><a href=\"http://{prefix}/{info.passdir}/stream/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
             }
             return converters;
@@ -236,7 +236,7 @@ namespace ShareHole {
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
                     $"<span class=\"thumbnail\" >" +
-                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].get_int()}px>" +
+                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
                     $"<text class=\"emojitint\">⮝</text>" +
                     $"</font>" +
                     $"<br>" +
@@ -250,7 +250,7 @@ namespace ShareHole {
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
                     $"<span class=\"thumbnail\" >" +
-                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].get_int()}px>" +
+                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
                     $"<text class=\"emojitint\">📁</text>" +
                     $"</font>" +
                     $"<br>" +
@@ -287,7 +287,7 @@ namespace ShareHole {
                 string auto_conversion = "";
                 bool raw = false;
 
-                if (mime.StartsWith("image") || mime.StartsWith("video")) {
+                if (mime.StartsWith("image") || mime.StartsWith("video") || mime == "application/postscript" || mime == "application/pdf") {
                     //get thumbnail from gallery DB thread
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;

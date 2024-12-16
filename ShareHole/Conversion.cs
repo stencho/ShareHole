@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 
 namespace ShareHole {
     public static class Conversion {
-        public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].get_bool();
-        public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].get_bool();
+        public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].ToBool();
+        public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].ToBool();
 
-        public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].get_bool();
-        public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].get_bool();
+        public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].ToBool();
+        public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].ToBool();
 
         public static string CheckConversionList(string mime) {
             return CheckConversion(mime, convert_images_list(), convert_videos_list());
@@ -44,7 +44,14 @@ namespace ShareHole {
 
             return dt.ToFileTimeUtc();
         }
+
+        public static bool IsValidImage(string mime) => 
+            mime.StartsWith("image") || mime == "application/postscript" || mime == "application/pdf";
+        
+
         public static string CheckConversion(string mime, bool images, bool videos) {
+            if (mime == "application/postscript") return "/to_png";
+
             if (mime.StartsWith("image")) {
                 if (!images) return "";
 
@@ -202,7 +209,6 @@ namespace ShareHole {
                 try {
                     var anal = FFProbe.Analyse(file.FullName);
 
-
                     Logging.ThreadMessage($"{file.Name} :: Sending transcoded MP4 data", "CONVERT:MP4", tid);
 
                     //context.Response.SendChunked = false;
@@ -223,7 +229,7 @@ namespace ShareHole {
                             .WithAudioCodec("aac")
                                     
                             .UsingMultithreading(true)
-                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
+                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].ToInt())
 
                             .WithCustomArgument("-map_metadata 0")
 
