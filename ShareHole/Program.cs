@@ -70,25 +70,21 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("server", "prefix", 
                 "Specify which adapter and port to bind to");
 
-            ConfigFileIO.comment_manager.AddBefore("server", "passdir", """                                
-
+            ConfigFileIO.comment_manager.AddBefore("server", "passdir", """
                 The name of the first section of the URL, required to access shares
                 For example: example.com:8080/loot/share
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "threads", """
-                            
                 The number of threads for handling requests and uploads 
                 This includes thumbnails, so if you're using gallery mode, you may want to increase this
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "use_html_file", """
-                
                 Look for base.html and base.css in the config directory instead of loading them from memory
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "log_level", """
-                
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
