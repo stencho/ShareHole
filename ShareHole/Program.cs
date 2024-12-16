@@ -45,6 +45,7 @@ namespace ShareHole {
                     { "list",
                         new Dictionary<string, ConfigValue>() {
                             { "show_stream_button", new ConfigValue(true) },
+                            { "show_convert_image_buttons", new ConfigValue(true) },
                             { "convert_images_automatically", new ConfigValue(false) },
                             { "convert_videos_automatically", new ConfigValue(false) }
                         }
@@ -117,11 +118,15 @@ namespace ShareHole {
                 Seeking while the file is loading is possible in FireFox, but not Chrome
                 """);
 
+            ConfigFileIO.comment_manager.AddBefore("list", "show_convert_image_buttons", """                
+                Display "PNG" and "JPG" buttons next to certain files which normally wouldn't be renderable in browser
+                """);
+
             ConfigFileIO.comment_manager.AddBefore("list", "convert_images_automatically", """                
                 Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
                 convert_videos_automatically does the same thing but for videos
                 """);
-
+            
 
             //GALLERY
             ConfigFileIO.comment_manager.AddBefore("gallery", """

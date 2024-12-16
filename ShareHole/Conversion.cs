@@ -60,7 +60,7 @@ namespace ShareHole {
                 if (mime.EndsWith("/raw")) return "/to_jpg";
 
                 //should work without this, doesn't in chome
-                if (mime.EndsWith("/avif")) return "/to_png";
+                //if (mime.EndsWith("/avif")) return "/to_png";
 
                 //adobe
                 if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";

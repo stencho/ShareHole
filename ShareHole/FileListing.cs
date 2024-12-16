@@ -96,6 +96,19 @@ namespace ShareHole {
             }
             return converters;
         }
+        static string build_image_convert_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
+            string converters = "";
+            string conversion = Conversion.CheckConversion(mime, true, false);
+
+            if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
+                converters += $"⸢<text class=\"list_extra\">" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
+                    $"/" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/to_jpg/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">JPG</a>" +
+                    $"</text>⸥ ";
+            }
+            return converters;
+        }
 
         public static string FileListing(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
@@ -134,6 +147,7 @@ namespace ShareHole {
                 }
             }
             string auto_conversion = "";
+            string converters = "";
 
             // FILES
             if (info.grouping == "none" || !info.cares_about_groups) {
@@ -145,10 +159,14 @@ namespace ShareHole {
                         continue;
 
                     auto_conversion = Conversion.CheckConversionList(mime);
-                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+
+                    if (mime.StartsWith("video")) {
+                        converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+                    } else if (Conversion.IsValidImage(mime)) {
+                        converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
+                    }
 
                     result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
-
                     file_c++;
                 }
 
@@ -158,8 +176,10 @@ namespace ShareHole {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                     var mime = Conversion.GetMimeTypeOrOctet(file.Name);
 
-                    if (ext != previous_ext && info.extensions.Contains(ext.ToLower())) 
-                        result += $"<p class=\"head\"><b>{ext}</b></p>\n";                    
+                    if (ext != previous_ext) {
+                        if ((info.using_extensions && info.extensions.Contains(ext.ToLower())) || !info.using_extensions ) 
+                        result += $"<p class=\"head\"><b>{ext}</b></p>\n";
+                    }
 
                     previous_ext = ext;
 
@@ -167,7 +187,12 @@ namespace ShareHole {
                         continue;
 
                     auto_conversion = Conversion.CheckConversionList(mime);
-                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+
+                    if (mime.StartsWith("video")) {
+                        converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+                    } else if (Conversion.IsValidImage(mime)) {
+                        converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
+                    }
 
                     result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
@@ -196,7 +221,12 @@ namespace ShareHole {
                     previous_mime = mime;
 
                     auto_conversion = Conversion.CheckConversionList(mime);
-                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+
+                    if (mime.StartsWith("video")) {
+                        converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+                    } else if (Conversion.IsValidImage(mime)) {
+                        converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
+                    }
 
                     result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;

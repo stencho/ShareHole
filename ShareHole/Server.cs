@@ -176,10 +176,10 @@ namespace ShareHole
                 var request = context.Request;
 
                 //Set up response
-                context.Response.KeepAlive = true;
+                context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "DENY");
-                //context.Response.AddHeader("Keep-alive", "false");
+                context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-ranges", "bytes");
@@ -431,7 +431,7 @@ namespace ShareHole
                     context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength; 
                     
-                    enable_cache(context);
+                    //enable_cache(context);
 
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {                            
@@ -494,6 +494,13 @@ namespace ShareHole
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
+                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
+                    var range = context.Request.Headers.Get("Range");
+
+                    if (has_range) {
+
+                        Logging.ErrorAndThrow($"Has range! {range}");
+                    }
                     try {
                         if (mimetype.StartsWith("video")) {
                             var anal = FFProbe.Analyse(absolute_on_disk_path);
