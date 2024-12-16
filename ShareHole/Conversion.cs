@@ -227,7 +227,7 @@ namespace ShareHole {
                             .ForceFormat("mp4")
                             .WithVideoCodec("libx264")
                             .WithAudioCodec("aac")
-                                    
+                                     
                             .UsingMultithreading(true)
                             .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].ToInt())
 
@@ -246,19 +246,19 @@ namespace ShareHole {
                             .WithCustomArgument($"-ab 240k")
 
                         ).ProcessAsynchronously().ContinueWith(t => {
-                            if (has_range) {
+                            //if (has_range) {
 
-                                Logging.ThreadMessage($"{file.Name} :: Finished sending partial data {range}", "CONVERT:MP4", tid);
+                               // Logging.ThreadMessage($"{file.Name} :: Finished sending partial data {range}", "CONVERT:MP4", tid);
 
-                                context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
-                                context.Response.StatusDescription = "206 PARTIAL CONTENT";
-                            } else {
+                                //context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
+                                //context.Response.StatusDescription = "206 PARTIAL CONTENT";
+                           // } else {
                                 Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);
 
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "400 OK";
-                            }
-                            //context.Response.Close();
+                            //}
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "400 OK";
+                            context.Response.Close();
                         });
 
                 } catch (Exception ex) {

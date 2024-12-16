@@ -494,13 +494,9 @@ namespace ShareHole
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
-                    var range = context.Request.Headers.Get("Range");
 
-                    if (has_range) {
 
-                        Logging.ErrorAndThrow($"Has range! {range}");
-                    }
+
                     try {
                         if (mimetype.StartsWith("video")) {
                             var anal = FFProbe.Analyse(absolute_on_disk_path);
@@ -541,6 +537,9 @@ namespace ShareHole
 
                     Logging.ThreadMessage($"Starting write on {url_path}", thread_name, thread_id);
 
+                    PartialFileSend.StartNewSend(absolute_on_disk_path, mimetype, context);
+
+                    continue;
                     FileStream fs = File.OpenRead(absolute_on_disk_path);
 
                     context.Response.ContentLength64 = fs.Length;
