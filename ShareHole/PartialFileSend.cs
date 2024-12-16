@@ -56,7 +56,7 @@ namespace ShareHole {
 
 
             var file_size = fi.Length;
-            long chunk_size = 1 * 1024 * 1024;
+            long chunk_size = 512 * 1024;
 
             context.Response.AddHeader("Accept-Ranges", "bytes");
             context.Response.AddHeader("Content-Type", mime);
