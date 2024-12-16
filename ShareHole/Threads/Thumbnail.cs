@@ -178,7 +178,7 @@ namespace ShareHole.DBThreads {
                 ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r => {
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;
-                    request.response.StatusDescription = "400 OK";
+                    request.response.StatusDescription = "200 OK";
 
                     request.response.Close();
 

@@ -227,7 +227,7 @@ namespace ShareHole {
                             .ForceFormat("mp4")
                             .WithVideoCodec("libx264")
                             .WithAudioCodec("aac")
-                                     
+                            
                             .UsingMultithreading(true)
                             .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].ToInt())
 
@@ -257,7 +257,7 @@ namespace ShareHole {
 
                             //}
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
+                            context.Response.StatusDescription = "200 OK";
                             context.Response.Close();
                         });
 
@@ -317,7 +317,7 @@ namespace ShareHole {
                                 Logging.ThreadMessage($"{file.Name} :: Sent data", "CONVERT:WEBM", 9);
 
                                 context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "400 OK";
+                                context.Response.StatusDescription = "200 OK";
                             }
                             //context.Response.Close();
                         });

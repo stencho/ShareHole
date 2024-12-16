@@ -329,7 +329,7 @@ namespace ShareHole
                             using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                 var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                     context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                    context.Response.StatusDescription = "400 OK";
+                                    context.Response.StatusDescription = "200 OK";
                                     context.Response.Close();
                                 }, CurrentConfig.cancellation_token);
                             }
@@ -380,7 +380,7 @@ namespace ShareHole
                             using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                 var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                     context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                    context.Response.StatusDescription = "400 OK";
+                                    context.Response.StatusDescription = "200 OK";
                                     context.Response.Close();
                                 }, CurrentConfig.cancellation_token);
                             }
@@ -436,7 +436,7 @@ namespace ShareHole
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {                            
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
+                            context.Response.StatusDescription = "200 OK";
                             context.Response.Close();
                         }, CurrentConfig.cancellation_token);                        
                     }
@@ -479,7 +479,7 @@ namespace ShareHole
                         using (MemoryStream ms = new MemoryStream(data, false)) {
                             var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                 context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "400 OK";
+                                context.Response.StatusDescription = "200 OK";
                                 context.Response.Close();
 
                                 Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
@@ -548,7 +548,7 @@ namespace ShareHole
 
                         try {
                             context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
+                            context.Response.StatusDescription = "200 OK";
                             context.Response.OutputStream.Close();
                             context.Response.Close();
 
