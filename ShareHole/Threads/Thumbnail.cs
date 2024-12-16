@@ -96,20 +96,21 @@ namespace ShareHole.DBThreads {
         }
 
         static async void build_thumbnail(ThumbnailRequest request) {
+            cache_fail:
             thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].ToInt();
-
+            
             //cache hit, do nothing
             if (thumbnail_cache.ContainsKey(request.file.FullName)) {
                 if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
-            //build new thumbnail for an image and add it to the cache
+                //build new thumbnail for an image and add it to the cache
             } else if (request.mime_type.StartsWith("image") || request.mime_type == "application/postscript" || request.mime_type == "application/pdf") {
                 if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
-                
+
                 if (mi.Orientation != OrientationType.Undefined)
                     mi.AutoOrient();
 
@@ -117,7 +118,7 @@ namespace ShareHole.DBThreads {
 
                 if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool()) {
                     Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
-                    
+
                     try {
                         lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
                     } catch (Exception ex) {
@@ -135,11 +136,11 @@ namespace ShareHole.DBThreads {
                 }
 
 
-            //build one for a video
-            } else if (request.mime_type.StartsWith("video")) {         
+                //build one for a video
+            } else if (request.mime_type.StartsWith("video")) {
                 if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
-                
+
                 try {
                     var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
 
@@ -150,7 +151,7 @@ namespace ShareHole.DBThreads {
 
                         if (mi.Orientation != OrientationType.Undefined)
                             mi.AutoOrient();
-                        
+
                         if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool()) {
                             Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
                             img_data = mi.ToByteArray();
@@ -169,9 +170,14 @@ namespace ShareHole.DBThreads {
             }
 
             //pull byte array from the cache and set up a few requirements
-            request.thumbnail = thumbnail_cache[request.file.FullName].data;
-            request.response.ContentType = thumbnail_cache[request.file.FullName].mime;
-            request.response.ContentLength64 = request.thumbnail.LongLength;
+            lock (thumbnail_cache) {
+                if (thumbnail_cache.ContainsKey(request.file.FullName)) {
+                    request.thumbnail = thumbnail_cache[request.file.FullName].data;
+                    request.response.ContentType = thumbnail_cache[request.file.FullName].mime;
+                    request.response.ContentLength64 = request.thumbnail.LongLength;
+                } else goto cache_fail;
+
+            }
 
             try {
                 MemoryStream ms = new MemoryStream(request.thumbnail, false);

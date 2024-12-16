@@ -214,13 +214,17 @@ namespace ShareHole {
                     //context.Response.SendChunked = false;
                     context.Response.ContentType = "video/mp4";
 
-                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
+                    context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
 
                     var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
                     var range = context.Request.Headers.Get("Range");
 
+                    FileStream fs = File.OpenRead(file.FullName);
+
+                    
+
                     FFMpegArguments
-                        .FromFileInput(file//, options => options
+                        .FromPipeInput(new StreamPipeSource(fs)
                                             //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
                             )
                         .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
@@ -233,16 +237,14 @@ namespace ShareHole {
 
                             .WithCustomArgument("-map_metadata 0")
 
-                            //.WithVideoBitrate($"{CurrentConfig.server["conversion"]["mp4_bitrate"].get_int()}k")
-                            //.WithVariableBitrate(4)
                             .ForcePixelFormat("yuv420p")
-                            .WithConstantRateFactor(23)
+                            .WithConstantRateFactor(25)
                             .WithSpeedPreset(Speed.Fast)
                             .WithFastStart()
 
                             .WithCustomArgument("-loglevel verbose")
                             .WithCustomArgument("-movflags frag_keyframe+empty_moov")
-                            //.WithCustomArgument("-movflags faststart")
+                            .WithCustomArgument("-movflags +faststart")
                             .WithCustomArgument($"-ab 240k")
 
                         ).ProcessAsynchronously().ContinueWith(t => {
