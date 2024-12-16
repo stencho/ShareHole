@@ -299,6 +299,8 @@ namespace ShareHole {
             if (!VideoCache.currently_pruning) {
                 VideoCache.StartPruning();
             }
+
+            CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
         }   
 
         static void Exit() {

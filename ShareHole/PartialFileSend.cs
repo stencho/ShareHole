@@ -47,34 +47,16 @@ namespace ShareHole {
                 return (0, file_size-1, file_size);
             }
 
-        }
+        }        
 
-        static async void send_file(FileInfo file, string mime, HttpListenerContext context) {
-            context.Response.StatusCode = (int)HttpStatusCode.OK;
-            context.Response.StatusDescription = "200 OK";
 
-            using (FileStream fs = File.OpenRead(file.FullName)) {
-                context.Response.ContentLength64 = fs.Length;
-
-                fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
-                    try {
-                        //context.Response.OutputStream.Close();
-                        if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
-                            Logging.Warning($"Finished writing {file.Name}");
-                        //fs.Close();
-                    } catch (HttpListenerException ex) {
-                        Logging.Error($"{ex.Message}");
-                        // fs.Close();
-                    }
-                }, CurrentConfig.cancellation_token);
-            }
-        }
 
         static async void send_file_ranges(string filename, string mime, HttpListenerContext context) {
             FileInfo fi = new FileInfo(filename);
 
             var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
             var range = context.Request.Headers.Get("Range");
+
 
             var file_size = fi.Length;
 
@@ -91,6 +73,7 @@ namespace ShareHole {
             if (has_range) {
                 var range_info = ParseRequestRangeHeader(range, file_size);
 
+
                 context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
                 context.Response.StatusDescription = "206 PARTIAL CONTENT";
 
@@ -105,20 +88,23 @@ namespace ShareHole {
 
                 byte[] buffer = new byte[chunk_size];
 
-                using (FileStream fs = File.OpenRead(filename)) {
-                    fs.Seek(range_info.start, SeekOrigin.Begin);
-                    await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token);
-                }
-                
+                FileStream fs = File.OpenRead(filename);
+                fs.Seek(range_info.start, SeekOrigin.Begin);
+                await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token).ContinueWith(t => {
+                });
+
                 using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
+
                     buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                         try {
                             context.Response.OutputStream.Close();
                             if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                                 Logging.Message($"Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\" to {fi.Name}");
-                            
+                            fs.Close();
+
                         } catch (Exception ex) {
                             Logging.Error($"{ex.Message}");
+                            fs.Close();
                         }
                     }, CurrentConfig.cancellation_token);
                 }
@@ -127,7 +113,26 @@ namespace ShareHole {
                 if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                     Logging.Message($"Got file request, start streaming {fi.Name} of length {file_size}");
 
-                send_file(fi, mime, context);
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                context.Response.StatusDescription = "200 OK";
+
+                using (FileStream fs = File.OpenRead(filename)) {
+                    //context.Response.ContentLength64 = fs.Length;
+
+                    context.Response.ContentLength64 = chunk_size;
+
+                    fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
+                        try {
+                            //context.Response.OutputStream.Close();
+                            if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                                Logging.Warning($"Finished writing {fi.Name}");
+                            //fs.Close();
+                        } catch (HttpListenerException ex) {
+                            Logging.Error($"{ex.Message}");
+                           // fs.Close();
+                        }
+                    }, CurrentConfig.cancellation_token);
+                }
             }
         }
     }

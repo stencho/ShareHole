@@ -532,8 +532,6 @@ namespace ShareHole
                     context.Response.ContentType = mimetype;                        
                     context.Response.SendChunked = false;
 
-                    Logging.ThreadMessage($"Starting write on {url_path}", thread_name, thread_id);
-
                     SendFile.SendWithRanges(absolute_on_disk_path, mimetype, context);
 
                     //User gave a very fail URL
