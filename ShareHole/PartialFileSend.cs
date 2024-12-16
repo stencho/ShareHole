@@ -117,9 +117,9 @@ namespace ShareHole {
                 context.Response.StatusDescription = "200 OK";
 
                 using (FileStream fs = File.OpenRead(filename)) {
-                    //context.Response.ContentLength64 = fs.Length;
+                    context.Response.ContentLength64 = fs.Length;
 
-                    context.Response.ContentLength64 = chunk_size;
+                    //context.Response.ContentLength64 = chunk_size;
 
                     fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
                         try {
