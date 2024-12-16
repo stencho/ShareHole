@@ -92,6 +92,7 @@ namespace ShareHole {
                 fs.Seek(range_info.start, SeekOrigin.Begin);
                 await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token).ContinueWith(t => {
                 });
+                fs.Close();
 
                 using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
 
@@ -100,11 +101,10 @@ namespace ShareHole {
                             context.Response.OutputStream.Close();
                             if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
                                 Logging.Message($"Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\" to {fi.Name}");
-                            fs.Close();
+                           
 
                         } catch (Exception ex) {
                             Logging.Error($"{ex.Message}");
-                            fs.Close();
                         }
                     }, CurrentConfig.cancellation_token);
                 }
@@ -116,23 +116,23 @@ namespace ShareHole {
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.StatusDescription = "200 OK";
 
-                using (FileStream fs = File.OpenRead(filename)) {
-                    context.Response.ContentLength64 = fs.Length;
+                FileStream fs = File.OpenRead(filename);
+                context.Response.ContentLength64 = fs.Length;
 
-                    //context.Response.ContentLength64 = chunk_size;
+                //context.Response.ContentLength64 = chunk_size;
 
-                    fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
-                        try {
-                            //context.Response.OutputStream.Close();
-                            if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
-                                Logging.Warning($"Finished writing {fi.Name}");
-                            //fs.Close();
-                        } catch (HttpListenerException ex) {
-                            Logging.Error($"{ex.Message}");
-                           // fs.Close();
-                        }
-                    }, CurrentConfig.cancellation_token);
-                }
+                fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
+                    try {
+                        //context.Response.OutputStream.Close();
+                        if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                            Logging.Warning($"Finished writing {fi.Name}");
+                        fs.Close();
+                    } catch (HttpListenerException ex) {
+                        Logging.Error($"{ex.Message}");
+                        fs.Close();
+                    }
+                }, CurrentConfig.cancellation_token);
+                
             }
         }
     }
