@@ -494,9 +494,6 @@ namespace ShareHole
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-
-
-
                     try {
                         if (mimetype.StartsWith("video")) {
                             var anal = FFProbe.Analyse(absolute_on_disk_path);
@@ -537,30 +534,7 @@ namespace ShareHole
 
                     Logging.ThreadMessage($"Starting write on {url_path}", thread_name, thread_id);
 
-                    PartialFileSend.StartNewSend(absolute_on_disk_path, mimetype, context);
-
-                    continue;
-                    FileStream fs = File.OpenRead(absolute_on_disk_path);
-
-                    context.Response.ContentLength64 = fs.Length;
-
-                    var task = fs.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-
-                        try {
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "200 OK";
-                            context.Response.OutputStream.Close();
-                            context.Response.Close();
-
-                            Logging.ThreadMessage($"Finished write on {url_path}", thread_name, thread_id);
-                            fs.Close();
-
-                        } catch (HttpListenerException ex) {
-                            Logging.ThreadError($"{ex.Message}", thread_name, thread_id);
-                            fs.Close();
-                        }
-                    }, CurrentConfig.cancellation_token);
-
+                    SendFile.SendWithRanges(absolute_on_disk_path, mimetype, context);
 
                     //User gave a very fail URL
                 } else {

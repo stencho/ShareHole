@@ -28,9 +28,11 @@ namespace ShareHole {
                             { "port", new ConfigValue(8080) },
                             { "passdir", new ConfigValue("loot") },
                             { "threads", new ConfigValue(100) },
+                            { "transfer_buffer_size", new ConfigValue(512)},
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
-                            { "log_level", new ConfigValue(1)} // 0 = off, 1 = high importance only, 2 = all
+                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all
+                            
                         }
                     },
 
@@ -79,6 +81,10 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("server", "threads", """
                 The number of threads for handling requests and uploads 
                 This includes thumbnails, so if you're using gallery mode, you may want to increase this
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("server", "transfer_buffer_size", """
+                The size of each partial transfer chunk's buffer size in kilobytes
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "use_html_file", """

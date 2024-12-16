@@ -15,7 +15,7 @@ There are also several "command dirs", which go after the passdir:
 
 This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
 
-The config loader will write the default server config below to config_dir/server on first start, and the server will do its best to keep this config file structure.
+The config loader will write the default server config below, including comments, to config_dir/server on first start, and the server will do its best to keep this config file structure.
 
 'server' config file
 ```ini
@@ -24,19 +24,17 @@ The config loader will write the default server config below to config_dir/serve
 # Specify which adapter and port to bind to
 prefix=localhost
 port=8080
-
 # The name of the first section of the URL, required to access shares
 # For example: example.com:8080/loot/share
 passdir=loot
-
 # The number of threads for handling requests and uploads 
 # This includes thumbnails, so if you're using gallery mode, you may want to increase this
 threads=100
-
+# The size of each partial transfer chunk's buffer size in kilobytes
+transfer_buffer_size=512
 # Look for base.html and base.css in the config directory instead of loading them from memory
 use_html_file=false
 use_css_file=false
-
 # 0 = Logging off, 1 = high importance only, 2 = all messages
 log_level=1
 
@@ -55,6 +53,8 @@ threads_per_video_conversion=16
 # to x264 MP4 and stream that to the client, from start to finish
 # Seeking while the file is loading is possible in FireFox, but not Chrome
 show_stream_button=true
+# Display "PNG" and "JPG" buttons next to certain files which normally wouldn't be renderable in browser
+show_convert_image_buttons=true
 # Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
 # convert_videos_automatically does the same thing but for videos
 convert_images_automatically=false
@@ -64,13 +64,14 @@ convert_videos_automatically=false
 [gallery]
 # Thumbnail maximum resolution for both x and y axes
 thumbnail_size=192
+# true = JPEG thumbnails, false = PNG thumbnails, prettier, but uses more data
+thumbnail_compression=false
 # JPEG compression quality; 0-100
 thumbnail_compression_quality=60
 # Does the same thing as the options in [list], but for the gallery
 # On by default
 convert_images_automatically=true
 convert_videos_automatically=true
-
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"
