@@ -175,7 +175,7 @@ namespace ShareHole {
                                     //.WithFastStart()
 
                                     .WithCustomArgument("-loglevel verbose")
-                                    .WithCustomArgument("-movflags frag_keyframe")
+                                    .WithCustomArgument("-movflags frag_keyframe+empty_moov")
 
                                 ).ProcessAsynchronously();
 
@@ -200,7 +200,7 @@ namespace ShareHole {
 
                     context.Response.ContentType = "video/mp4";
                     context.Response.ContentLength64 = data.length;
-                    context.Response.AddHeader("Accept-ranges", "none");
+                    //context.Response.AddHeader("Accept-ranges", "none");
                     context.Response.SendChunked = false;
 
                     using (var ds = new MemoryStream(data.data)) {
