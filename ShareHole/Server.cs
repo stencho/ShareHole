@@ -393,7 +393,7 @@ namespace ShareHole
                     //Requested video to MP4
                 } else if (to_mp4 && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
-                        enable_cache(context);
+                        //enable_cache(context);
                         Conversion.Video.MP4ByteStream(new FileInfo(absolute_on_disk_path), context); 
 
                     } else {
@@ -414,7 +414,7 @@ namespace ShareHole
                     //Requested video to webm
                 } else if (to_webm && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
-                        enable_cache(context);
+                        //enable_cache(context);
                         Conversion.Video.WebmByteStream(new FileInfo(absolute_on_disk_path), context);
 
                     } else {

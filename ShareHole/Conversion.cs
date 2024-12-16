@@ -15,6 +15,9 @@ namespace ShareHole {
     public static class Conversion {
 
         public static string CheckConversion(string mime) {
+            if (!CurrentConfig.server["conversion"]["convert_video_automatically"].get_bool())
+                return "";
+
             if (mime.StartsWith("image")) {
                 //raw formats
                 if (mime.EndsWith("/dng")) return "/to_jpg";
@@ -28,8 +31,8 @@ namespace ShareHole {
 
             } else if (mime.StartsWith("video")) {
                 if (mime.EndsWith("x-ms-wmv")) return "/to_mp4";
-                //if (mime.EndsWith("x-msvideo")) return "/to_mp4";
-                //if (mime.EndsWith("x-matroska")) return "/to_mp4";
+                if (mime.EndsWith("x-msvideo")) return "/to_mp4";
+                if (mime.EndsWith("x-matroska")) return "/to_mp4";
             }
 
             return "";
@@ -151,75 +154,129 @@ namespace ShareHole {
                 }
             }
 
-            public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {                
+            public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {
                 try {
-                    Logging.Message($"Converting {file.Name} to MP4");
                     var anal = FFProbe.Analyse(file.FullName);
-                    video_data data;
 
-                    if (!VideoCache.Test(file.FullName)) {
-                        using (var ms = new MemoryStream()) {
-                            await FFMpegArguments
-                                .FromFileInput(file//, options => options
-                                                   //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
-                                    )
-                                .OutputToPipe(new StreamPipeSink(ms), options => options
-                                    .ForceFormat("mp4")
-                                    .WithVideoCodec("libx264")
-                                    .WithAudioCodec("aac")
-                                    .UsingMultithreading(true)
+                    Logging.ThreadMessage($"Sending transcoded MP4 data", "CONVERT:MP4", 8);
 
-                                    .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
-                                    .WithVideoBitrate(CurrentConfig.server["conversion"]["mp4_bitrate"].get_int())
-
-                                    .WithFastStart()
-
-                                    .WithCustomArgument("-loglevel verbose")
-                                    .WithCustomArgument("-movflags frag_keyframe+empty_moov")
-
-                                ).ProcessAsynchronously();
-
-                            data = new video_data(anal.Duration.TotalSeconds + (60 * 10), "video/mp4");
-
-                            data.data = new byte[ms.Length];
-                            ms.Seek(0, SeekOrigin.Begin);
-
-                            using (var data_stream = new MemoryStream(data.data)) {
-                                await ms.CopyToAsync(data_stream);
-                            }
-
-                            VideoCache.Store(file.FullName, data);
-
-                        }
-                    } else {
-                        data = VideoCache.cache[file.FullName];
-                    }
-
-                    //implement header checks for range
-                    var r = context.Request.Headers["Range"];
-
+                    context.Response.SendChunked = false;
                     context.Response.ContentType = "video/mp4";
-                    context.Response.ContentLength64 = data.length;
-                    //context.Response.AddHeader("Accept-ranges", "none");
-                    //context.Response.SendChunked = false;
 
-                    using (var ds = new MemoryStream(data.data)) {
-                        ds.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(res => {
+                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
 
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "400 OK";
-                            context.Response.Close();
+                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
+                    var range = context.Request.Headers.Get("Range");
 
-                            Logging.Message($"Done copying MP4 chunk of {file.Name}");
+                    FFMpegArguments
+                        .FromFileInput(file//, options => options
+                                            //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
+                            )
+                        .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
+                            .ForceFormat("mp4")
+                            .WithVideoCodec("libx264")
+                            .WithAudioCodec("aac")
+                                    
+                            .UsingMultithreading(true)
+                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
+
+                            .WithCustomArgument("-map_metadata 0")
+
+                            //.WithVideoBitrate($"{CurrentConfig.server["conversion"]["mp4_bitrate"].get_int()}k")
+                            //.WithVariableBitrate(4)
+                            .ForcePixelFormat("yuv420p")
+                            .WithConstantRateFactor(23)
+                            .WithSpeedPreset(Speed.Fast)
+                            .WithFastStart()
+
+                            .WithCustomArgument("-loglevel verbose")
+                            .WithCustomArgument("-movflags frag_keyframe+empty_moov")
+                            //.WithCustomArgument("-movflags faststart")
+                            .WithCustomArgument($"-ab 240k")
+
+                        ).ProcessAsynchronously().ContinueWith(t => {
+                            if (has_range) {
+
+                                Logging.ThreadMessage($"Sent partial data {range}", "CONVERT:MP4", 8);
+
+                                context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
+                                context.Response.StatusDescription = "206 PARTIAL CONTENT";
+                            } else {
+                                Logging.ThreadMessage($"Sent data", "CONVERT:MP4", 8);
+
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "400 OK";
+                            }
+                            //context.Response.Close();
                         });
-                    }
+
                 } catch (Exception ex) {
-                    Logging.Error($"MP4 {file.Name} :: {ex.Message}");
+                    Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:MP4", 8);
                 }
             }
 
             public async static void WebmByteStream(FileInfo file, HttpListenerContext context) {
-                Logging.Message($"Attempting to convert {file.Name} to MP4");
+                try {
+                    var anal = FFProbe.Analyse(file.FullName);
+
+                    Logging.ThreadMessage($"Sending transcoded webm data", "CONVERT:WEBM", 8);
+
+                    context.Response.SendChunked = false;
+                    context.Response.ContentType = "video/webm";
+
+                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
+
+                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
+                    var range = context.Request.Headers.Get("Range");
+
+                    FFMpegArguments
+                        .FromFileInput(file//, options => options
+                                           //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
+                            )
+                        .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
+                            .ForceFormat("webm")
+                            .WithVideoCodec("libvpx-vp9")
+                            .WithAudioCodec("libopus")
+
+                            .UsingMultithreading(true)
+                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
+
+                            .WithCustomArgument("-map_metadata 0")
+
+                            //.WithVideoBitrate($"{CurrentConfig.server["conversion"]["mp4_bitrate"].get_int()}k")
+                            //.WithVariableBitrate(4)
+                            //.ForcePixelFormat("yuv420p")
+                            .WithConstantRateFactor(23)
+                            .WithSpeedPreset(Speed.Fast)
+                            //.WithFastStart()
+
+                            .WithCustomArgument("-loglevel verbose")
+                            //.WithCustomArgument("-movflags frag_keyframe+empty_moov")
+                            //.WithCustomArgument("-movflags faststart")
+                            .WithCustomArgument($"-ab 240k")
+
+                        ).ProcessAsynchronously().ContinueWith(t => {
+                            if (has_range) {
+
+                                Logging.ThreadMessage($"Sent partial data {range}", "CONVERT:WEBM", 9);
+
+                                context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
+                                context.Response.StatusDescription = "206 PARTIAL CONTENT";
+                            } else {
+                                Logging.ThreadMessage($"Sent data", "CONVERT:WEBM", 9);
+
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "400 OK";
+                            }
+                            //context.Response.Close();
+                        });
+
+                } catch (Exception ex) {
+                    Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:WEBM", 9);
+                }
+
+                /*
+                Logging.Message($"Attempting to convert {file.Name} to webm");
 
                 try {
                     var anal = FFProbe.Analyse(file.FullName);
@@ -267,13 +324,13 @@ namespace ShareHole {
                         context.Response.StatusCode = (int)HttpStatusCode.OK;
                         context.Response.StatusDescription = "400 OK";
                         context.Response.Close();
-                        Logging.Message($"Done copying MP4 chunk of {file.Name}");
+                        Logging.Message($"Done copying Webm {file.Name}");
                         ds.Close();
                     }, CurrentConfig.cancellation_token);
 
                 } catch (Exception ex) {
                     Logging.Error($"Webm {file.Name} :: {ex.Message}");
-                }
+                }*/
             }
         }
     }

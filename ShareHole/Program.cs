@@ -40,7 +40,8 @@ namespace ShareHole {
                             { "jpeg_quality", new ConfigValue(85) },
                             { "threads_per_video_conversion", new ConfigValue(16) },
                             //{ "hardware_accel", new ConfigValue("auto") },
-                            { "mp4_bitrate", new ConfigValue(1500) }
+                            //{ "mp4_bitrate", new ConfigValue(1500) },
+                            { "convert_video_automatically", new ConfigValue(true) }
                         }
                     },
 
@@ -101,9 +102,9 @@ namespace ShareHole {
                 Determines how many threads are used by each /to_mp4/ and /to_webm/ converter
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("conversion", "mp4_bitrate", """
-                The output bitrate of those mp4s
-                """);
+            //ConfigFileIO.comment_manager.AddBefore("conversion", "mp4_bitrate", """
+            //    The output bitrate of those mp4s
+            //    """);
 
             ConfigFileIO.comment_manager.AddBefore("gallery", """
                 Settings for the 'gallery' view style
