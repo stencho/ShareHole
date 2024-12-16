@@ -172,7 +172,7 @@ namespace ShareHole {
                                     .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
                                     .WithVideoBitrate(CurrentConfig.server["conversion"]["mp4_bitrate"].get_int())
 
-                                    //.WithFastStart()
+                                    .WithFastStart()
 
                                     .WithCustomArgument("-loglevel verbose")
                                     .WithCustomArgument("-movflags frag_keyframe+empty_moov")
@@ -201,7 +201,7 @@ namespace ShareHole {
                     context.Response.ContentType = "video/mp4";
                     context.Response.ContentLength64 = data.length;
                     //context.Response.AddHeader("Accept-ranges", "none");
-                    context.Response.SendChunked = false;
+                    //context.Response.SendChunked = false;
 
                     using (var ds = new MemoryStream(data.data)) {
                         ds.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(res => {
