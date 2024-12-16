@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace ShareHole {
     internal static class Renderer {
         struct listing_info {
-            public string passdir;
+            public string passdir => CurrentConfig.server["server"]["passdir"].get_string().Trim();
             public string up_dir;
             public string grouping;
             public string[] extensions;
@@ -22,6 +22,7 @@ namespace ShareHole {
             public bool cares_about_groups;
             public bool using_extensions;
             public bool show_dirs;
+            public bool auto_convert_videos => CurrentConfig.server["conversion"]["convert_videos_automatically"].get_bool();
             
             public DirectoryInfo[] directories;
             public FileInfo[] files;
@@ -39,8 +40,6 @@ namespace ShareHole {
             while (prefix.EndsWith('/')) {
                 prefix = prefix.Remove(prefix.Length - 1, 1);
             }
-
-            info.passdir = CurrentConfig.server["server"]["passdir"].get_string().Trim();
 
             if (!directory.EndsWith('/')) directory = directory + "/";
 
@@ -90,6 +89,14 @@ namespace ShareHole {
             return info;
         }
 
+        static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
+            string converters = "";
+            if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].get_bool()) {
+                converters += $"⸢<text class=\"list_extra\"><a href=\"http://{prefix}/{info.passdir}/stream/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
+            }
+            return converters;
+        }
+
         public static string FileListing(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
@@ -126,8 +133,7 @@ namespace ShareHole {
                     dir_c++;
                 }
             }
-
-            string conversion = "";
+            string auto_conversion = "";
 
             // FILES
             if (info.grouping == "none" || !info.cares_about_groups) {
@@ -138,9 +144,10 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    conversion = Conversion.CheckConversion(mime);
+                    auto_conversion = Conversion.CheckConversionList(mime);
+                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
 
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
 
                     file_c++;
                 }
@@ -159,9 +166,10 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    conversion = Conversion.CheckConversion(mime);
+                    auto_conversion = Conversion.CheckConversionList(mime);
+                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
 
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
                 }
 
@@ -176,8 +184,6 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    conversion = Conversion.CheckConversion(mime);
-
                     if (mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
                         var t = mime.Substring(0, slashi);
@@ -188,8 +194,11 @@ namespace ShareHole {
                     }
                 
                     previous_mime = mime;
-                    
-                    result += $"<p><a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+
+                    auto_conversion = Conversion.CheckConversionList(mime);
+                    var converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+
+                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
                     file_c++;
                 }
             }
@@ -275,7 +284,7 @@ namespace ShareHole {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = Conversion.GetMimeTypeOrOctet(file.Name);
                 
-                string conversion = "";
+                string auto_conversion = "";
                 bool raw = false;
 
                 if (mime.StartsWith("image") || mime.StartsWith("video")) {
@@ -283,7 +292,7 @@ namespace ShareHole {
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    conversion = Conversion.CheckConversion(mime);
+                    auto_conversion = Conversion.CheckConversionGallery(mime);
 
                     if (group_by_type && mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
@@ -302,7 +311,7 @@ namespace ShareHole {
                     previous_ext = ext;
 
                     result +=
-                        $"<a href=\"http://{prefix}/{info.passdir}{conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                         $"<span class=\"thumbnail\" >" +
                         $"<img align=center src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/>" +
                         //(is_raw(mime) ? $"<text>RAW</text>" : "") +

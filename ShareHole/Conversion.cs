@@ -6,6 +6,7 @@ using HeyRed.Mime;
 using ImageMagick;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -13,12 +14,40 @@ using System.Threading.Tasks;
 
 namespace ShareHole {
     public static class Conversion {
+        public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].get_bool();
+        public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].get_bool();
 
-        public static string CheckConversion(string mime) {
-            if (!CurrentConfig.server["conversion"]["convert_video_automatically"].get_bool())
-                return "";
+        public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].get_bool();
+        public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].get_bool();
 
+        public static string CheckConversionList(string mime) {
+            return CheckConversion(mime, convert_images_list(), convert_videos_list());
+        }
+
+        public static string CheckConversionGallery(string mime) {
+            return CheckConversion(mime, convert_images_gallery(), convert_videos_gallery());
+        }
+        const string date_fmt = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
+
+        public static long ParseDateHeaderToSeconds(string header) {
+            if (header == null) return 0;
+
+            DateTime dt;
+
+            DateTime.TryParseExact(
+               header,
+               date_fmt,
+               CultureInfo.InvariantCulture,
+               DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+               out dt
+           );
+
+            return dt.ToFileTimeUtc();
+        }
+        public static string CheckConversion(string mime, bool images, bool videos) {
             if (mime.StartsWith("image")) {
+                if (!images) return "";
+
                 //raw formats
                 if (mime.EndsWith("/dng")) return "/to_jpg";
                 if (mime.EndsWith("/raw")) return "/to_jpg";
@@ -30,9 +59,20 @@ namespace ShareHole {
                 if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
 
             } else if (mime.StartsWith("video")) {
-                if (mime.EndsWith("x-ms-wmv")) return "/to_mp4";
-                if (mime.EndsWith("x-msvideo")) return "/to_mp4";
-                if (mime.EndsWith("x-matroska")) return "/to_mp4";
+                if (!videos) return "";
+
+                //wmv
+                if (mime.EndsWith("x-ms-wmv")) return "/stream";
+                //avi
+                if (mime.EndsWith("x-msvideo")) return "/stream";
+                //mkv
+                if (mime.EndsWith("x-matroska")) return "/stream";
+                //quicktime
+                if (mime.EndsWith("quicktime")) return "/stream";
+                //mpeg
+                if (mime.EndsWith("mpeg")) return "/stream";
+                //3gpp
+                if (mime.EndsWith("3gpp")) return "/stream";
             }
 
             return "";
@@ -42,6 +82,7 @@ namespace ShareHole {
             string mimetype;
 
             var fi = new FileInfo(fn);
+
             if (fi.Extension.ToLower() == ".dng") return "image/dng";
             if (fi.Extension.ToLower() == ".raw") return "image/raw";
             if (fi.Extension.ToLower() == ".avif") return "image/avif";
@@ -59,6 +100,7 @@ namespace ShareHole {
             string mimetype;
 
             var fi = new FileInfo(fn);
+
             if (fi.Extension.ToLower() == ".dng") return "image";
             if (fi.Extension.ToLower() == ".raw") return "image";
             if (fi.Extension.ToLower() == ".avif") return "image";
@@ -155,12 +197,15 @@ namespace ShareHole {
             }
 
             public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {
+                long tid = DateTime.Now.Ticks;
+                
                 try {
                     var anal = FFProbe.Analyse(file.FullName);
 
-                    Logging.ThreadMessage($"Sending transcoded MP4 data", "CONVERT:MP4", 8);
 
-                    context.Response.SendChunked = false;
+                    Logging.ThreadMessage($"{file.Name} :: Sending transcoded MP4 data", "CONVERT:MP4", tid);
+
+                    //context.Response.SendChunked = false;
                     context.Response.ContentType = "video/mp4";
 
                     context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
@@ -197,12 +242,12 @@ namespace ShareHole {
                         ).ProcessAsynchronously().ContinueWith(t => {
                             if (has_range) {
 
-                                Logging.ThreadMessage($"Sent partial data {range}", "CONVERT:MP4", 8);
+                                Logging.ThreadMessage($"{file.Name} :: Finished sending partial data {range}", "CONVERT:MP4", tid);
 
                                 context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
                                 context.Response.StatusDescription = "206 PARTIAL CONTENT";
                             } else {
-                                Logging.ThreadMessage($"Sent data", "CONVERT:MP4", 8);
+                                Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);
 
                                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                                 context.Response.StatusDescription = "400 OK";
@@ -211,20 +256,20 @@ namespace ShareHole {
                         });
 
                 } catch (Exception ex) {
-                    Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:MP4", 8);
+                    Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:MP4", tid);
                 }
             }
-
+            /*
             public async static void WebmByteStream(FileInfo file, HttpListenerContext context) {
                 try {
                     var anal = FFProbe.Analyse(file.FullName);
+                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
 
-                    Logging.ThreadMessage($"Sending transcoded webm data", "CONVERT:WEBM", 8);
+                    Logging.ThreadMessage($"{file.Name} :: Sending transcoded webm data", "CONVERT:WEBM", 8);
 
                     context.Response.SendChunked = false;
                     context.Response.ContentType = "video/webm";
 
-                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
 
                     var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
                     var range = context.Request.Headers.Get("Range");
@@ -248,22 +293,22 @@ namespace ShareHole {
                             //.ForcePixelFormat("yuv420p")
                             .WithConstantRateFactor(23)
                             .WithSpeedPreset(Speed.Fast)
-                            //.WithFastStart()
+                            .WithFastStart()
 
                             .WithCustomArgument("-loglevel verbose")
-                            //.WithCustomArgument("-movflags frag_keyframe+empty_moov")
+                            .WithCustomArgument("-movflags frag_keyframe+empty_moov")
                             //.WithCustomArgument("-movflags faststart")
                             .WithCustomArgument($"-ab 240k")
 
                         ).ProcessAsynchronously().ContinueWith(t => {
                             if (has_range) {
 
-                                Logging.ThreadMessage($"Sent partial data {range}", "CONVERT:WEBM", 9);
+                                Logging.ThreadMessage($"{file.Name} :: Sent partial data {range}", "CONVERT:WEBM", 9);
 
                                 context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
                                 context.Response.StatusDescription = "206 PARTIAL CONTENT";
                             } else {
-                                Logging.ThreadMessage($"Sent data", "CONVERT:WEBM", 9);
+                                Logging.ThreadMessage($"{file.Name} :: Sent data", "CONVERT:WEBM", 9);
 
                                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                                 context.Response.StatusDescription = "400 OK";
@@ -275,63 +320,7 @@ namespace ShareHole {
                     Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:WEBM", 9);
                 }
 
-                /*
-                Logging.Message($"Attempting to convert {file.Name} to webm");
-
-                try {
-                    var anal = FFProbe.Analyse(file.FullName);
-                    video_data data;
-
-                    if (!VideoCache.Test(file.FullName)) {
-                        var ms = new MemoryStream();
-                        await FFMpegArguments
-                            .FromFileInput(file)
-                            .OutputToPipe(new StreamPipeSink(ms), options =>
-                                options
-                                .ForceFormat("webm")
-                                .WithVideoCodec("libvpx-vp9")
-                                .WithAudioCodec("libopus")
-                                .UsingMultithreading(true)
-                                .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
-                                .WithFastStart()
-
-                                .WithVideoBitrate((int)anal.PrimaryVideoStream.BitRate)
-                                .WithCustomArgument("-loglevel verbose")                                
-
-                            ).ProcessAsynchronously();
-
-                        data = new video_data(anal.Duration.TotalSeconds + (60 * 10), "video/webm");
-
-                        data.data = new byte[ms.Length];
-                        ms.Seek(0, SeekOrigin.Begin);
-
-                        using (var data_stream = new MemoryStream(data.data)) {
-                            await ms.CopyToAsync(data_stream);
-                        }
-
-                        VideoCache.Store(file.FullName, data);
-
-                        ms.Close();
-                    } else {
-                        data = VideoCache.cache[file.FullName];
-                    }
-
-                    context.Response.ContentType = "video/webm";
-                    context.Response.ContentLength64 = data.length;
-
-                    var ds = new MemoryStream(data.data);
-                    await ds.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                        context.Response.StatusCode = (int)HttpStatusCode.OK;
-                        context.Response.StatusDescription = "400 OK";
-                        context.Response.Close();
-                        Logging.Message($"Done copying Webm {file.Name}");
-                        ds.Close();
-                    }, CurrentConfig.cancellation_token);
-
-                } catch (Exception ex) {
-                    Logging.Error($"Webm {file.Name} :: {ex.Message}");
-                }*/
-            }
+            }*/
         }
     }
 }

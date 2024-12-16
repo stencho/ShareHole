@@ -38,22 +38,31 @@ namespace ShareHole {
                         new Dictionary<string, ConfigValue>() {
                             { "jpeg_compression", new ConfigValue(true) },
                             { "jpeg_quality", new ConfigValue(85) },
-                            { "threads_per_video_conversion", new ConfigValue(16) },
-                            //{ "hardware_accel", new ConfigValue("auto") },
-                            //{ "mp4_bitrate", new ConfigValue(1500) },
-                            { "convert_video_automatically", new ConfigValue(true) }
+                            { "threads_per_video_conversion", new ConfigValue(16) }
+                        }
+                    },
+
+                    { "list",
+                        new Dictionary<string, ConfigValue>() {
+                            { "show_stream_button", new ConfigValue(true) },
+                            { "convert_images_automatically", new ConfigValue(false) },
+                            { "convert_videos_automatically", new ConfigValue(false) }
                         }
                     },
 
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
-                            { "thumbnail_compression_quality", new ConfigValue(60) }
+                            { "thumbnail_compression_quality", new ConfigValue(60) },
+
+                            { "convert_images_automatically", new ConfigValue(true) },
+                            { "convert_videos_automatically", new ConfigValue(true) }
                         }
                     }
                 };
 
         public static void InitializeComments() {
+            //SERVER
             ConfigFileIO.comment_manager.AddBefore("server",
                 "General server settings");
 
@@ -66,25 +75,24 @@ namespace ShareHole {
                 For example: example.com:8080/loot/share
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("server", "threads",
-                """
+            ConfigFileIO.comment_manager.AddBefore("server", "threads", """
                             
                 The number of threads for handling requests and uploads 
                 This includes thumbnails, so if you're using gallery mode, you may want to increase this
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("server", "use_html_file",
-                """
+            ConfigFileIO.comment_manager.AddBefore("server", "use_html_file", """
                 
                 Look for base.html and base.css in the config directory instead of loading them from memory
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("server", "log_level",
-                """
+            ConfigFileIO.comment_manager.AddBefore("server", "log_level", """
                 
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
+
+            //CONVERSION
             ConfigFileIO.comment_manager.AddBefore("conversion","""
                 Settings for converting between different file types
                 """);
@@ -97,20 +105,40 @@ namespace ShareHole {
                 Quality level, from 0-100
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("conversion", "threads_per_video_conversion", """
-                
-                Determines how many threads are used by each /to_mp4/ and /to_webm/ converter
+            ConfigFileIO.comment_manager.AddBefore("conversion", "threads_per_video_conversion", """                
+                Determines how many threads are used by each /stream/ converter
                 """);
 
-            //ConfigFileIO.comment_manager.AddBefore("conversion", "mp4_bitrate", """
-            //    The output bitrate of those mp4s
-            //    """);
 
+            //LIST
+            ConfigFileIO.comment_manager.AddBefore("list",
+                "Settings for the default \"list\" share style");
+
+            ConfigFileIO.comment_manager.AddBefore("list", "show_stream_button", """
+                Display a play button next to video files, which when clicked will transcode the video
+                to x264 MP4 and stream that to the client, from start to finish
+                Seeking while the file is loading is possible in FireFox, but not Chrome
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("list", "convert_images_automatically", """                
+                Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
+                convert_videos_automatically does the same thing but for videos
+                """);
+
+
+            //GALLERY
             ConfigFileIO.comment_manager.AddBefore("gallery", """
                 Settings for the 'gallery' view style
                 """);
+            ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_size", """
+                Thumbnail maximum resolution for both x and y axes
+                """);
             ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression_quality", """
                 JPEG compression quality; 0-100
+                """);
+            ConfigFileIO.comment_manager.AddBefore("gallery", "convert_images_automatically", """                
+                Does the same thing as the options in [list], but for the gallery
+                On by default
                 """);
         }
 
@@ -135,7 +163,17 @@ namespace ShareHole {
           height: auto;
         }
 
+        text {        
+          color: rgb(235, 235, 235);
+          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        text.list_extra {        
+          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
+          font-size: 12pt;
+        }
+
         body { 
+          color: rgb(235, 235, 235);
           background-color: #101010; 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
         }

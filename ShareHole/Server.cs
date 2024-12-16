@@ -12,6 +12,7 @@ using System.Drawing;
 using ShareHole.DBThreads;
 using ImageMagick;
 using System.Net.Http.Headers;
+using FFMpegCore;
 
 namespace ShareHole
 {
@@ -206,8 +207,7 @@ namespace ShareHole
                 bool thumbnail = false;
                 bool to_jpg = false;
                 bool to_png = false;
-                bool to_mp4 = false;
-                bool to_webm = false;
+                bool stream = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
@@ -218,22 +218,19 @@ namespace ShareHole
                 }
 
                 //check for command directory
-                if (url_path.StartsWith("/thumbnail/")) {
+                if (url_path.ToLower().StartsWith("/thumbnail/")) {
                     url_path = url_path.Remove(0, "/thumbnail/".Length);
                     thumbnail = true;
-                } else if (url_path.StartsWith("/to_jpg/")) {
+                } else if (url_path.ToLower().StartsWith("/to_jpg/")) {
                     url_path = url_path.Remove(0, "/to_jpg/".Length);
                     to_jpg = true;
-                } else if (url_path.StartsWith("/to_png/")) {
+                } else if (url_path.ToLower().StartsWith("/to_png/")) {
                     url_path = url_path.Remove(0, "/to_png/".Length);
                     to_png = true;
-                } else if (url_path.StartsWith("/to_mp4/")) {
-                    url_path = url_path.Remove(0, "/to_mp4/".Length);
-                    to_mp4 = true;
-                } else if (url_path.StartsWith("/to_webm/")) {
-                    url_path = url_path.Remove(0, "/to_webm/".Length);
-                    to_webm = true;
-                }
+                } else if (url_path.ToLower().StartsWith("/stream/")) {
+                    url_path = url_path.Remove(0, "/stream/".Length);
+                    stream = true;
+                } 
 
                 //Clean URL
                 while (url_path.StartsWith('/')) {
@@ -391,7 +388,7 @@ namespace ShareHole
                     }
 
                     //Requested video to MP4
-                } else if (to_mp4 && File.Exists(absolute_on_disk_path)) {
+                } else if (stream && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
                         //enable_cache(context);
                         Conversion.Video.MP4ByteStream(new FileInfo(absolute_on_disk_path), context); 
@@ -410,28 +407,6 @@ namespace ShareHole
                             }, CurrentConfig.cancellation_token);
                         }
                     }
-
-                    //Requested video to webm
-                } else if (to_webm && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("video")) {
-                        //enable_cache(context);
-                        Conversion.Video.WebmByteStream(new FileInfo(absolute_on_disk_path), context);
-
-                    } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                                context.Response.StatusDescription = "404 NOT FOUND";
-                                context.Response.Close();
-                            }, CurrentConfig.cancellation_token);
-                        }
-                    }
-
 
                     //Requested CSS file  
                 } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
@@ -504,6 +479,13 @@ namespace ShareHole
                     //Requested a file
                 } else if (File.Exists(absolute_on_disk_path)) {
                     string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
+
+                    try {
+                        if (mimetype.StartsWith("video")) {
+                            var anal = FFProbe.Analyse(absolute_on_disk_path);
+                            context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
+                        }
+                    } catch (Exception ex) { }
 
                     if (!show_dirs && url_path.Count(x => x == '/') > 1) {
                         Logging.ThreadError($"Attempted to open file outside of share \"{share_name}\" with directories off", thread_name, thread_id);

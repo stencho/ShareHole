@@ -46,17 +46,31 @@ log_level=1
 jpeg_compression=true
 # Quality level, from 0-100
 jpeg_quality=85
-
-# Determines how many threads are used by each /to_mp4/ and /to_webm/ converter
+# Determines how many threads are used by each /stream/ converter
 threads_per_video_conversion=16
-# The output bitrate of those mp4s
-mp4_bitrate=1500
+
+# Settings for the default "list" share style
+[list]
+# Display a play button next to video files, which when clicked will transcode the video
+# to x264 MP4 and stream that to the client, from start to finish
+# Seeking while the file is loading is possible in FireFox, but not Chrome
+show_stream_button=true
+# Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
+# convert_videos_automatically does the same thing but for videos
+convert_images_automatically=false
+convert_videos_automatically=false
 
 # Settings for the 'gallery' view style
 [gallery]
+# Thumbnail maximum resolution for both x and y axes
 thumbnail_size=192
 # JPEG compression quality; 0-100
-thumbnail_compression_quality=35
+thumbnail_compression_quality=60
+# Does the same thing as the options in [list], but for the gallery
+# On by default
+convert_images_automatically=true
+convert_videos_automatically=true
+
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"

@@ -42,6 +42,18 @@ namespace ShareHole {
         public static void ThreadError(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             LogExtra(text, "ERR", ConsoleColor.Red, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
         }
+        public static void ThreadMessage(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "MSG", ConsoleColor.Green, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadWarning(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "WRN", ConsoleColor.Yellow, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadConfig(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "CFG", ConsoleColor.Cyan, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
+        public static void ThreadError(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            LogExtra(text, "ERR", ConsoleColor.Red, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+        }
 
         public static void Custom(string text, string tag, ConsoleColor tag_color, bool show_caller = false, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             Log(text, tag, tag_color, show_caller);
@@ -110,10 +122,10 @@ namespace ShareHole {
                         
             return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
         }
-        public static ConsoleColor SeededRandomConsoleColor(int seed) {
+        public static ConsoleColor SeededRandomConsoleColor(long seed) {
             var cc_list = Enum.GetNames(typeof(ConsoleColor));
             var cc_count = cc_list.Length;
-            var rng = new Random(seed).Next(1, cc_count-1);
+            var rng = new Random((int)seed).Next(1, cc_count-1);
 
             return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
         }
