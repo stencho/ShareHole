@@ -54,7 +54,8 @@ namespace ShareHole {
                             { "show_stream_button", new ConfigValue(true) },
                             { "show_convert_image_buttons", new ConfigValue(true) },
                             { "convert_images_automatically", new ConfigValue(false) },
-                            { "convert_videos_automatically", new ConfigValue(false) }
+                            { "convert_videos_automatically", new ConfigValue(false) },
+                            { "convert_audio_automatically", new ConfigValue(false) }
                         }
                     },
 
@@ -65,7 +66,8 @@ namespace ShareHole {
                             { "thumbnail_compression_quality", new ConfigValue(60) },
 
                             { "convert_images_automatically", new ConfigValue(true) },
-                            { "convert_videos_automatically", new ConfigValue(true) }
+                            { "convert_videos_automatically", new ConfigValue(true) },
+                            { "convert_audio_automatically", new ConfigValue(true) }
                         }
                     }
                 };
@@ -172,6 +174,7 @@ namespace ShareHole {
         <html lang="en">
           <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <link rel="stylesheet" href="base.css">
             <title>{page_title}</title>
           </head>

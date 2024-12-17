@@ -97,7 +97,7 @@ namespace ShareHole {
         }
         static string build_image_convert_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
-            string conversion = Conversion.CheckConversion(mime, true, false);
+            string conversion = Conversion.CheckConversion(mime, true, false, false);
 
             if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
                 converters += $"⸢<text class=\"list_extra\">" +

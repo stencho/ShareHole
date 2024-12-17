@@ -17,16 +17,18 @@ namespace ShareHole {
     public static class Conversion {
         public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].ToBool();
         public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].ToBool();
+        public static bool convert_audio_list() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
 
         public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].ToBool();
         public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].ToBool();
+        public static bool convert_audio_gallery() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
 
         public static string CheckConversionList(string mime) {
-            return CheckConversion(mime, convert_images_list(), convert_videos_list());
+            return CheckConversion(mime, convert_images_list(), convert_videos_list(), convert_audio_list());
         }
 
         public static string CheckConversionGallery(string mime) {
-            return CheckConversion(mime, convert_images_gallery(), convert_videos_gallery());
+            return CheckConversion(mime, convert_images_gallery(), convert_videos_gallery(), convert_audio_gallery());
         }
         const string date_fmt = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
 
@@ -53,7 +55,7 @@ namespace ShareHole {
         const string transcode_url = "/transcode";
         const string png_url = "/to_png";
         const string jpg_url = "/to_jpg";
-        public static string CheckConversion(string mime, bool images, bool videos) {
+        public static string CheckConversion(string mime, bool images, bool videos, bool audio) {
             if (mime == "application/postscript") return png_url;
 
             if (mime.StartsWith("image")) {
@@ -84,6 +86,11 @@ namespace ShareHole {
                 if (mime.EndsWith("mpeg")) return transcode_url;
                 //3gpp
                 if (mime.EndsWith("3gpp")) return transcode_url;
+            } else if (mime.StartsWith("audio")) {
+                if (!audio) return "";
+
+                //wma
+                if (mime.EndsWith("x-ms-wma")) return transcode_url;
             }
 
             return "";
@@ -143,6 +150,10 @@ namespace ShareHole {
             }
         }
 
+
+        public static class Audio {
+
+        }
 
         public static class Video {
             internal struct video_data {
@@ -237,10 +248,13 @@ namespace ShareHole {
 
             public async static void transcode_mp4_full(FileInfo file, HttpListenerContext context) {
                 long tid = DateTime.Now.Ticks;
-                
-                try {
-                    var anal = FFProbe.Analyse(file.FullName);
 
+                var anal = FFProbe.Analyse(file.FullName);
+
+                var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
+                var range = context.Request.Headers.Get("Range");
+
+                try {
                     Logging.ThreadMessage($"{file.Name} :: Sending transcoded MP4 data", "CONVERT:MP4", tid);
 
                     context.Response.ContentType = "video/mp4";

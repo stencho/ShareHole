@@ -174,7 +174,7 @@ namespace ShareHole
                 }
 
                 var request = context.Request;
-
+                Logging.Message(request.UserHostName);
                 //Set up response
                 context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
@@ -208,6 +208,8 @@ namespace ShareHole
                 bool to_jpg = false;
                 bool to_png = false;
                 bool transcode = false;
+                bool stream = false;
+                bool stream_video = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
@@ -230,7 +232,10 @@ namespace ShareHole
                 } else if (url_path.ToLower().StartsWith("/transcode/")) {
                     url_path = url_path.Remove(0, "/transcode/".Length);
                     transcode = true;
-                } 
+                } else if (url_path.ToLower().StartsWith("/stream_video/")) {
+                    url_path = url_path.Remove(0, "/stream_video/".Length);
+                    stream_video = true;
+                }
 
                 //Clean URL
                 while (url_path.StartsWith('/')) {
@@ -285,7 +290,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
-                        error404(data, context);
+                        error_bad_request(data, context);
                     }
 
 
@@ -327,7 +332,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        error404(data, context);
+                        error_bad_request(data, context);
                     }
 
                     //Requested image to PNG
@@ -381,12 +386,45 @@ namespace ShareHole
                         }
                     }
 
+                    //Transcode videos and audio
                 } else if (transcode && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
-                        Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context); 
+                        Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context);
+                    } else if (mime.StartsWith("audio")) {
+
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                        error404(data, context);
+                        error_bad_request(data, context);
+                    }
+
+                } else if (stream_video && File.Exists(absolute_on_disk_path)) {        
+                    page_content = """
+                        <video id="stream_video" controls preload="auto" autoplay>
+                        """;
+                    page_content += $"<source src=\"http://{request.UserHostName}/{passdir}/transcode/{share_name}{url_path}\" type =\"video/mp4\">";
+                    page_content += """                        
+                        </video>
+                        <script>
+                            const vid = document.getElementById("stream_video");
+                            vid.onplay = function() {
+                                console.log("Video is playing");
+                                // For example, change the video source or other attributes:
+                                videoElement.volume = 0.5; // Set the volume dynamically
+                            };
+                            vid.play().then(() => console.log("fart"));
+                        </script>
+                        """;
+                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+                    context.Response.ContentType = "text/html; charset=utf-8";
+
+                    context.Response.ContentLength64 = data.LongLength;
+
+                    using (MemoryStream ms = new MemoryStream(data, false)) {
+                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "200 OK";
+                            context.Response.Close();
+                        }, CurrentConfig.cancellation_token);
                     }
 
                     //Requested CSS file  
@@ -521,6 +559,20 @@ namespace ShareHole
                 var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     context.Response.StatusDescription = "404 NOT FOUND";
+                    context.Response.Close();
+                }, CurrentConfig.cancellation_token);
+            }
+
+        }
+        void error_bad_request(byte[] data, HttpListenerContext context) {
+            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = data.LongLength;
+
+            using (MemoryStream ms = new MemoryStream(data, false)) {
+                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    context.Response.StatusDescription = "400 BAD REQUEST";
                     context.Response.Close();
                 }, CurrentConfig.cancellation_token);
             }
