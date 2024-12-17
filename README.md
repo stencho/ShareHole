@@ -1,19 +1,23 @@
 ## ShareHole
 An HTTP file server for sharing directories with low (but not zero) security, and a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file. Very asynchronous.
 
+### Requirements
+FFMpeg, ImageMagick, and Ghostscript
+
 ### Configuration and usage
 Use the -c command line argument to set the current config directory.
 
 ShareHole uses a "passdir", a directory which goes at the start of the URL, to let the server know you're cool. The default is "loot", so you would access a share called "share" though "example.com:8080/loot/share/".
 
-There are also several "command dirs", which go after the passdir:
+There are also several "command directories" which go after the passdir, i.e. "/loot/to_png/share/image.jpg" would return PNG data, regardless of image format
 - /thumbnail/ will produce a thumbnail
-- /to_jpg/ will convert an image to JPG, with compression settings defined in the server config's \[conversion\] section
-- /to_png/ will convert an image to lossless PNG
 
-"/loot/to_png/share/image.jpg" would return PNG data, for example.
+- /to_jpg/ will convert an image to JPG, with compression settings defined in the server config's \[conversion\] section
+- /to_png/ will convert an image to lossless PNG 
 
 This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
+
+- /stream/ will transcode a video to browser-friendly MP4 and send the result to the client. This uses FFMPeg, so it works on most video formats.
 
 The config loader will write the default server config below, including comments, to config_dir/server on first start, and the server will do its best to keep this config file structure.
 
