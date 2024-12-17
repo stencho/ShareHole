@@ -85,7 +85,7 @@ namespace ShareHole {
 
             context.Response.AddHeader("Accept-Ranges", "bytes");
             context.Response.AddHeader("Content-Type", mime);
-            context.Response.AddHeader("Transfer-Encoding", "chunked");
+            //context.Response.AddHeader("Transfer-Encoding", "chunked");
             context.Response.SendChunked = true;
 
             if (has_range) {

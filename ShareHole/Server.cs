@@ -13,6 +13,8 @@ using ShareHole.DBThreads;
 using ImageMagick;
 using System.Net.Http.Headers;
 using FFMpegCore;
+using System.Security.Cryptography;
+using ShareHole.Threads;
 
 namespace ShareHole
 {
@@ -20,18 +22,14 @@ namespace ShareHole
         bool running = true;
         HttpListener listener;
         
-        string page_title = "";
-        string page_content = "";
-
         string CSS = "";
         public string id { get; private set; }
         public string name { get; private set; }
 
+        string base_page_content = "";
 
-        string _pd;
-        string page_content_strings_replaced {
-            get { return _pd.Replace("{page_content}", page_content).Replace("{page_title}", page_title); }
-            set { _pd = value; }
+        string page_content_strings_replaced(string page_content, string page_title) {
+             return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title);
         }
 
         string base_css_data_replaced {
@@ -46,14 +44,14 @@ namespace ShareHole
 
             if (CurrentConfig.use_html_file) {
                 if (File.Exists("base.html"))
-                    page_content_strings_replaced = File.ReadAllText("base.html");
+                    base_page_content = File.ReadAllText("base.html");
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    page_content_strings_replaced = CurrentConfig.base_html;
-                    File.WriteAllText("base.html", page_content_strings_replaced);
+                    base_page_content = CurrentConfig.base_html;
+                    File.WriteAllText("base.html", base_page_content);
                 }
             } else {
-                page_content_strings_replaced = CurrentConfig.base_html;
+                base_page_content = CurrentConfig.base_html;
             }
 
             if (CurrentConfig.use_css_file) {
@@ -135,10 +133,9 @@ namespace ShareHole
             (string name, int id) nid = (((string, int))name_id);
             string thread_name = nid.name.ToString();
             int thread_id = nid.id;
-
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
 
-            while (listener.IsListening && running) {                
+            while (listener.IsListening && running) {
                 HttpListenerContext context = null;
                 try {
                     //Asynchronously begin waiting for a new HTTP request,
@@ -159,11 +156,11 @@ namespace ShareHole
                         Thread.Sleep(Random.Shared.Next(5, 50));
                     }
 
-                } catch(HttpListenerException ex) {
+                } catch (HttpListenerException ex) {
                     //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
                     if (running) {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
-                    } 
+                    }
                     continue;
 
                 } catch (ObjectDisposedException ex) {
@@ -174,11 +171,11 @@ namespace ShareHole
                 }
 
                 var request = context.Request;
-                Logging.Message(request.UserHostName);
+
                 //Set up response
                 context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
-                context.Response.AddHeader("X-Frame-Options", "DENY");
+                context.Response.AddHeader("X-Frame-Options", "SAMEORIGIN");
                 context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
@@ -198,6 +195,8 @@ namespace ShareHole
                     continue;
                 }
 
+                string page_content = "";
+
                 string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
                 string passdir = CurrentConfig.server["server"]["passdir"].ToString().Trim();
 
@@ -209,10 +208,11 @@ namespace ShareHole
                 bool to_png = false;
                 bool transcode = false;
                 bool stream = false;
-                bool stream_video = false;
+                bool file_list = false;
+                bool music_player = false;
 
                 //Check if passdir is correct
-                if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
+                if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/")) {
                     context.Response.Abort();
                     continue;
                 } else {
@@ -232,9 +232,12 @@ namespace ShareHole
                 } else if (url_path.ToLower().StartsWith("/transcode/")) {
                     url_path = url_path.Remove(0, "/transcode/".Length);
                     transcode = true;
-                } else if (url_path.ToLower().StartsWith("/stream_video/")) {
-                    url_path = url_path.Remove(0, "/stream_video/".Length);
-                    stream_video = true;
+                } else if (url_path.ToLower().StartsWith("/file_list/")) {
+                    url_path = url_path.Remove(0, "/file_list/".Length);
+                    file_list = true;
+                } else if (url_path.ToLower().StartsWith("/music_player/")) {
+                    url_path = url_path.Remove(0, "/music_player/".Length);
+                    music_player = true;
                 }
 
                 //Clean URL
@@ -273,11 +276,10 @@ namespace ShareHole
                     Logging.ThreadError($"Client requested share which doesn't exist: {share_name} {url_path}", thread_name, thread_id);
                     context.Response.Abort();
                     continue;
-                }                    
+                }
                 url_path = url_path.Remove(0, share_name.Length);
 
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
-                byte[] data = null;
 
                 var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
                 var mime = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
@@ -290,9 +292,8 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
-                        error_bad_request(data, context);
+                        error_bad_request(page_content, context);
                     }
-
 
                     //Requested RAW to JPG
                 } else if (to_jpg && File.Exists(absolute_on_disk_path)) {
@@ -332,7 +333,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        error_bad_request(data, context);
+                        error_bad_request(page_content, context);
                     }
 
                     //Requested image to PNG
@@ -373,51 +374,30 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                                context.Response.StatusDescription = "404 NOT FOUND";
-                                context.Response.Close();
-                            }, CurrentConfig.cancellation_token);
-                        }
+                        error_bad_request(page_content, context);
                     }
 
                     //Transcode videos and audio
                 } else if (transcode && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
                         Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context);
+
                     } else if (mime.StartsWith("audio")) {
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                        error_bad_request(data, context);
+                        error_bad_request(page_content, context);
                     }
+                    //Requested CSS file  
+                } else if (request.Url.AbsolutePath.EndsWith("base.css")) {
+                    absolute_on_disk_path = Path.GetFullPath("base.css");
+                    Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
 
-                } else if (stream_video && File.Exists(absolute_on_disk_path)) {        
-                    page_content = """
-                        <video id="stream_video" controls preload="auto" autoplay>
-                        """;
-                    page_content += $"<source src=\"http://{request.UserHostName}/{passdir}/transcode/{share_name}{url_path}\" type =\"video/mp4\">";
-                    page_content += """                        
-                        </video>
-                        <script>
-                            const vid = document.getElementById("stream_video");
-                            vid.onplay = function() {
-                                console.log("Video is playing");
-                                // For example, change the video source or other attributes:
-                                videoElement.volume = 0.5; // Set the volume dynamically
-                            };
-                            vid.play().then(() => console.log("fart"));
-                        </script>
-                        """;
-                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
-                    context.Response.ContentType = "text/html; charset=utf-8";
-
+                    var data = Encoding.UTF8.GetBytes(CSS);
+                    context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
+
+                    //enable_cache(context);
 
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
@@ -427,27 +407,83 @@ namespace ShareHole
                         }, CurrentConfig.cancellation_token);
                     }
 
-                    //Requested CSS file  
-                } else if (request.Url.AbsolutePath.EndsWith("base.css")) {   
-                    absolute_on_disk_path = Path.GetFullPath("base.css");
-                    Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
+                    //Requested file list
+                } else if (file_list && Directory.Exists(absolute_on_disk_path)) {
+                    var di = new DirectoryInfo(absolute_on_disk_path);
 
-                    data = Encoding.UTF8.GetBytes(CSS);
-                    context.Response.ContentType = "text/css; charset=utf-8";
-                    context.Response.ContentLength64 = data.LongLength; 
-                    
-                    //enable_cache(context);
+                    var files = di.GetFiles();
 
-                    using (MemoryStream ms = new MemoryStream(data, false)) {
-                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {                            
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "200 OK";
-                            context.Response.Close();
-                        }, CurrentConfig.cancellation_token);                        
+                    string raw_file_list = "";
+
+                    foreach (FileInfo fi in files) {
+                        raw_file_list += $"http://{request.UserHostName}/{passdir}/{share_name}{url_path}/{fi.Name}\n";
                     }
+
+                    var data = Encoding.UTF8.GetBytes(raw_file_list);
+                    try {
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "200 OK";
+                                context.Response.Close();
+
+                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    } catch (HttpListenerException ex) {
+                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                    }
+
+                    //Requested music player
+                } else if (music_player && Directory.Exists(absolute_on_disk_path)) {
+
+                    var di = new DirectoryInfo(absolute_on_disk_path);
+
+                    var files = di.GetFiles();
+
+                    string raw_file_list = "";
+                    foreach (FileInfo fi in files) {
+                        raw_file_list += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{url_path}{fi.Name}')\">{fi.Name}</li>\n";
+                    }
+
+                    string file_list_array = "['";
+                    if (files.Length > 1) {
+                        foreach (FileInfo fi in files) {
+                            file_list_array += $"{Uri.EscapeDataString(fi.Name)}', '";
+                        }
+                    } else if (files.Length == 1) {
+                        file_list_array += $"{Uri.EscapeDataString(files[0].Name)}";
+                    }
+
+                    file_list_array += "'];";
+
+                    string player = MusicPlayer.music_player_content;
+                    player = player.Replace("{track_list}", raw_file_list).Replace("{file_array}", file_list_array)
+                                   .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{url_path}");
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    
+                    var data = Encoding.UTF8.GetBytes(player);
+                    context.Response.ContentLength64 = data.LongLength;
+
+                    try {
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                                context.Response.StatusDescription = "200 OK";
+                                //context.Response.Close();
+
+                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                            }, CurrentConfig.cancellation_token);
+                        }
+                    } catch (HttpListenerException ex) {
+                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                    }
+
 
                     //Requested a directory
                 } else if (Directory.Exists(absolute_on_disk_path)) {
+                    byte[] data = null;
+
                     if (!show_dirs && url_path != "/") {
                         Logging.ThreadError($"Attempted to browse outside of share \"{share_name}\" with directories off", thread_name, thread_id);
                         page_content = "";
@@ -459,21 +495,21 @@ namespace ShareHole
                             switch (CurrentConfig.shares[share_name]["style"].ToString()) {                                
                                 case "gallery":
                                     page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
                                     break;
                                 case "music":
-                                    page_content = Renderer.MusicPlayer(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+                                    page_content = Renderer.MusicPlayerContent(folder_path, request.UserHostName, url_path, share_name);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
                                     break;
                                 default:
                                     page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
                                     break;
                             }
                         } else {
                             //There isn't a render style given in the config, so just use the regular list style
                             page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
-                            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+                            data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
                         }                    
                     }
 
@@ -542,7 +578,7 @@ namespace ShareHole
                     //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
-                    error404(data, context);
+                    error404(page_content, context);
                 }
             }
 
@@ -550,8 +586,8 @@ namespace ShareHole
 
         }
 
-        void error404(byte[] data, HttpListenerContext context) {
-            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+        void error404(string page_content, HttpListenerContext context) {
+            var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = data.LongLength;
 
@@ -564,8 +600,8 @@ namespace ShareHole
             }
 
         }
-        void error_bad_request(byte[] data, HttpListenerContext context) {
-            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+        void error_bad_request(string page_content, HttpListenerContext context) {
+            var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = data.LongLength;
 

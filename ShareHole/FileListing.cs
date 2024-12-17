@@ -2,8 +2,10 @@
 using HeyRed.Mime;
 using ImageMagick;
 using Microsoft.VisualBasic;
+using ShareHole.Threads;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.ExceptionServices;
@@ -356,12 +358,75 @@ namespace ShareHole {
             return result;
         }
 
-        public static string MusicPlayer(string directory, string prefix, string uri_path, string share_name) {
+        public static string MusicPlayerContent(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
 
-            string result = "";
+            string listing = "";
+
+            //TODO: hide hidden files/folders + allow forcing them to show through an option
+            int file_count;
+
+            int dir_c = 0;
+            int file_c = 0;
+
+            var share = share_name.Trim();
+            var uri = uri_path.Trim();
+
+            while (share.EndsWith("/")) share = share.Remove(share.Length - 1);
+            while (share.StartsWith("/")) share = share.Remove(0, 1);
+
+            while (uri.EndsWith("/")) uri = uri.Remove(uri.Length - 1);
+            while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
+
+            if (uri.Length > 0) uri = uri + '/';
+            
+            //Add up dir if we're showing directories
+            if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
+                listing += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
+            }
+
+            // DIRECTORIES
+            if (info.show_dirs) {
+                if (info.grouping != "none" && info.cares_about_groups && info.directories.Length > 0)
+                    listing += $"<p class=\"head\"><b>Directories</b></p>\n";
+
+                foreach (var dir in info.directories.OrderBy(a => a.Name)) {
+                    listing += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>\n";
+                    dir_c++;
+                }
+            }
+            string auto_conversion = "";
+            string converters = "";
+
+            // FILES
+            foreach (var file in info.files.OrderBy(a => a.Name)) {                    
+                var ext = new FileInfo(file.Name).Extension.Replace(".", "");
+                var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+
+                if (!mime.StartsWith("audio") && !mime.StartsWith("video") && !mime.StartsWith("image")) continue;
+
+                if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
+                    continue;
+
+                auto_conversion = Conversion.CheckConversionList(mime);
+
+                if (mime.StartsWith("video")) {
+                    converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+
+                } else if (Conversion.IsValidImage(mime)) {
+                    converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
+                }
+
+                listing += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString(file.Name)}\">{file.Name}</a></p>\n";
+                file_c++;
+            }
+
+
+            string result = MusicPlayer.box_overlay
+                .Replace("{list}", listing)
+                .Replace("{music_player_url}", $"http://{prefix}/{info.passdir}/music_player/{share}/{uri}");
+
             return result;
         }
-
     }
 }

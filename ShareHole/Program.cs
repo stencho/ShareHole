@@ -146,7 +146,7 @@ namespace ShareHole {
 
             ConfigFileIO.comment_manager.AddBefore("list", "convert_images_automatically", """                
                 Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
-                convert_videos_automatically does the same thing but for videos
+                the others do the same thing but for video/audio
                 """);
             
 
@@ -314,9 +314,9 @@ namespace ShareHole {
                 Logging.Config($"Loaded shares");
             }
 
-            if (!VideoCache.currently_pruning) {
-                VideoCache.StartPruning();
-            }
+            //if (!NetworkCache.currently_pruning) {
+            //    NetworkCache.StartPruning();
+            //}
 
             CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
         }   

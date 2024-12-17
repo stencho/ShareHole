@@ -15,13 +15,75 @@ using System.Threading.Tasks;
 
 namespace ShareHole {
     public static class Conversion {
+
+        internal struct cache_data {
+            internal double birth;
+            internal double life = 0;
+            internal double age => DateTimeOffset.UtcNow.ToUnixTimeSeconds() - birth;
+
+            internal void refresh() => birth = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            internal byte[] data;
+            internal int length => data.Length;
+
+            internal string mime = "";
+
+            internal cache_data(double life, string mime) {
+                this.life = life;
+                this.mime = mime;
+                birth = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            }
+        }
+
+        internal class ConversionCache {
+            internal volatile Dictionary<string, cache_data> cache = new Dictionary<string, cache_data>();
+
+            static readonly double max_age = 86400 / 4;
+
+            public bool currently_pruning = false;
+
+            internal void StartPruning(CancellationToken cancellation_token) {
+                Task.Run(() => {
+                    currently_pruning = true;
+                    Logging.ThreadMessage($"Started pruning thread", "Cache", 5);
+                    while (true) {
+                        Prune();
+                    }
+                }, cancellation_token).ContinueWith(a => {
+                    currently_pruning = false;
+                });
+            }
+
+            internal bool Test(string key) => cache.ContainsKey(key);
+            internal void Refresh(string name) => cache[name].refresh();
+
+            private void Prune() {
+            restart:
+                foreach (var key in cache.Keys) {
+                    if (cache[key].age > cache[key].life) {
+                        cache.Remove(key);
+                        Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
+                        goto restart;
+                    }
+                }
+
+                Thread.Sleep(1000);
+            }
+
+            internal void Store(string name, cache_data cmp4) {
+                if (Test(name)) return;
+                cache.Add(name, cmp4);
+                Logging.ThreadMessage($"Stored {name} in cache", "Cache", 5);
+            }
+        }
+
         public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].ToBool();
         public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].ToBool();
         public static bool convert_audio_list() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
 
         public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].ToBool();
         public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].ToBool();
-        public static bool convert_audio_gallery() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
+        public static bool convert_audio_gallery() => CurrentConfig.server["gallery"]["convert_audio_automatically"].ToBool();
 
         public static string CheckConversionList(string mime) {
             return CheckConversion(mime, convert_images_list(), convert_videos_list(), convert_audio_list());
@@ -156,96 +218,26 @@ namespace ShareHole {
         }
 
         public static class Video {
-            internal struct video_data {
-                internal double birth;
-                internal double life = 0;
-                internal double age => DateTimeOffset.UtcNow.ToUnixTimeSeconds() - birth;        
-                
-                internal void refresh() => birth = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-                internal byte[] data;
-                internal int length => data.Length;
-
-                internal string mime = "";
-                
-                internal video_data(double life, string mime) {
-                    this.life = life;
-                    this.mime = mime;
-                    birth = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                }
-            }
-
-            internal static class VideoCache {
-                internal static volatile Dictionary<string, video_data> cache = new Dictionary<string, video_data>();
-
-                static readonly double max_age = 86400 / 4;
-
-                public static bool currently_pruning = false;
-
-                internal static void StartPruning() {
-                    Task.Run(() => {
-                        currently_pruning = true;
-                        Logging.ThreadMessage($"Started pruning thread", "MP4 Cache", 5);
-                        while (true) {
-                            Prune();
-                        }
-                    }, CurrentConfig.cancellation_token).ContinueWith(a => {
-                        currently_pruning = false;
-                    });
-                }
-
-                internal static bool Test(string key) => cache.ContainsKey(key);
-                internal static void Refresh(string name) => cache[name].refresh();
-
-                private static void Prune() {
-                    restart:
-                    foreach (var key in cache.Keys) {
-                        if (cache[key].age > cache[key].life) { 
-                            cache.Remove(key);
-                            Logging.ThreadMessage($"Pruned {key} from cache", "MP4 Cache", 5);
-                            goto restart;
-                        }
-                    }
-
-                    Thread.Sleep(1000);
-                }
-
-                internal static void Store(string name, video_data cmp4) {
-                    if (Test(name)) return;
-                    cache.Add(name, cmp4);
-                    Logging.ThreadMessage($"Stored {name} in cache", "MP4 Cache", 5);
-                }
-            }
-
-            /* miserable
-            public async static void transcode_mp4_partial (string filename, string mime, HttpListenerContext context) {
-                FileInfo file = new FileInfo(filename);
-
-                var anal = FFProbe.Analyse(file.FullName);
-
-                //check for range header
-                var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
-                var range = context.Request.Headers.Get("Range");
-
-                var file_size = file.Length;
-
-                //get range size from config
-                var kb_size = CurrentConfig.server["server"]["transfer_buffer_size"].ToInt();
-                if (kb_size <= 0) kb_size = 1;
-                long chunk_size = kb_size * 1024;
-                if (chunk_size > int.MaxValue) chunk_size = int.MaxValue;
-
-                context.Response.SendChunked = true;
-                context.Response.AddHeader("Accept-Ranges", "bytes");
-                context.Response.AddHeader("Content-Type", mime);
-                context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
-                context.Response.ContentType = "video/mp4";
-
-                context.Response.StatusCode = 206;
-                context.Response.StatusDescription = "206 PARTIAL CONTENT";
+            /*
+            string InsertStream() {
+                page_content = """
+                        <video id="stream_video" controls preload="auto" autoplay>
+                        """;
+                page_content += $"<source src=\"http://{request.UserHostName}/{passdir}/transcode/{share_name}{url_path}\" type =\"video/mp4\">";
+                page_content += """                        
+                        </video>
+                        <script>
+                            const vid = document.getElementById("stream_video");
+                            vid.onplay = function() {
+                                console.log("Video is playing");
+                                // For example, change the video source or other attributes:
+                                videoElement.volume = 0.5; // Set the volume dynamically
+                            };
+                            vid.play().then(() => console.log("fart"));
+                        </script>
+                        """;// TURN THIS ALL INTO A METHOD TO INSERT VIDEO STREAMS IN CONVERSION BRB
             }
             */
-
             public async static void transcode_mp4_full(FileInfo file, HttpListenerContext context) {
                 long tid = DateTime.Now.Ticks;
 
