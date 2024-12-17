@@ -292,7 +292,7 @@ namespace ShareHole {
 
                         ).ProcessAsynchronously().ContinueWith(t => {
                              Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);                            
-                        });
+                        }, CurrentConfig.cancellation_token);
 
                 } catch (Exception ex) {
                     Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:MP4", tid);
