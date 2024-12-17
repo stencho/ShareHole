@@ -17,7 +17,7 @@ There are also several "command directories" which go after the passdir, i.e. "/
 
 This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
 
-- /stream/ will transcode a video to browser-friendly MP4 and send the result to the client. This uses FFMPeg, so it works on most video formats.
+- /transcode/ will transcode a video to browser-friendly MP4 and send the result to the client. This uses FFMPeg, so it works on most video formats.
 
 The config loader will write the default server config below, including comments, to config_dir/server on first start, and the server will do its best to keep this config file structure.
 
@@ -48,8 +48,13 @@ log_level=1
 jpeg_compression=true
 # Quality level, from 0-100
 jpeg_quality=85
-# Determines how many threads are used by each /stream/ converter
-threads_per_video_conversion=16
+
+# Settings for transcoding video files to MP4 and streaming them over the network
+[transcode]
+# The bitrate of the MP4 transcoding process, in KB
+bit_rate_kb=1000
+# Determines how many threads are used by each /transcode/ converter
+threads_per_video_conversion=4
 
 # Settings for the default "list" share style
 [list]
@@ -76,6 +81,7 @@ thumbnail_compression_quality=60
 # On by default
 convert_images_automatically=true
 convert_videos_automatically=true
+
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"

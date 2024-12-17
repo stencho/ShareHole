@@ -29,7 +29,7 @@ namespace ShareHole
 
 
         string _pd;
-        string page_data_strings_replaced {
+        string page_content_strings_replaced {
             get { return _pd.Replace("{page_content}", page_content).Replace("{page_title}", page_title); }
             set { _pd = value; }
         }
@@ -46,14 +46,14 @@ namespace ShareHole
 
             if (CurrentConfig.use_html_file) {
                 if (File.Exists("base.html"))
-                    page_data_strings_replaced = File.ReadAllText("base.html");
+                    page_content_strings_replaced = File.ReadAllText("base.html");
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    page_data_strings_replaced = CurrentConfig.base_html;
-                    File.WriteAllText("base.html", page_data_strings_replaced);
+                    page_content_strings_replaced = CurrentConfig.base_html;
+                    File.WriteAllText("base.html", page_content_strings_replaced);
                 }
             } else {
-                page_data_strings_replaced = CurrentConfig.base_html;
+                page_content_strings_replaced = CurrentConfig.base_html;
             }
 
             if (CurrentConfig.use_css_file) {
@@ -207,7 +207,7 @@ namespace ShareHole
                 bool thumbnail = false;
                 bool to_jpg = false;
                 bool to_png = false;
-                bool stream = false;
+                bool transcode = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/" )) {
@@ -227,9 +227,9 @@ namespace ShareHole
                 } else if (url_path.ToLower().StartsWith("/to_png/")) {
                     url_path = url_path.Remove(0, "/to_png/".Length);
                     to_png = true;
-                } else if (url_path.ToLower().StartsWith("/stream/")) {
-                    url_path = url_path.Remove(0, "/stream/".Length);
-                    stream = true;
+                } else if (url_path.ToLower().StartsWith("/transcode/")) {
+                    url_path = url_path.Remove(0, "/transcode/".Length);
+                    transcode = true;
                 } 
 
                 //Clean URL
@@ -277,7 +277,7 @@ namespace ShareHole
                 var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
                 var mime = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-                    //Requested thumbnail
+                //Requested thumbnail
                 if (thumbnail && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video") || Conversion.IsValidImage(mime)) {
                         enable_cache(context);
@@ -285,17 +285,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                                context.Response.StatusDescription = "404 NOT FOUND";
-                                context.Response.Close();
-                            }, CurrentConfig.cancellation_token);
-                        }
+                        error404(data, context);
                     }
 
 
@@ -337,17 +327,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                                context.Response.StatusDescription = "404 NOT FOUND";
-                                context.Response.Close();
-                            }, CurrentConfig.cancellation_token);
-                        }
+                        error404(data, context);
                     }
 
                     //Requested image to PNG
@@ -388,7 +368,7 @@ namespace ShareHole
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                        data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
                         context.Response.ContentType = "text/html; charset=utf-8";
                         context.Response.ContentLength64 = data.LongLength;
 
@@ -401,25 +381,12 @@ namespace ShareHole
                         }
                     }
 
-                    //Requested video to MP4
-                } else if (stream && File.Exists(absolute_on_disk_path)) {
+                } else if (transcode && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
-                        //enable_cache(context);
                         Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context); 
-
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                        data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                        context.Response.ContentType = "text/html; charset=utf-8";
-                        context.Response.ContentLength64 = data.LongLength;
-
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                                context.Response.StatusDescription = "404 NOT FOUND";
-                                context.Response.Close();
-                            }, CurrentConfig.cancellation_token);
-                        }
+                        error404(data, context);
                     }
 
                     //Requested CSS file  
@@ -454,21 +421,21 @@ namespace ShareHole
                             switch (CurrentConfig.shares[share_name]["style"].ToString()) {                                
                                 case "gallery":
                                     page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
                                     break;
                                 case "music":
                                     page_content = Renderer.MusicPlayer(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
                                     break;
                                 default:
                                     page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
                                     break;
                             }
                         } else {
                             //There isn't a render style given in the config, so just use the regular list style
                             page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
-                            data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
+                            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
                         }                    
                     }
 
@@ -537,21 +504,26 @@ namespace ShareHole
                     //User gave a very fail URL
                 } else {
                     page_content = $"<b>NOT FOUND</b>";
-                    data = Encoding.UTF8.GetBytes(page_data_strings_replaced);
-                    context.Response.ContentType = "text/html; charset=utf-8";
-                    context.Response.ContentLength64 = data.LongLength;
-
-                    using (MemoryStream ms = new MemoryStream(data, false)) {
-                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                            context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                            context.Response.StatusDescription = "404 NOT FOUND";
-                            context.Response.Close();
-                        }, CurrentConfig.cancellation_token);
-                    }
+                    error404(data, context);
                 }
             }
 
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
+
+        }
+
+        void error404(byte[] data, HttpListenerContext context) {
+            data = Encoding.UTF8.GetBytes(page_content_strings_replaced);
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = data.LongLength;
+
+            using (MemoryStream ms = new MemoryStream(data, false)) {
+                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                    context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                    context.Response.StatusDescription = "404 NOT FOUND";
+                    context.Response.Close();
+                }, CurrentConfig.cancellation_token);
+            }
 
         }
 

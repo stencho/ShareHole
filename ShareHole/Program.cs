@@ -39,9 +39,14 @@ namespace ShareHole {
                     { "conversion",
                         new Dictionary<string, ConfigValue>() {
                             { "jpeg_compression", new ConfigValue(true) },
-                            { "jpeg_quality", new ConfigValue(85) },
-                            { "threads_per_video_conversion", new ConfigValue(16) }
+                            { "jpeg_quality", new ConfigValue(85) }
                         }
+                    },
+
+                    { "transcode", new Dictionary<string, ConfigValue>() {
+                            { "bit_rate_kb",new ConfigValue(1000)},
+                            { "threads_per_video_conversion", new ConfigValue(4) }
+                        } 
                     },
 
                     { "list",
@@ -109,7 +114,16 @@ namespace ShareHole {
                 Quality level, from 0-100
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("conversion", "threads_per_video_conversion", """                
+            //TRANSCODE
+            ConfigFileIO.comment_manager.AddBefore("transcode", """
+                Settings for transcoding video files to MP4 and streaming them over the network
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("transcode", "bit_rate_kb", """
+                The bitrate of the MP4 transcoding process, in KB
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("transcode", "threads_per_video_conversion", """
                 Determines how many threads are used by each /stream/ converter
                 """);
 
@@ -203,6 +217,7 @@ namespace ShareHole {
             align-items: end;
             align-content: normal;        
         }
+
         
         .thumbnail {
             min-width: {thumbnail_size}px !important;

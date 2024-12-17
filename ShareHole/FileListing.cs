@@ -22,8 +22,7 @@ namespace ShareHole {
             public bool cares_about_groups;
             public bool using_extensions;
             public bool show_dirs;
-            public bool auto_convert_videos => CurrentConfig.server["conversion"]["convert_videos_automatically"].ToBool();
-            
+
             public DirectoryInfo[] directories;
             public FileInfo[] files;
         }
@@ -92,7 +91,7 @@ namespace ShareHole {
         static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
             if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].ToBool()) {
-                converters += $"⸢<text class=\"list_extra\"><a href=\"http://{prefix}/{info.passdir}/stream/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
+                converters += $"⸢<text class=\"list_extra\"><a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
             }
             return converters;
         }

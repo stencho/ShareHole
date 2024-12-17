@@ -5,6 +5,7 @@ using FFMpegCore.Pipes;
 using HeyRed.Mime;
 using ImageMagick;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -47,39 +48,42 @@ namespace ShareHole {
 
         public static bool IsValidImage(string mime) => 
             mime.StartsWith("image") || mime == "application/postscript" || mime == "application/pdf";
-        
 
+
+        const string transcode_url = "/transcode";
+        const string png_url = "/to_png";
+        const string jpg_url = "/to_jpg";
         public static string CheckConversion(string mime, bool images, bool videos) {
-            if (mime == "application/postscript") return "/to_png";
+            if (mime == "application/postscript") return png_url;
 
             if (mime.StartsWith("image")) {
                 if (!images) return "";
 
                 //raw formats
-                if (mime.EndsWith("/dng")) return "/to_jpg";
-                if (mime.EndsWith("/raw")) return "/to_jpg";
+                if (mime.EndsWith("/dng")) return jpg_url;
+                if (mime.EndsWith("/raw")) return jpg_url;
 
                 //should work without this, doesn't in chome
                 //if (mime.EndsWith("/avif")) return "/to_png";
 
                 //adobe
-                if (mime.EndsWith("/vnd.adobe.photoshop")) return "/to_png";
+                if (mime.EndsWith("/vnd.adobe.photoshop")) return png_url;
 
             } else if (mime.StartsWith("video")) {
                 if (!videos) return "";
 
                 //wmv
-                if (mime.EndsWith("x-ms-wmv")) return "/stream";
+                if (mime.EndsWith("x-ms-wmv")) return transcode_url;
                 //avi
-                if (mime.EndsWith("x-msvideo")) return "/stream";
+                if (mime.EndsWith("x-msvideo")) return transcode_url;
                 //mkv
-                if (mime.EndsWith("x-matroska")) return "/stream";
+                if (mime.EndsWith("x-matroska")) return transcode_url;
                 //quicktime
-                if (mime.EndsWith("quicktime")) return "/stream";
+                if (mime.EndsWith("quicktime")) return transcode_url;
                 //mpeg
-                if (mime.EndsWith("mpeg")) return "/stream";
+                if (mime.EndsWith("mpeg")) return transcode_url;
                 //3gpp
-                if (mime.EndsWith("3gpp")) return "/stream";
+                if (mime.EndsWith("3gpp")) return transcode_url;
             }
 
             return "";
@@ -152,7 +156,7 @@ namespace ShareHole {
                 internal int length => data.Length;
 
                 internal string mime = "";
-
+                
                 internal video_data(double life, string mime) {
                     this.life = life;
                     this.mime = mime;
@@ -202,7 +206,8 @@ namespace ShareHole {
                 }
             }
 
-            public async static void transcode_mp4_partial(string filename, string mime, HttpListenerContext context) {
+            /* miserable
+            public async static void transcode_mp4_partial (string filename, string mime, HttpListenerContext context) {
                 FileInfo file = new FileInfo(filename);
 
                 var anal = FFProbe.Analyse(file.FullName);
@@ -225,38 +230,10 @@ namespace ShareHole {
                 context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
                 context.Response.ContentType = "video/mp4";
 
-                if (has_range) {
-                    var range_info = SendFile.ParseRequestRangeHeader(range, file_size);
-
-                    context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
-                    context.Response.StatusDescription = "206 PARTIAL CONTENT";
-
-                    if (range_info.length > 0 && range_info.length < chunk_size) chunk_size = range_info.length;
-
-                    context.Response.ContentLength64 = chunk_size;
-
-                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
-                        Logging.Message($"Wants range {range_info.start}-{range_info.start + chunk_size - 1} {(range_info.start + chunk_size - 1) - range_info.start}");
-
-                    context.Response.AddHeader("Content-Range", $"bytes {range_info.start}-{range_info.start + chunk_size - 1}/{file_size}");
-
-                    byte[] buffer = new byte[chunk_size];
-
-                    FileStream fs = File.OpenRead(filename);
-                    fs.Seek(range_info.start, SeekOrigin.Begin);
-                    await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token);
-                    fs.Close();
-
-
-
-                } else {
-                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
-                        Logging.Message($"Got file request, start streaming {file.Name} of length {file_size}");
-
-                    transcode_mp4_full(file, context);
-                }
-
+                context.Response.StatusCode = 206;
+                context.Response.StatusDescription = "206 PARTIAL CONTENT";
             }
+            */
 
             public async static void transcode_mp4_full(FileInfo file, HttpListenerContext context) {
                 long tid = DateTime.Now.Ticks;
@@ -266,10 +243,12 @@ namespace ShareHole {
 
                     Logging.ThreadMessage($"{file.Name} :: Sending transcoded MP4 data", "CONVERT:MP4", tid);
 
-                    context.Response.SendChunked = false;
                     context.Response.ContentType = "video/mp4";
 
                     context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
+                    context.Response.AddHeader("Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
+                    //context.Response.ContentLength64 = (long)((anal.Duration.TotalSeconds * 1000000) / 8.0);
+                    //var bytes = context.Response.ContentLength64 / 1024;
 
                     context.Response.StatusCode = (int)HttpStatusCode.OK;
                     context.Response.StatusDescription = "200 OK";
@@ -280,14 +259,15 @@ namespace ShareHole {
                             .ForceFormat("mp4")
                             .WithVideoCodec("libx264")
                             .WithAudioCodec("aac")
-                            
+
                             .UsingMultithreading(true)
-                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].ToInt())
+                            .UsingThreads(CurrentConfig.server["transcode"]["threads_per_video_conversion"].ToInt())
 
                             .WithCustomArgument("-map_metadata 0")
 
                             .ForcePixelFormat("yuv420p")
-                            .WithConstantRateFactor(25)
+                            //.WithConstantRateFactor(25)
+                            .WithVideoBitrate(CurrentConfig.server["transcode"]["bit_rate_kb"].ToInt() * 1024)
                             .WithSpeedPreset(Speed.Fast)
                             .WithFastStart()
 
