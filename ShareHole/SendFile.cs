@@ -7,12 +7,12 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace ShareHole {
-    internal class SendFile {
+    public class SendFile {
         public static void SendWithRanges(string filename, string mime, HttpListenerContext context) {
             Task.Run(() => { send_file_ranges(filename, mime, context); }, CurrentConfig.cancellation_token);
         }   
 
-        static (long start, long end, long length) ParseRequestRangeHeader(string range_value, long file_size) {
+        public static (long start, long end, long length) ParseRequestRangeHeader(string range_value, long file_size) {
             (long start, long end) output = (-1,-1);
 
             if (!range_value.StartsWith("bytes=")) {
@@ -41,12 +41,10 @@ namespace ShareHole {
                     return (0, file_size - 1, file_size);
                 }
 
-
             } else {
                 Logging.Error($"Invalid range header: {range_value}");
                 return (0, file_size-1, file_size);
             }
-
         }
 
 

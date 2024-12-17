@@ -405,7 +405,7 @@ namespace ShareHole
                 } else if (stream && File.Exists(absolute_on_disk_path)) {
                     if (mime.StartsWith("video")) {
                         //enable_cache(context);
-                        Conversion.Video.MP4ByteStream(new FileInfo(absolute_on_disk_path), context); 
+                        Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context); 
 
                     } else {
                         page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";

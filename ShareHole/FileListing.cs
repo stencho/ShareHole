@@ -138,7 +138,7 @@ namespace ShareHole {
 
             // DIRECTORIES
             if (info.show_dirs) {
-                if (info.grouping != "none" && info.cares_about_groups) 
+                if (info.grouping != "none" && info.cares_about_groups && info.directories.Length > 0) 
                     result += $"<p class=\"head\"><b>Directories</b></p>\n";
                 
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {

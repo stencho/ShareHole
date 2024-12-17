@@ -177,7 +177,6 @@ namespace ShareHole {
                     }, CurrentConfig.cancellation_token).ContinueWith(a => {
                         currently_pruning = false;
                     });
-
                 }
 
                 internal static bool Test(string key) => cache.ContainsKey(key);
@@ -203,7 +202,63 @@ namespace ShareHole {
                 }
             }
 
-            public async static void MP4ByteStream(FileInfo file, HttpListenerContext context) {
+            public async static void transcode_mp4_partial(string filename, string mime, HttpListenerContext context) {
+                FileInfo file = new FileInfo(filename);
+
+                var anal = FFProbe.Analyse(file.FullName);
+
+                //check for range header
+                var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
+                var range = context.Request.Headers.Get("Range");
+
+                var file_size = file.Length;
+
+                //get range size from config
+                var kb_size = CurrentConfig.server["server"]["transfer_buffer_size"].ToInt();
+                if (kb_size <= 0) kb_size = 1;
+                long chunk_size = kb_size * 1024;
+                if (chunk_size > int.MaxValue) chunk_size = int.MaxValue;
+
+                context.Response.SendChunked = true;
+                context.Response.AddHeader("Accept-Ranges", "bytes");
+                context.Response.AddHeader("Content-Type", mime);
+                context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
+                context.Response.ContentType = "video/mp4";
+
+                if (has_range) {
+                    var range_info = SendFile.ParseRequestRangeHeader(range, file_size);
+
+                    context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
+                    context.Response.StatusDescription = "206 PARTIAL CONTENT";
+
+                    if (range_info.length > 0 && range_info.length < chunk_size) chunk_size = range_info.length;
+
+                    context.Response.ContentLength64 = chunk_size;
+
+                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                        Logging.Message($"Wants range {range_info.start}-{range_info.start + chunk_size - 1} {(range_info.start + chunk_size - 1) - range_info.start}");
+
+                    context.Response.AddHeader("Content-Range", $"bytes {range_info.start}-{range_info.start + chunk_size - 1}/{file_size}");
+
+                    byte[] buffer = new byte[chunk_size];
+
+                    FileStream fs = File.OpenRead(filename);
+                    fs.Seek(range_info.start, SeekOrigin.Begin);
+                    await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token);
+                    fs.Close();
+
+
+
+                } else {
+                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                        Logging.Message($"Got file request, start streaming {file.Name} of length {file_size}");
+
+                    transcode_mp4_full(file, context);
+                }
+
+            }
+
+            public async static void transcode_mp4_full(FileInfo file, HttpListenerContext context) {
                 long tid = DateTime.Now.Ticks;
                 
                 try {
@@ -211,21 +266,16 @@ namespace ShareHole {
 
                     Logging.ThreadMessage($"{file.Name} :: Sending transcoded MP4 data", "CONVERT:MP4", tid);
 
-                    //context.Response.SendChunked = false;
+                    context.Response.SendChunked = false;
                     context.Response.ContentType = "video/mp4";
 
                     context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
 
-                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
-                    var range = context.Request.Headers.Get("Range");
-
-                    FileStream fs = File.OpenRead(file.FullName);
-                                       
+                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                    context.Response.StatusDescription = "200 OK";
 
                     FFMpegArguments
-                        .FromPipeInput(new StreamPipeSource(fs)
-                                            //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
-                            )
+                        .FromFileInput(file.FullName)
                         .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
                             .ForceFormat("mp4")
                             .WithVideoCodec("libx264")
@@ -247,87 +297,13 @@ namespace ShareHole {
                             .WithCustomArgument($"-ab 240k")
 
                         ).ProcessAsynchronously().ContinueWith(t => {
-                            //if (has_range) {
-
-                               // Logging.ThreadMessage($"{file.Name} :: Finished sending partial data {range}", "CONVERT:MP4", tid);
-
-                                //context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
-                                //context.Response.StatusDescription = "206 PARTIAL CONTENT";
-                           // } else {
-                                Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);
-
-                            //}
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "200 OK";
-                            context.Response.Close();
+                             Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);                            
                         });
 
                 } catch (Exception ex) {
                     Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:MP4", tid);
                 }
             }
-            /*
-            public async static void WebmByteStream(FileInfo file, HttpListenerContext context) {
-                try {
-                    var anal = FFProbe.Analyse(file.FullName);
-                    context.Response.AddHeader("X-Content-Duration", ((int)(anal.Duration.TotalSeconds) + 1).ToString());
-
-                    Logging.ThreadMessage($"{file.Name} :: Sending transcoded webm data", "CONVERT:WEBM", 8);
-
-                    context.Response.SendChunked = false;
-                    context.Response.ContentType = "video/webm";
-
-
-                    var has_range = !string.IsNullOrEmpty(context.Request.Headers.Get("Range"));
-                    var range = context.Request.Headers.Get("Range");
-
-                    FFMpegArguments
-                        .FromFileInput(file//, options => options
-                                           //.WithHardwareAcceleration(HardwareAccelerationDevice.Auto)
-                            )
-                        .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
-                            .ForceFormat("webm")
-                            .WithVideoCodec("libvpx-vp9")
-                            .WithAudioCodec("libopus")
-
-                            .UsingMultithreading(true)
-                            .UsingThreads(CurrentConfig.server["conversion"]["threads_per_video_conversion"].get_int())
-
-                            .WithCustomArgument("-map_metadata 0")
-
-                            //.WithVideoBitrate($"{CurrentConfig.server["conversion"]["mp4_bitrate"].get_int()}k")
-                            //.WithVariableBitrate(4)
-                            //.ForcePixelFormat("yuv420p")
-                            .WithConstantRateFactor(23)
-                            .WithSpeedPreset(Speed.Fast)
-                            .WithFastStart()
-
-                            .WithCustomArgument("-loglevel verbose")
-                            .WithCustomArgument("-movflags frag_keyframe+empty_moov")
-                            //.WithCustomArgument("-movflags faststart")
-                            .WithCustomArgument($"-ab 240k")
-
-                        ).ProcessAsynchronously().ContinueWith(t => {
-                            if (has_range) {
-
-                                Logging.ThreadMessage($"{file.Name} :: Sent partial data {range}", "CONVERT:WEBM", 9);
-
-                                context.Response.StatusCode = (int)HttpStatusCode.PartialContent;
-                                context.Response.StatusDescription = "206 PARTIAL CONTENT";
-                            } else {
-                                Logging.ThreadMessage($"{file.Name} :: Sent data", "CONVERT:WEBM", 9);
-
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "200 OK";
-                            }
-                            //context.Response.Close();
-                        });
-
-                } catch (Exception ex) {
-                    Logging.ThreadError($"{file.Name} :: {ex.Message}", "CONVERT:WEBM", 9);
-                }
-
-            }*/
         }
     }
 }
