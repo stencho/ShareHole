@@ -251,6 +251,9 @@ namespace ShareHole {
 
                     context.Response.ContentType = "video/mp4";
 
+                    context.Response.AddHeader("Accept-Ranges", "none");
+                    context.Response.SendChunked = false;
+
                     context.Response.AddHeader("X-Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
                     context.Response.AddHeader("Content-Duration", anal.Duration.TotalSeconds.ToString("F2"));
                     //context.Response.ContentLength64 = (long)((anal.Duration.TotalSeconds * 1000000) / 8.0);
@@ -272,9 +275,9 @@ namespace ShareHole {
                             .WithCustomArgument("-map_metadata 0")
 
                             .ForcePixelFormat("yuv420p")
-                            //.WithConstantRateFactor(25)
+                            //.WithConstantRateFactor(30)
                             .WithVideoBitrate(CurrentConfig.server["transcode"]["bit_rate_kb"].ToInt() * 1024)
-                            .WithSpeedPreset(Speed.Fast)
+                            .WithSpeedPreset(Speed.VeryFast)
                             .WithFastStart()
 
                             .WithCustomArgument("-loglevel verbose")

@@ -197,7 +197,7 @@ namespace ShareHole
                 context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
-                context.Response.AddHeader("Accept-ranges", "bytes");
+                context.Response.AddHeader("Accept-Ranges", "bytes");
                 context.Response.SendChunked = true;
 
                 //only support GET
@@ -298,7 +298,7 @@ namespace ShareHole
 
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                            ok_close(context);
+                            //ok_close(context);
                         }, CurrentConfig.cancellation_token);
                     }
 
@@ -306,6 +306,7 @@ namespace ShareHole
                 } else if (command_dir != command_dirs.none) { 
 
                     switch (command_dir) {
+                        case command_dirs.none: break;
                         case command_dirs.thumbnail: // REQUESTED THUMBNAIL
 
                             if (file_exists && (mime.StartsWith("video") || Conversion.IsValidImage(mime))) {
@@ -493,7 +494,6 @@ namespace ShareHole
                             }
                             break;
 
-                        case command_dirs.none: break;
                     }
 
                 /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */
@@ -535,10 +535,7 @@ namespace ShareHole
                     try {
                         using (MemoryStream ms = new MemoryStream(data, false)) {
                             var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "200 OK";
-                                context.Response.Close();
-
+                                ok_close(context);
                                 Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
                             }, CurrentConfig.cancellation_token);
                         }
@@ -586,8 +583,7 @@ namespace ShareHole
 
                     enable_cache(context);
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                    context.Response.ContentType = mimetype;                        
-                    context.Response.SendChunked = false;
+                    context.Response.ContentType = mimetype;                 
 
                     SendFile.SendWithRanges(absolute_on_disk_path, mimetype, context);
                     
@@ -596,8 +592,6 @@ namespace ShareHole
                     error404(page_content, context);
                 }
 
-                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                context.Response.StatusDescription = "200 OK";
             }
 
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
@@ -607,6 +601,7 @@ namespace ShareHole
         void ok_close(HttpListenerContext context) {
             context.Response.StatusCode = (int)HttpStatusCode.OK;
             context.Response.StatusDescription = "200 OK";
+            Logging.Error("200");
             try {
                 context.Response.Close();
             } catch (HttpListenerException e) { }
@@ -624,6 +619,7 @@ namespace ShareHole
                     context.Response.Close();
                 }, CurrentConfig.cancellation_token);
             }
+            Logging.Error("404");
 
         }
         void error_bad_request(string page_content, HttpListenerContext context) {
@@ -637,6 +633,7 @@ namespace ShareHole
                     context.Response.StatusDescription = "400 BAD REQUEST";
                     context.Response.Close();
                 }, CurrentConfig.cancellation_token);
+                Logging.Error("400");
             }
 
         }
