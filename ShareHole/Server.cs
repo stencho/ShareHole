@@ -410,6 +410,7 @@ namespace ShareHole
                     //Requested file list
                 } else if (file_list && Directory.Exists(absolute_on_disk_path)) {
                     var di = new DirectoryInfo(absolute_on_disk_path);
+                    enable_cache(context);
 
                     var files = di.GetFiles();
 
@@ -443,23 +444,34 @@ namespace ShareHole
 
                     string raw_file_list = "";
                     foreach (FileInfo fi in files) {
-                        raw_file_list += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{url_path}{fi.Name}')\">{fi.Name}</li>\n";
+                        if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
+                        raw_file_list += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}')\">{fi.Name}</li>\n";
                     }
 
                     string file_list_array = "['";
-                    if (files.Length > 1) {
-                        foreach (FileInfo fi in files) {
-                            file_list_array += $"{Uri.EscapeDataString(fi.Name)}', '";
-                        }
-                    } else if (files.Length == 1) {
-                        file_list_array += $"{Uri.EscapeDataString(files[0].Name)}";
-                    }
+                    int c = 0;
+                    if (files.Length > 0) {
 
-                    file_list_array += "'];";
+                        foreach (FileInfo fi in files) {
+                            if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
+
+                            if (c > 0) file_list_array += $"', '";
+
+                            file_list_array += $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}";
+                            
+
+                            c++;
+
+                        }
+                        file_list_array += "'];";
+
+                    } else {
+                        file_list_array = "[];";
+                    }
 
                     string player = MusicPlayer.music_player_content;
                     player = player.Replace("{track_list}", raw_file_list).Replace("{file_array}", file_list_array)
-                                   .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{url_path}");
+                                   .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path)}");
                     context.Response.ContentType = "text/html; charset=utf-8";
                     
                     var data = Encoding.UTF8.GetBytes(player);

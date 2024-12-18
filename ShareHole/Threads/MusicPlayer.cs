@@ -42,7 +42,7 @@ namespace ShareHole.Threads {
                         overflow: auto;
                         box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
                         cursor: move; /* Indicate the box can be moved */
-                        display:block;
+                        display:none;
                         overflow: hidden;
                     }
                     .resize-handle {
@@ -120,7 +120,9 @@ namespace ShareHole.Threads {
                             box.style.width = width;
                             box.style.height = height;
                         }
+                        
                         enforceBoundaries();
+                        box.style.display = 'block';
                     };
 
                     // Save position and size to localStorage
@@ -316,7 +318,7 @@ namespace ShareHole.Threads {
                         padding: 0;
                         list-style-type: none;
                         text-align: left;
-                        max-height: 500px; /* Limit the height of the file list */
+                        max-height: 100vh; /* Limit the height of the file list */
                         overflow-y: auto; /* Enable scrolling if the list exceeds 500px */
                     }
 
@@ -377,22 +379,31 @@ namespace ShareHole.Threads {
                         audio.pause();
                     });
 
-                    // Move to the next song in the list
-                    document.getElementById('nextBtn').addEventListener('click', () => {
+                    function next() {            
                         currentIndex++;
-                        audio.src = localdir + fileList[currentIndex];
+                        if (currentIndex > fileList.length-1) currentIndex = 0;
+                        audio.src = fileList[currentIndex];
                         currentFileTitle.textContent = currentIndex + decodeURIComponent(fileList[currentIndex]); 
                         audio.play();
+                    }
+
+                    // Move to the next song in the list
+                    document.getElementById('nextBtn').addEventListener('click', () => {
+                        next();
                     });
 
                     // Move to the previous song in the list
                     document.getElementById('prevBtn').addEventListener('click', () => {
-
                         currentIndex--;
-                        audio.src = localdir + fileList[currentIndex];
+                        if (currentIndex < 0) currentIndex = fileList.length-1;
+                        audio.src = fileList[currentIndex];
                         currentFileTitle.textContent = currentIndex + decodeURIComponent(fileList[currentIndex]); 
                         audio.play();
                         
+                    });
+                    
+                    audio.addEventListener("ended", () => {
+                        next();
                     });
 
                     // Update the progress bar as the audio plays
@@ -410,10 +421,9 @@ namespace ShareHole.Threads {
                     });
 
                     // Load and play the selected song from the list
-                    function loadSong(filename) {
-            
+                    function loadSong(filename) {            
                         currentIndex = fileList.findIndex(function(f) {
-                            return filename.endsWith(decodeURIComponent(f)) || filename == decodeURIComponent(f);
+                            return decodeURIComponent(filename).endsWith(decodeURIComponent(f)) || filename == decodeURIComponent(f);
                         });
 
                         audio.src = filename;

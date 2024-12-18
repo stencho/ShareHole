@@ -417,7 +417,7 @@ namespace ShareHole {
                     converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                 }
 
-                listing += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString(file.Name)}\">{file.Name}</a></p>\n";
+                listing += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}\">{file.Name}</a></p>\n";
                 file_c++;
             }
 

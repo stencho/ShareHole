@@ -126,7 +126,7 @@ namespace ShareHole {
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("transcode", "threads_per_video_conversion", """
-                Determines how many threads are used by each /stream/ converter
+                Determines how many threads are started for each /transcode/
                 """);
 
 
