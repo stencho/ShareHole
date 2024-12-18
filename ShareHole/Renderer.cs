@@ -417,7 +417,7 @@ namespace ShareHole {
 
             if (uri.Length > 0) uri = uri + '/';
 
-            listing += $"<div>/{uri}</div>";            
+            listing += $"<div id=\"directory-box\">/{uri}</div><div id=\"music-list\">";            
 
             //Add up dir if we're showing directories
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
@@ -447,7 +447,7 @@ namespace ShareHole {
                     dir_c++;
                 }
             }
-            
+
             string auto_conversion = "";
             string converters = "";
 
@@ -464,7 +464,7 @@ namespace ShareHole {
                 auto_conversion = Conversion.CheckConversionList(mime);
 
                 if (mime.StartsWith("video")) {
-                    converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
+                    //VID
 
                 } else if (Conversion.IsValidImage(mime)) {
                     converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
@@ -488,7 +488,7 @@ namespace ShareHole {
                         $"</div>";
                 file_c++;
             }
-
+            listing += "</div>";
             return listing;
         }
 
@@ -507,8 +507,9 @@ namespace ShareHole {
             if (uri.Length > 0) uri = uri + '/';
 
             string result = MusicPlayer.music_player_main_view
-                .Replace("{list}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
-                .Replace("{music_player_url}", $"http://{prefix}/{info.passdir}/music_player/{share}/{uri}");
+                .Replace("{music_player_dir}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
+                .Replace("{music_player_url}", $"http://{prefix}/{info.passdir}/music_player/{share}/{uri}")
+                .Replace("{music_info_url}", $"http://{prefix}/{info.passdir}/music_info/{share}/{uri}");
 
             return result;
         }

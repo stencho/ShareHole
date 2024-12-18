@@ -170,7 +170,7 @@ namespace ShareHole {
         }
 
         public static string base_html = """
-        <!DOCTYPE>
+        <!doctype html>
         <html lang="en">
           <head>
             <meta charset="UTF-8">
@@ -193,6 +193,11 @@ namespace ShareHole {
         a:hover { color: rgb(141, 69, 139); }
         a:active { color: rgb(203, 115, 200); }
         
+        html {
+            scrollbar-width: thin; /* thin scrollbar */
+            scrollbar-color: #FEA8EA #101010; /* thumb and track colors */
+        }
+
         img {
           max-width: 100%;
           max-height: 100vh;
@@ -229,8 +234,6 @@ namespace ShareHole {
             font-size: 16pt;
         }
         
-        
-
         /* GALLERY */
         #gallery {
             align-items: end;
@@ -260,47 +263,33 @@ namespace ShareHole {
           color: rgb(255, 255, 255) !important;
           font-size: 22;
         }
-
-
-        /* MUSIC */
+                       
+        #music-list {
+            overflow-y: hidden;
+            flex-grow: 1;
+            position: absolute;
+            top: 30px;
+        }  
+        
         .music-list-item {
-            width: 100%;
+            width:100%;
             height: auto;
             font-size: 16pt;
         }
         
-        #music-info-container {
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
-            flex-wrap: wrap;
-            size: 500px 100px;
-        }
-
-        #music-info-details {
-            padding-left: 15px;
-        }
-
-        #music-info-title {
-            width: fit-content;
-            height: fit-content;
-        }
-
-        #music-info-artist {
-            width: fit-content;
-            height: fit-content;
-        }
-
-        #music-info-album {
-            width: fit-content;
-            height: fit-content;
-        }
-
-        #music-info-cover {            
-            max-width: 100px;
-            max-height: 100px;
-            width: 100px;
-            height: 100px;
+        #directory-box {
+            background-color:#101010; 
+            z-index: 9999; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            text-align: center;
+            outline-color: rgb(242, 191, 241) !important;
+            outline-width: 1px;
+            outline-style: inset;
+            overflow:hidden;
         }
         """;
     }

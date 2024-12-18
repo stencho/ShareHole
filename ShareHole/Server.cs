@@ -16,6 +16,7 @@ using FFMpegCore;
 using System.Security.Cryptography;
 using ShareHole.Threads;
 using System.Reflection.Metadata;
+using FFMpegCore.Exceptions;
 
 namespace ShareHole
 {
@@ -30,7 +31,13 @@ namespace ShareHole
         string base_page_content = "";
 
         string page_content_strings_replaced(string page_content, string page_title, string script = "") {
-            return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", script);
+            var sc_tagged = script;
+
+            if (sc_tagged.Length > 0) {
+                sc_tagged = $"<script>{sc_tagged}</script>";
+            }
+
+            return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", sc_tagged);
         }
 
         string base_css_data_replaced {
@@ -137,9 +144,7 @@ namespace ShareHole
             to_png,
             transcode,
             file_list,
-            music_player,
-            music_player_dir,
-            music_info
+            music_player_dir
         }
 
         async void RequestThread(object? name_id) {
@@ -216,7 +221,6 @@ namespace ShareHole
                 string share_name = "";
                 string folder_path = "";
 
-
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/")) {
                     context.Response.Abort();
@@ -225,34 +229,16 @@ namespace ShareHole
                     url_path = url_path.Remove(0, passdir.Length + 1);
                 }
 
-                command_dirs command_dir = command_dirs.none;
-
                 //check for command directory
-                if (url_path.ToLower().StartsWith("/thumbnail/")) {
-                    url_path = url_path.Remove(0, "/thumbnail/".Length);
-                    command_dir = command_dirs.thumbnail;
-                } else if (url_path.ToLower().StartsWith("/to_jpg/")) {
-                    url_path = url_path.Remove(0, "/to_jpg/".Length);
-                    command_dir = command_dirs.to_jpg;
-                } else if (url_path.ToLower().StartsWith("/to_png/")) {
-                    url_path = url_path.Remove(0, "/to_png/".Length);
-                    command_dir = command_dirs.to_png;
-                } else if (url_path.ToLower().StartsWith("/transcode/")) {
-                    url_path = url_path.Remove(0, "/transcode/".Length);
-                    command_dir = command_dirs.transcode;
-                } else if (url_path.ToLower().StartsWith("/file_list/")) {
-                    url_path = url_path.Remove(0, "/file_list/".Length);
-                    command_dir = command_dirs.file_list;
-                } else if (url_path.ToLower().StartsWith("/music_player/")) {
-                    url_path = url_path.Remove(0, "/music_player/".Length);
-                    command_dir = command_dirs.music_player;
-                } else if (url_path.ToLower().StartsWith("/music_player_dir/")) {
-                    url_path = url_path.Remove(0, "/music_player_dir/".Length);
-                    command_dir = command_dirs.music_player_dir;
-                } else if (url_path.ToLower().StartsWith("/music_info/")) {
-                    url_path = url_path.Remove(0, "/music_info/".Length);
-                    command_dir = command_dirs.music_info;
+                command_dirs command_dir = command_dirs.none;
+                foreach (var v in Enum.GetValues(typeof(command_dirs))) {
+                    var vs = v.ToString().Trim();
+                    if (url_path.ToLower().StartsWith($"/{vs.ToLower()}/")) {
+                        url_path = url_path.Remove(0, $"/{vs}/".Length);
+                        command_dir = Enum.Parse<command_dirs>(vs);
+                    }
                 }
+
                 //Clean URL
                 while (url_path.EndsWith("/#")) url_path = url_path.Remove(url_path.Length - 2);
                 while (url_path.StartsWith('/')) {
@@ -300,6 +286,7 @@ namespace ShareHole
 
                 bool file_exists = File.Exists(absolute_on_disk_path);
                 bool dir_exists = Directory.Exists(absolute_on_disk_path);
+
                 /* CLIENT REQUESTED CSS */
                 if (request.Url.AbsolutePath.EndsWith("base.css")) { 
                     absolute_on_disk_path = Path.GetFullPath("base.css");
@@ -458,59 +445,6 @@ namespace ShareHole
                             }
                             break;
 
-                        case command_dirs.music_player: // REQUESTED MUSIC PLAYER WEBFORM
-
-                            if (!dir_exists) {
-                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
-                                error_bad_request(page_content, context);
-                            }
-
-                            var di_mp = new DirectoryInfo(absolute_on_disk_path);
-
-                            var files_mp = di_mp.GetFiles();
-
-                            string file_list_mp = "";
-                            foreach (FileInfo fi in files_mp) {
-                                if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
-                                file_list_mp += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}')\">{fi.Name}</li>\n";
-                            }
-
-                            string file_list_array = "['"; int c = 0;
-                            if (files_mp.Length > 0) {
-                                foreach (FileInfo fi in files_mp) {
-                                    if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
-
-                                    if (c > 0) file_list_array += $"', '";
-                                    file_list_array += $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}";
-
-                                    c++;
-                                }
-                                file_list_array += "'];";
-
-                            } else {
-                                file_list_array = "[];";
-                            }
-
-                            string player = MusicPlayer.music_player_content;
-                            player = player.Replace("{track_list}", file_list_mp).Replace("{file_array}", file_list_array)
-                                           .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path)}");
-
-                            context.Response.ContentType = "text/html; charset=utf-8";
-
-                            var data_mp = Encoding.UTF8.GetBytes(player);
-                            context.Response.ContentLength64 = data_mp.LongLength;
-
-                            try {
-                                using (MemoryStream ms = new MemoryStream(data_mp, false)) {
-                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                        Logging.ThreadMessage($"Sent music player for {url_path}", thread_name, thread_id);
-                                        ok_close(context);
-                                    }, CurrentConfig.cancellation_token);
-                                }
-                            } catch (HttpListenerException ex) {
-                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                            }
-                            break;
 
                         case command_dirs.music_player_dir: // REQUESTED MUSIC PLAYER DIRECTORY BROWSER
 
@@ -523,14 +457,24 @@ namespace ShareHole
                             page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
 
                             var script = """
-                            <script>
+                            
+                                const directory_box = document.getElementById('directory-box');
+
+                                // directory_box.onload = () => {
+                                    // directory_box.innerHTML = localStorage.getItem('title');
+                                // };
+
                                 function queue_song(filename) {     
                                     window.parent.queue_song(filename)
                                 }
+
                                 function change_directory(url) {
+                                    // let i = url.lastIndexOf("/");
+                                    // directory_box.innerHTML = url.slice(i + 1);
                                     window.parent.change_directory(url)
+                                        
+                                    // localStorage.setItem('title', JSON.stringify(directory_box.innerHTML));
                                 }
-                            </script>
                             """;
 
                             var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script));
@@ -544,42 +488,6 @@ namespace ShareHole
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                                page_content = $"<b>NOT AN AUDIO FILE</b>";
-                                error_bad_request(page_content, context);
-                            }
-                            break;
-
-                        case command_dirs.music_info: // REQUESTED BASIC ID3 INFO
-                            context.Response.ContentType = "text/html; charset=utf-8";
-                            bool ffmpeg_can_read = FFProbe.Analyse(absolute_on_disk_path) != null;
-                            if (!file_exists || !ffmpeg_can_read) {
-                                page_content = $"<b>INVALID AUDIO FILE</b>";
-                                error_bad_request(page_content, context);
-                            }
-
-                            page_content = "" +
-                                $"<div id=\"music-info-container\">" +
-                                    $"<div id=\"music-info-cover\"></div>" +
-                                    $"<div id=\"music-info-details\">" +
-                                        $"<div id=\"music-info-title\">Title</div>" +
-                                        $"<div id=\"music-info-artist\">The Artists</div>" +
-                                        $"<div id=\"music-info-album\">The Album</div>" +
-                                    $"</div>" +
-                                $"</div>";
-
-                            var data_mi = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
-                            if (mime.StartsWith("audio")) {
-                                try {
-                                    using (MemoryStream ms = new MemoryStream(data_mi, false)) {
-                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                            Logging.ThreadMessage($"Sent music info for {url_path}", thread_name, thread_id);
-                                            ok_close(context);
-                                        }, CurrentConfig.cancellation_token);
-                                    }
-                                } catch (HttpListenerException ex) {
-                                    Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                                }
-                            } else {
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
                                 error_bad_request(page_content, context);
                             }
@@ -607,7 +515,7 @@ namespace ShareHole
                                     break;
                                 case "music":
                                     page_content = Renderer.MusicPlayerContent(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "test"));
                                     break;
                                 default:
                                     page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
