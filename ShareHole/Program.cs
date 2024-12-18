@@ -180,11 +180,19 @@ namespace ShareHole {
           </head>
           <body>
             {page_content}
+            {script}
           </body>
         </html>
         """;
 
         public static string base_css= """
+        /* COMMON */
+        a { text-decoration: none; }
+        a:link { color: rgb(242, 191, 241); }
+        a:visited { color: rgb(163, 212, 239); }
+        a:hover { color: rgb(141, 69, 139); }
+        a:active { color: rgb(203, 115, 200); }
+        
         img {
           max-width: 100%;
           max-height: 100vh;
@@ -192,36 +200,48 @@ namespace ShareHole {
         }
 
         text {        
-          color: rgb(235, 235, 235);
           font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
         }
-        text.list_extra {        
-          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
+
+        .converters {        
           font-size: 12pt;
+          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
         }
 
         body { 
-          color: rgb(235, 235, 235);
+          color: rgb(235, 235, 235);  
+          font-size: 16pt;
           background-color: #101010; 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
         }
 
+
+        /* LIST */
         .emojitint { 
           color: transparent; 
           text-shadow: 0 0 0 rgb(254, 168, 234); 
+          width: 100%;
+        }
+
+        .list-item {
+            width: 100%;
+            height: auto;
+            font-size: 16pt;
         }
         
-        .galleryfoldertext { 
-          font-size: 12px;
-          color: rgb(242, 191, 241); 
-        }
         
+
+        /* GALLERY */
         #gallery {
             align-items: end;
             align-content: normal;        
         }
 
-        
+        .galleryfoldertext { 
+          font-size: 12px;
+          color: rgb(242, 191, 241); 
+        }
+                
         .thumbnail {
             min-width: {thumbnail_size}px !important;
             min-height: {thumbnail_size}px !important;
@@ -236,25 +256,52 @@ namespace ShareHole {
             background-color: rgb(141, 69, 139);
         }
 
-        p.up { 
-          font-size: 32; 
-        }
-
         p.head {
           color: rgb(255, 255, 255) !important;
           font-size: 22;
         }
 
-        p {
-          font-size: 20;
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+        /* MUSIC */
+        .music-list-item {
+            width: 100%;
+            height: auto;
+            font-size: 16pt;
+        }
+        
+        #music-info-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            size: 500px 100px;
         }
 
-        a { text-decoration: none; }
-        a:link { color: rgb(242, 191, 241); }
-        a:visited { color: rgb(163, 212, 239); }
-        a:hover { color: rgb(141, 69, 139); }
-        a:active { color: rgb(203, 115, 200); }
+        #music-info-details {
+            padding-left: 15px;
+        }
+
+        #music-info-title {
+            width: fit-content;
+            height: fit-content;
+        }
+
+        #music-info-artist {
+            width: fit-content;
+            height: fit-content;
+        }
+
+        #music-info-album {
+            width: fit-content;
+            height: fit-content;
+        }
+
+        #music-info-cover {            
+            max-width: 100px;
+            max-height: 100px;
+            width: 100px;
+            height: 100px;
+        }
         """;
     }
 

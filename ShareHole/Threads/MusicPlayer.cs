@@ -13,222 +13,50 @@ namespace ShareHole.Threads {
     public static class MusicPlayer {
         // MusicDB db;
 
-        public static string box_overlay = """            
+        public static string music_player_main_view = """
             <!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Movable and Resizable Div</title>
+                <title></title>
                 <link rel="stylesheet" href="base.css">
                 <style>
-                    /* Main body style */
                     body {
                         margin: 0;
+                        display: flex;
                         height: 100vh;
-                        overflow: hidden;
-                        font-family: Arial, sans-serif;
                     }
-
-                    /* Movable and resizable box */
-                    #box {
-                        position: absolute;
-                        top: 50px;
-                        left: 50px;
-                        width: 200px;
-                        height: 150px;
-                        background-color: lightblue;
-                        border: 2px solid #0073e6;
-                        overflow: auto;
-                        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
-                        cursor: move; /* Indicate the box can be moved */
-                        display:none;
-                        overflow: hidden;
+                    #list_frame, #player_frame {
+                        width: 50%;
+                        height: 100%;
                     }
-                    .resize-handle {
-                        position: absolute;
-                        bottom: 0;
-                        right: 0;
-                        width: 0;
-                        height: 0;
-                        border-left: 10px solid transparent;
-                        border-top: 10px solid transparent;
-                        border-right: 10px solid #0073e6; /* Blue triangle */
-                        border-bottom: 10px solid #0073e6;
-                        cursor: nwse-resize; /* Resize cursor */
-                        opacity: 0.7; /* Slight transparency */
-                    }
-                    .resize-handle:hover {
-                        opacity: 1; /* Fully opaque when hovered */
-                    }
-
-                    .movebar {
+                    iframe {
                         width: 100%;
-                        height: 20px;
-                        background-color: lightgray;
-                    }
-
-                    /* Box content */
-                    #box p {
-                        margin: 10px;
+                        height: 100%;
+                        border: none;
                     }
                 </style>
             </head>
             <body>
-                <!-- Resizable and Movable Div -->
-                <div id="box">
-                    <div class="movebar"></div>
-                    <div>
-                    <iframe src="{music_player_url}" id="music_player" width="100%" height="100%"></iframe>
-                    </div>
-                     <div class="resize-handle"></div>
-                </div>
-
-                <div style="width: 100vw; height: 100vh; overflow: auto; ">{list}</div>
-
-                <script>
-                    const box = document.getElementById('box');
-                    const inner = document.getElementById('box_inner');
-                    const resizeHandle = document.querySelector('.resize-handle');
-
-                    let isDragging = false;
-                    let isResizing = false;
-                    let offsetX, offsetY, initialWidth, initialHeight;
-
-                    // Get the viewport dimensions
-                    const getViewportWidth = () => window.innerWidth;
-                    const getViewportHeight = () => window.innerHeight;
-
-                    function close_box(){
-                        box.innerHTML = ''; 
-                        box.style.display = 'none';
-                    }
-
-                    // Load saved position and size
-                    window.onload = () => {
-                        const savedPosition = localStorage.getItem('boxPosition');
-                        const savedSize = localStorage.getItem('boxSize');
-
-                        if (savedPosition) {
-                            const { top, left } = JSON.parse(savedPosition);
-                            box.style.top = top;
-                            box.style.left = left;
-                        }
-
-                        if (savedSize) {
-                            const { width, height } = JSON.parse(savedSize);
-                            box.style.width = width;
-                            box.style.height = height;
-                        }
-                        
-                        enforceBoundaries();
-                        box.style.display = 'block';
-                    };
-
-                    // Save position and size to localStorage
-                    const saveState = () => {
-                        const position = {
-                            top: box.style.top,
-                            left: box.style.left,
-                        };
-                        const size = {
-                            width: box.style.width,
-                            height: box.style.height,
-                        };
-                        localStorage.setItem('boxPosition', JSON.stringify(position));
-                        localStorage.setItem('boxSize', JSON.stringify(size));
-                    };
-
-                    // Enforce boundaries for dragging
-                    const enforceBoundaries = () => {
-                        const rect = box.getBoundingClientRect();
-                        const viewportWidth = getViewportWidth();
-                        const viewportHeight = getViewportHeight();
-
-                        // Ensure box stays within bounds
-                        if (rect.left < 0) box.style.left = `0px`;
-                        if (rect.top < 0) box.style.top = `0px`;
-                        if (rect.right > viewportWidth) box.style.left = `${viewportWidth - rect.width}px`;
-                        if (rect.bottom > viewportHeight) box.style.top = `${viewportHeight - rect.height}px`;
-                    };
-
-                    // Enforce boundaries for resizing
-                    const enforceResizeBoundaries = () => {
-                        const rect = box.getBoundingClientRect();
-                        const viewportWidth = getViewportWidth();
-                        const viewportHeight = getViewportHeight();
-
-                        // Prevent resizing beyond viewport boundaries
-                        if (rect.right > viewportWidth) box.style.width = `${viewportWidth - rect.left}px`;
-                        if (rect.bottom > viewportHeight) box.style.height = `${viewportHeight - rect.top}px`;
-
-                        // Prevent shrinking too small
-                        if (parseInt(box.style.width) < 50) box.style.width = '50px';
-                        if (parseInt(box.style.height) < 50) box.style.height = '50px';
-                    };
-
-                    // Dragging Logic
-                    box.addEventListener('mousedown', (e) => {
-                        if (e.target === resizeHandle) return; // Ignore dragging when resizing
-
-                        isDragging = true;
-
-                        // Calculate the initial mouse position relative to the box
-                        offsetX = e.clientX - box.getBoundingClientRect().left;
-                        offsetY = e.clientY - box.getBoundingClientRect().top;
-
-                        e.preventDefault(); // Prevent text selection
-                    });
-
-                    document.addEventListener('mousemove', (e) => {
-                        if (isDragging) {
-                            const left = e.clientX - offsetX;
-                            const top = e.clientY - offsetY;
-
-                            box.style.left = `${left}px`;
-                            box.style.top = `${top}px`;
-
-                            enforceBoundaries(); // Prevent dragging offscreen
-                        }
-
-                        if (isResizing) {
-                            const deltaX = e.clientX - initialWidth;
-                            const deltaY = e.clientY - initialHeight;
-
-                            box.style.width = `${deltaX}px`;
-                            box.style.height = `${deltaY}px`;
-
-                            enforceResizeBoundaries(); // Prevent resizing offscreen
-                        }
-                    });
-
-                    document.addEventListener('mouseup', () => {
-                        if (isDragging) {
-                            isDragging = false;
-                            saveState(); // Save new position
-                        }
-
-                        if (isResizing) {
-                            isResizing = false;
-                            saveState(); // Save new size
-                        }
-                    });
-
-                    // Resizing Logic
-                    resizeHandle.addEventListener('mousedown', (e) => {
-                        isResizing = true;
-
-                        // Capture initial mouse position and box size
-                        initialWidth = e.clientX - box.offsetWidth;
-                        initialHeight = e.clientY - box.offsetHeight;
-
-                        e.preventDefault();
-                    });
-
-                    // Listen for window resize to reapply boundaries
-                    window.addEventListener('resize', enforceBoundaries);
-                    </script>
+                <iframe id="list_frame" name="list_frame" src="{list}"></iframe>
+                <iframe id="player_frame" name="player_frame" src="{music_player_url}"></iframe>
             </body>
+            <script>
+                function update_title() {
+
+                }
+
+                function queue_song(filename) {     
+                    const player_frame = document.getElementById('player_frame').contentWindow;
+                    player_frame.queue(filename, 'test');
+                }
+
+                function change_directory(url) {
+                    const f = document.getElementById('list_frame');
+                    f.src = url;
+                }
+            </script>
             </html>
             """;
 
@@ -238,7 +66,7 @@ namespace ShareHole.Threads {
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Audio Player with Progress Bar and File List</title>
+                <title></title>
                 <link rel="stylesheet" href="base.css">
                 <style>
                     body {
@@ -293,8 +121,8 @@ namespace ShareHole.Threads {
                         background-color: #0056b3;
                     }
 
-                    audio {
-                        display: none; /* Make the audio element invisible */
+                    audio-player {
+                        display: none;
                     }
 
                     .progress-container {
@@ -313,122 +141,126 @@ namespace ShareHole.Threads {
                         border-radius: 5px;
                     }
 
-                    .file-list {
+                    .track-list {
                         margin-top: 15px;
                         padding: 0;
                         list-style-type: none;
                         text-align: left;
-                        max-height: 100vh; /* Limit the height of the file list */
-                        overflow-y: auto; /* Enable scrolling if the list exceeds 500px */
+                        max-height: 100vh;
+                        overflow-y: auto;
                     }
 
-                    .file-list li {
+                    .track-list li {
                         margin: 5px 0;
                         cursor: pointer;
                         color: #007bff;
                     }
 
-                    .file-list li:hover {
+                    .track-list li:hover {
                         text-decoration: underline;
                     }
+
+                    .track-list li:selected {
+                        color: #ff00ff;                        
+                    }
+
                 </style>
             </head>
             <body>
                 <div class="audio-player-container">
-                    <div class="audio-title" id="currentFile">A.mp3</div> <!-- Current file title -->
+                    <div class="audio-title" id="current_file"></div> 
 
                     <div class="audio-controls">
-                        <button id="playBtn">Play</button>
-                        <button id="pauseBtn">Pause</button>
-                        <button id="prevBtn">Previous</button>
-                        <button id="nextBtn">Next</button>
+                        <button id="play-button">Play</button>
+                        <button id="pause-button">Pause</button>
+                        <button id="previous-button">Previous</button>
+                        <button id="next-button">Next</button>
                     </div>
 
-                    <audio id="audio" preload="auto">
-                        <source src="A.mp3" type="audio/mp3">
+                    <audio id="audio-player" preload="auto">
+                        <source src="" type="audio/mp3">
                         Your browser does not support the audio element.
                     </audio>
 
-                    <div class="progress-container" id="progressContainer">
-                        <div class="progress-bar" id="progressBar"></div>
+                    <div class="progress-container" id="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
                     </div>
 
-                    <ul class="file-list">
+                    <ul class="track-list">
                         {track_list}
                     </ul>
                 </div>
 
                 <script>
-                    const audio = document.getElementById('audio');
-                    const playBtn = document.getElementById('playBtn');
-                    const pauseBtn = document.getElementById('pauseBtn');
-                    const progressBar = document.getElementById('progressBar');
-                    const progressContainer = document.getElementById('progressContainer');
-                    const fileList = {file_array};
-                    const currentFileTitle = document.getElementById('currentFile'); // Current file title element
-                    let currentIndex = 0;  // Keep track of the current song's index
+                    const audio_player = document.getElementById('audio-player');
+
+                    const play_button = document.getElementById('play-button');
+                    const pause_button = document.getElementById('pause-button');
+                    const next_button = document.getElementById('next-button');
+                    const previous_button = document.getElementById('previous-button');
+
+                    const progress_bar = document.getElementById('progress-bar');
+                    const progress_container = document.getElementById('progress-container');
+
+                    const current_file_title = document.getElementById('current-file'); 
+
+                    let current_index = 0; 
+
                     const localdir = '{local_dir}';
-
-                    // Play the audio when the play button is clicked
-                    playBtn.addEventListener('click', () => {
-                        audio.play();
-                    });
-
-                    // Pause the audio when the pause button is clicked
-                    pauseBtn.addEventListener('click', () => {
-                        audio.pause();
-                    });
-
+                    const file_list = {file_array};
+            
                     function next() {            
-                        currentIndex++;
-                        if (currentIndex > fileList.length-1) currentIndex = 0;
-                        audio.src = fileList[currentIndex];
-                        currentFileTitle.textContent = currentIndex + decodeURIComponent(fileList[currentIndex]); 
-                        audio.play();
+                        current_index++;
+                        if (current_index > file_list.length-1) current_index = 0;
+                        audio_player.src = file_list[current_index];
+                        current_file_title.textContent = current_index + decodeURIComponent(file_list[current_index]); 
+                        audio_player.play();
                     }
 
-                    // Move to the next song in the list
-                    document.getElementById('nextBtn').addEventListener('click', () => {
-                        next();
-                    });
+                    function previous() {
+                        current_index--;
+                        if (current_index < 0) current_index = file_list.length-1;
+                        audio_player.src = file_list[current_index];
+                        current_file_title.textContent = current_index + decodeURIComponent(file_list[current_index]); 
+                        audio_player.play();
+                    }
+            
+                    function queue(filename, displayname) {
+                     console.log(filename);
+                    }
 
-                    // Move to the previous song in the list
-                    document.getElementById('prevBtn').addEventListener('click', () => {
-                        currentIndex--;
-                        if (currentIndex < 0) currentIndex = fileList.length-1;
-                        audio.src = fileList[currentIndex];
-                        currentFileTitle.textContent = currentIndex + decodeURIComponent(fileList[currentIndex]); 
-                        audio.play();
-                        
-                    });
+                    play_button.addEventListener('click', () => { audio_player.play(); });
+                    pause_button.addEventListener('click', () => { audio_player.pause(); });
+
+                    document.getElementById('next_button').addEventListener('click', () => { next(); });
+                    document.getElementById('previous_button').addEventListener('click', () => { previous(); }); 
                     
-                    audio.addEventListener("ended", () => {
-                        next();
+                    // skip to next file when current one ends
+                    audio_player.addEventListener("ended", () => { next(); });
+
+                    // keep the progress bar updated
+                    audio_player.addEventListener('timeupdate', () => {
+                        const progress = (audio_player.currentTime / audio_player.duration) * 100;
+                        progress_bar.style.width = progress + '%';
                     });
 
-                    // Update the progress bar as the audio plays
-                    audio.addEventListener('timeupdate', () => {
-                        const progress = (audio.currentTime / audio.duration) * 100;
-                        progressBar.style.width = progress + '%';
+                    // update the track progress when the progress bar is clicked
+                    progress_container.addEventListener('click', (e) => {
+                        const offset_x = e.offsetX;
+                        const width = progress_container.offsetWidth;
+                        const newTime = (offset_x / width) * audio_player.duration;
+                        audio_player.currentTime = newTime;
                     });
 
-                    // Allow the user to click on the progress bar to seek to a specific time
-                    progressContainer.addEventListener('click', (e) => {
-                        const offsetX = e.offsetX;
-                        const width = progressContainer.offsetWidth;
-                        const newTime = (offsetX / width) * audio.duration;
-                        audio.currentTime = newTime;
-                    });
+                    // load a file and attempt to find it in the list for the sake of highlighting + next/previous track stuff
+                    function loadSong(filename) {    
+                        audio_player.src = filename;
+                        current_file_title.textContent = current_index + decodeURIComponent(filename);  // Update the current file title
+                        audio_player.play();   
 
-                    // Load and play the selected song from the list
-                    function loadSong(filename) {            
-                        currentIndex = fileList.findIndex(function(f) {
+                        current_index = file_list.findIndex(function(f) {
                             return decodeURIComponent(filename).endsWith(decodeURIComponent(f)) || filename == decodeURIComponent(f);
                         });
-
-                        audio.src = filename;
-                        currentFileTitle.textContent = currentIndex + decodeURIComponent(filename);  // Update the current file title
-                        audio.play();
                     }
                 </script>
             </body>

@@ -53,6 +53,7 @@ namespace ShareHole {
             info.files = dirInfo.GetFiles();
 
             info.up_dir = info.uri_path;
+            if (info.up_dir.EndsWith("/")) info.up_dir = info.up_dir.Remove(info.up_dir.Length - 1);
             int slash_i = info.up_dir.LastIndexOf('/');
             if (slash_i > -1) info.up_dir = info.up_dir.Remove(slash_i);
             else info.up_dir = "";
@@ -93,7 +94,7 @@ namespace ShareHole {
         static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
             if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].ToBool()) {
-                converters += $"⸢<text class=\"list_extra\"><a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
+                converters += $"⸢<text class=\"converters\"><a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
             }
             return converters;
         }
@@ -102,7 +103,7 @@ namespace ShareHole {
             string conversion = Conversion.CheckConversion(mime, true, false, false);
 
             if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
-                converters += $"⸢<text class=\"list_extra\">" +
+                converters += $"⸢<text class=\"converters\">" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
                     $"/" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_jpg/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">JPG</a>" +
@@ -134,16 +135,32 @@ namespace ShareHole {
 
             //Add up dir if we're showing directories
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
-                result += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
+                result += $"" +
+                    $"<div class=\"list-item\">" +
+                    $"<span class=\"emojitint\">" +
+                    $"📁" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
+                    $"↑ [/{info.up_dir}]" +
+                    $"</a>" +
+                    $"</span>" +
+                    $"</div>";
             }
 
             // DIRECTORIES
             if (info.show_dirs) {
                 if (info.grouping != "none" && info.cares_about_groups && info.directories.Length > 0) 
-                    result += $"<p class=\"head\"><b>Directories</b></p>\n";
+                    result += $"<b>Directories</b>";
                 
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {
-                    result += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>\n";
+                    result += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"<span class=\"emojitint\">" +
+                        $"📁" +
+                        $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
+                        $"{dir.Name}" +
+                        $"</a>" +
+                        $"</span>" +
+                        $"</div>";
                     dir_c++;
                 }
             }
@@ -167,7 +184,12 @@ namespace ShareHole {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
-                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"{file.Name}" +
+                        $"</a>" +
+                        $"</div>";
                     file_c++;
                 }
 
@@ -195,7 +217,13 @@ namespace ShareHole {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
-                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"{converters}" +
+                        $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"{file.Name}" +
+                        $"</a>" +
+                        $"</div>";
                     file_c++;
                 }
 
@@ -229,7 +257,13 @@ namespace ShareHole {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
-                    result += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">{file.Name}</a></p>\n";
+                    result += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"{converters}" +
+                        $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"{file.Name}" +
+                        $"</a>" +
+                        $"</div>";
                     file_c++;
                 }
             }
@@ -358,9 +392,8 @@ namespace ShareHole {
             return result;
         }
 
-        public static string MusicPlayerContent(string directory, string prefix, string uri_path, string share_name) {
+        public static string MusicPlayerDirectoryView(string directory, string prefix, string uri_path, string share_name) {        
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
-
             string listing = "";
 
             //TODO: hide hidden files/folders + allow forcing them to show through an option
@@ -372,38 +405,58 @@ namespace ShareHole {
             var share = share_name.Trim();
             var uri = uri_path.Trim();
 
+            while (uri.EndsWith("#")) uri = uri.Remove(uri.Length - 1);
+
             while (share.EndsWith("/")) share = share.Remove(share.Length - 1);
             while (share.StartsWith("/")) share = share.Remove(0, 1);
 
             while (uri.EndsWith("/")) uri = uri.Remove(uri.Length - 1);
             while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
 
+            while (uri.EndsWith("#")) uri = uri.Remove(uri.Length - 1);
+
             if (uri.Length > 0) uri = uri + '/';
-            
+
+            listing += $"<div>/{uri}</div>";            
+
             //Add up dir if we're showing directories
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
-                listing += $"<p style=\"up\"><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">↑ [/{info.up_dir}]</a></span></p>\n";
+                listing += $"" +
+                    $"<a href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(info.up_dir).Replace("'", "\\'")}')\">" +
+                    $"<div class=\"music-list-item\">" +
+                    $"<span class=\"emojitint\">" +
+                    $"📁" +
+                    $"↑ [/{info.up_dir}]" +
+                    $"</span>" +
+                    $"</div>" +
+                    $"</a>";
             }
 
             // DIRECTORIES
             if (info.show_dirs) {
-                if (info.grouping != "none" && info.cares_about_groups && info.directories.Length > 0)
-                    listing += $"<p class=\"head\"><b>Directories</b></p>\n";
-
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {
-                    listing += $"<p><span class=\"emojitint\">📁<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">{dir.Name}</a></span></p>\n";
+                    listing += $"" +
+                        $"<div class=\"music-list-item\">" +
+                        $"<span class=\"emojitint\">" +
+                        $"📁" +
+                        $"<a href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(uri + dir.Name).Replace("'", "\\'")}')\">" +
+                        $"{dir.Name}" +
+                        $"</a>" +
+                        $"</span>" +
+                        $"</div>";
                     dir_c++;
                 }
             }
+            
             string auto_conversion = "";
             string converters = "";
 
             // FILES
-            foreach (var file in info.files.OrderBy(a => a.Name)) {                    
+            foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
                 var mime = Conversion.GetMimeTypeOrOctet(file.Name);
 
-                if (!mime.StartsWith("audio") && !mime.StartsWith("video") && !mime.StartsWith("image")) continue;
+                //if (!mime.StartsWith("audio") && !mime.StartsWith("video") && !mime.StartsWith("image")) continue;
 
                 if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                     continue;
@@ -417,13 +470,44 @@ namespace ShareHole {
                     converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                 }
 
-                listing += $"<p>{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}\">{file.Name}</a></p>\n";
+                if (mime.StartsWith("audio"))
+                    listing += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"{converters}" +
+                        $"<a href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"{file.Name}" +
+                        $"</a>" + 
+                        $"</div>";
+                else
+                    listing += $"" +
+                        $"<div class=\"list-item\">" +
+                        $"{converters}" +
+                        $"<a href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"{file.Name}" +
+                        $"</a>" +
+                        $"</div>";
                 file_c++;
             }
 
+            return listing;
+        }
 
-            string result = MusicPlayer.box_overlay
-                .Replace("{list}", listing)
+        public static string MusicPlayerContent(string directory, string prefix, string uri_path, string share_name) {
+            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+
+            var share = share_name.Trim();
+            var uri = uri_path.Trim();
+
+            while (share.EndsWith("/")) share = share.Remove(share.Length - 1);
+            while (share.StartsWith("/")) share = share.Remove(0, 1);
+
+            while (uri.EndsWith("/")) uri = uri.Remove(uri.Length - 1);
+            while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
+
+            if (uri.Length > 0) uri = uri + '/';
+
+            string result = MusicPlayer.music_player_main_view
+                .Replace("{list}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
                 .Replace("{music_player_url}", $"http://{prefix}/{info.passdir}/music_player/{share}/{uri}");
 
             return result;
