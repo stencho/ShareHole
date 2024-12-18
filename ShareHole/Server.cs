@@ -22,7 +22,7 @@ namespace ShareHole
     public class FolderServer {
         bool running = true;
         HttpListener listener;
-        
+
         string CSS = "";
         public string id { get; private set; }
         public string name { get; private set; }
@@ -30,7 +30,7 @@ namespace ShareHole
         string base_page_content = "";
 
         string page_content_strings_replaced(string page_content, string page_title, string script = "") {
-             return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", script);
+            return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", script);
         }
 
         string base_css_data_replaced {
@@ -118,16 +118,28 @@ namespace ShareHole
             listener.Stop();
         }
 
-        bool all_threads_stopped () {
+        bool all_threads_stopped() {
             int i = 0;
 
-            foreach(Thread t in dispatch_threads) {
+            foreach (Thread t in dispatch_threads) {
                 if (t.ThreadState != ThreadState.Stopped) {
                     i++;
                 }
             }
 
             return i == 0;
+        }
+
+        enum command_dirs {
+            none,
+            thumbnail,
+            to_jpg,
+            to_png,
+            transcode,
+            file_list,
+            music_player,
+            music_player_dir,
+            music_info
         }
 
         async void RequestThread(object? name_id) {
@@ -204,15 +216,6 @@ namespace ShareHole
                 string share_name = "";
                 string folder_path = "";
 
-                bool thumbnail = false;
-                bool to_jpg = false;
-                bool to_png = false;
-                bool transcode = false;
-                bool stream = false;
-                bool file_list = false;
-                bool music_player = false;
-                bool music_player_dir = false;
-                bool music_info = false;
 
                 //Check if passdir is correct
                 if (!url_path.StartsWith($"/{passdir}/") || url_path == ($"/{passdir}/")) {
@@ -222,31 +225,33 @@ namespace ShareHole
                     url_path = url_path.Remove(0, passdir.Length + 1);
                 }
 
+                command_dirs command_dir = command_dirs.none;
+
                 //check for command directory
                 if (url_path.ToLower().StartsWith("/thumbnail/")) {
                     url_path = url_path.Remove(0, "/thumbnail/".Length);
-                    thumbnail = true;
+                    command_dir = command_dirs.thumbnail;
                 } else if (url_path.ToLower().StartsWith("/to_jpg/")) {
                     url_path = url_path.Remove(0, "/to_jpg/".Length);
-                    to_jpg = true;
+                    command_dir = command_dirs.to_jpg;
                 } else if (url_path.ToLower().StartsWith("/to_png/")) {
                     url_path = url_path.Remove(0, "/to_png/".Length);
-                    to_png = true;
+                    command_dir = command_dirs.to_png;
                 } else if (url_path.ToLower().StartsWith("/transcode/")) {
                     url_path = url_path.Remove(0, "/transcode/".Length);
-                    transcode = true;
+                    command_dir = command_dirs.transcode;
                 } else if (url_path.ToLower().StartsWith("/file_list/")) {
                     url_path = url_path.Remove(0, "/file_list/".Length);
-                    file_list = true;
+                    command_dir = command_dirs.file_list;
                 } else if (url_path.ToLower().StartsWith("/music_player/")) {
                     url_path = url_path.Remove(0, "/music_player/".Length);
-                    music_player = true;
+                    command_dir = command_dirs.music_player;
                 } else if (url_path.ToLower().StartsWith("/music_player_dir/")) {
                     url_path = url_path.Remove(0, "/music_player_dir/".Length);
-                    music_player_dir = true;
+                    command_dir = command_dirs.music_player_dir;
                 } else if (url_path.ToLower().StartsWith("/music_info/")) {
                     url_path = url_path.Remove(0, "/music_info/".Length);
-                    music_info = true;
+                    command_dir = command_dirs.music_info;
                 }
                 //Clean URL
                 while (url_path.EndsWith("/#")) url_path = url_path.Remove(url_path.Length - 2);
@@ -293,274 +298,10 @@ namespace ShareHole
                 var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
                 var mime = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
-                //Requested thumbnail
-                if (thumbnail && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("video") || Conversion.IsValidImage(mime)) {
-                        enable_cache(context);
-                        ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
-
-                    } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
-                        error_bad_request(page_content, context);
-                    }
-
-                    //Requested RAW to JPG
-                } else if (to_jpg && File.Exists(absolute_on_disk_path)) {
-                    if (Conversion.IsValidImage(mime)) {
-                        enable_cache(context);
-                        using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
-                            if (mi.Orientation != OrientationType.Undefined)
-                                mi.AutoOrient();
-
-                            mi.Settings.Format = MagickFormat.Jpg;
-
-                            var compress = CurrentConfig.server["conversion"]["jpeg_compression"].ToBool();
-                            var quality = CurrentConfig.server["conversion"]["jpeg_quality"].ToInt();
-
-                            if (quality < 0) quality = 0;
-                            if (quality > 100) quality = 100;
-
-                            if (compress) {
-                                mi.Settings.Compression = CompressionMethod.JPEG;
-                                mi.Quality = (uint)quality;
-                            } else {
-                                mi.Settings.Compression = CompressionMethod.LosslessJPEG;
-                                mi.Quality = 100;
-                            }
-
-                            context.Response.ContentType = "image/jpeg";
-
-                            var bytes = mi.ToByteArray();
-                            using (MemoryStream ms = new MemoryStream(bytes, false)) {
-                                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                    context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                    context.Response.StatusDescription = "200 OK";
-                                    context.Response.Close();
-                                }, CurrentConfig.cancellation_token);
-                            }
-                        }
-
-                    } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        error_bad_request(page_content, context);
-                    }
-
-                    //Requested image to PNG
-                } else if (to_png && File.Exists(absolute_on_disk_path)) {
-                    if (Conversion.IsValidImage(mime)) {
-                        enable_cache(context);
-                        MagickReadSettings settings = null;
-
-                        var vector = mime == "application/pdf" || mime == "application/postscript";
-
-                        if (vector) {
-                            settings = new MagickReadSettings {
-                                Density = new Density(300)
-                            };
-                        }
-
-                        using (MagickImage mi = new MagickImage(absolute_on_disk_path, settings)) {
-
-                            if (mi.Orientation != OrientationType.Undefined)
-                                mi.AutoOrient();
-
-
-                            mi.Settings.Format = MagickFormat.Png;
-
-                            //if (pdf) mi.Resize(new Percentage(300), new Percentage(300));
-
-                            context.Response.ContentType = "image/png";
-
-                            var bytes = mi.ToByteArray();
-                            using (MemoryStream ms = new MemoryStream(bytes, false)) {
-                                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                    context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                    context.Response.StatusDescription = "200 OK";
-                                    context.Response.Close();
-                                }, CurrentConfig.cancellation_token);
-                            }
-                        }
-
-                    } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                        error_bad_request(page_content, context);
-                    }
-
-                    //Transcode videos and audio
-                } else if (transcode && File.Exists(absolute_on_disk_path)) {
-                    if (mime.StartsWith("video")) {
-                        Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context);
-
-                    } else if (mime.StartsWith("audio")) {
-
-                    } else {
-                        page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                        error_bad_request(page_content, context);
-                    }
-
-                    //Requested file list
-                } else if (file_list && Directory.Exists(absolute_on_disk_path)) {
-                    var di = new DirectoryInfo(absolute_on_disk_path);
-                    enable_cache(context);
-
-                    var files = di.GetFiles();
-
-                    string raw_file_list = "";
-
-                    foreach (FileInfo fi in files) {
-                        raw_file_list += $"http://{request.UserHostName}/{passdir}/{share_name}{url_path}/{fi.Name}\n";
-                    }
-
-                    var data = Encoding.UTF8.GetBytes(raw_file_list);
-                    try {
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "200 OK";
-                                context.Response.Close();
-
-                                Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
-                            }, CurrentConfig.cancellation_token);
-                        }
-                    } catch (HttpListenerException ex) {
-                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                    }
-
-                    //Requested music player
-                } else if (music_player && Directory.Exists(absolute_on_disk_path)) {
-                    var di = new DirectoryInfo(absolute_on_disk_path);
-
-                    var files = di.GetFiles();
-
-                    string raw_file_list = "";
-                    foreach (FileInfo fi in files) {
-                        if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
-                        raw_file_list += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}')\">{fi.Name}</li>\n";
-                    }
-
-                    string file_list_array = "['";
-                    int c = 0;
-                    if (files.Length > 0) {
-
-                        foreach (FileInfo fi in files) {
-                            if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
-
-                            if (c > 0) file_list_array += $"', '";
-
-                            file_list_array += $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}";
-                            c++;
-
-                        }
-                        file_list_array += "'];";
-
-                    } else {
-                        file_list_array = "[];";
-                    }
-
-                    string player = MusicPlayer.music_player_content;
-                    player = player.Replace("{track_list}", raw_file_list).Replace("{file_array}", file_list_array)
-                                   .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path)}");
-
-                    context.Response.ContentType = "text/html; charset=utf-8";
-                    
-                    var data = Encoding.UTF8.GetBytes(player);
-                    context.Response.ContentLength64 = data.LongLength;
-
-                    try {
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "200 OK";
-                                //context.Response.Close();
-
-                                Logging.ThreadMessage($"Sent music player for {url_path}", thread_name, thread_id);
-                            }, CurrentConfig.cancellation_token);
-                        }
-                    } catch (HttpListenerException ex) {
-                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                    }
-
-
-                } else if (music_info && File.Exists(absolute_on_disk_path)) {
-                    //LITERALLY JUST RETURN SOME BASE HTML WHICH GRABS THINGS LIKE ID3 TAGS AND AN ALBUM COVER
-
-                    context.Response.ContentType = "text/html; charset=utf-8";
-                    bool ffmpeg_can_read = FFProbe.Analyse(absolute_on_disk_path) != null;
-                    if (!ffmpeg_can_read) {
-                        page_content = $"<b>INVALID AUDIO FILE</b>";
-                        error_bad_request(page_content, context);
-                    }
-                                        
-                    page_content = "" +
-                        $"<div id=\"music-info-container\">" +
-                            $"<div id=\"music-info-cover\"></div>" +
-                            $"<div id=\"music-info-details\">" +
-                                $"<div id=\"music-info-title\">Title</div>" +
-                                $"<div id=\"music-info-artist\">The Artists</div>" +
-                                $"<div id=\"music-info-album\">The Album</div>" +
-                            $"</div>" +
-                        $"</div>";
-
-                    var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
-                    if (mime.StartsWith("audio")) {
-                        try {
-                            using (MemoryStream ms = new MemoryStream(data, false)) {
-                                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                    context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                    context.Response.StatusDescription = "200 OK";
-                                    context.Response.Close();
-
-                                    Logging.ThreadMessage($"Sent music info for {url_path}", thread_name, thread_id);
-                                }, CurrentConfig.cancellation_token);
-                            }
-                        } catch (HttpListenerException ex) {
-                            Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                        }
-                    } else {
-                        page_content = $"<b>NOT AN AUDIO FILE</b>";
-                        error_bad_request(page_content, context);
-                    }
-
-                } else if (music_player_dir && Directory.Exists(absolute_on_disk_path)) {
-                    var di = new DirectoryInfo(absolute_on_disk_path);
-                    context.Response.ContentType = "text/html; charset=utf-8";
-                    
-                    page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
-
-                    var script = """
-                        <script>
-                        function queue_song(filename) {     
-                            window.parent.queue_song(filename)
-                        }
-                        function change_directory(url) {
-                            window.parent.change_directory(url)
-                        }
-                        </script>
-                        """;
-
-                    var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script));
-
-                    try {
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                context.Response.StatusCode = (int)HttpStatusCode.OK;
-                                context.Response.StatusDescription = "200 OK";
-                                context.Response.Close();
-
-                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                            }, CurrentConfig.cancellation_token);
-                        }
-                    } catch (HttpListenerException ex) {
-                        Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
-                        page_content = $"<b>NOT AN AUDIO FILE</b>";
-                        error_bad_request(page_content, context);
-                    }
-
-
-
-
-                    //Requested CSS file  
-                } else if (request.Url.AbsolutePath.EndsWith("base.css")) {
+                bool file_exists = File.Exists(absolute_on_disk_path);
+                bool dir_exists = Directory.Exists(absolute_on_disk_path);
+                /* CLIENT REQUESTED CSS */
+                if (request.Url.AbsolutePath.EndsWith("base.css")) { 
                     absolute_on_disk_path = Path.GetFullPath("base.css");
                     Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
 
@@ -568,18 +309,287 @@ namespace ShareHole
                     context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
 
-                    //enable_cache(context);
-
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "200 OK";
-                            context.Response.Close();
+                            ok_close(context);
                         }, CurrentConfig.cancellation_token);
                     }
 
-                    //Requested a directory
-                } else if (Directory.Exists(absolute_on_disk_path)) {
+                /* COMMAND DIRECTORIES */
+                } else if (command_dir != command_dirs.none) { 
+
+                    switch (command_dir) {
+                        case command_dirs.thumbnail: // REQUESTED THUMBNAIL
+
+                            if (file_exists && (mime.StartsWith("video") || Conversion.IsValidImage(mime))) {
+                                enable_cache(context);
+                                ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
+
+                            } else {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+
+                            break;
+
+                        case command_dirs.to_jpg: // REQUESTED IMAGE -> JPG CONVERSION
+
+                            if (file_exists && Conversion.IsValidImage(mime)) {
+                                enable_cache(context);
+
+                                using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
+                                    if (mi.Orientation != OrientationType.Undefined)
+                                        mi.AutoOrient();
+
+                                    mi.Settings.Format = MagickFormat.Jpg;
+
+                                    var compress = CurrentConfig.server["conversion"]["jpeg_compression"].ToBool();
+                                    var quality = CurrentConfig.server["conversion"]["jpeg_quality"].ToInt();
+
+                                    if (quality < 0) quality = 0;
+                                    if (quality > 100) quality = 100;
+
+                                    if (compress) {
+                                        mi.Settings.Compression = CompressionMethod.JPEG;
+                                        mi.Quality = (uint)quality;
+                                    } else {
+                                        mi.Settings.Compression = CompressionMethod.LosslessJPEG;
+                                        mi.Quality = 100;
+                                    }
+
+                                    context.Response.ContentType = "image/jpeg";
+
+                                    var bytes = mi.ToByteArray();
+                                    context.Response.ContentLength64 = bytes.Length;
+                                    using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            ok_close(context);
+                                        }, CurrentConfig.cancellation_token);
+                                    }
+                                }
+
+                            } else {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.to_png: // REQUESTED IMAGE -> PNG CONVERSION
+
+                            if (file_exists && Conversion.IsValidImage(mime)) {
+                                enable_cache(context);
+                                MagickReadSettings settings = null;
+
+                                var vector = mime == "application/pdf" || mime == "application/postscript";
+
+                                if (vector) settings = new MagickReadSettings { Density = new Density(300) };
+
+                                using (MagickImage mi = new MagickImage(absolute_on_disk_path, settings)) {
+
+                                    if (mi.Orientation != OrientationType.Undefined)
+                                        mi.AutoOrient();
+
+                                    mi.Settings.Format = MagickFormat.Png;
+
+                                    context.Response.ContentType = "image/png";
+
+                                    var bytes = mi.ToByteArray();
+                                    context.Response.ContentLength64 = bytes.Length;
+                                    using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            ok_close(context);
+                                        }, CurrentConfig.cancellation_token);
+                                    }
+                                }
+
+                            } else {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
+
+                            if (file_exists && mime.StartsWith("video")) {
+                                Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context);
+
+                            } else if (file_exists && mime.StartsWith("audio")) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
+                                error_bad_request(page_content, context);
+
+                            } else {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.file_list: // REQUESTED PLAINTEXT OF FILES IN DIRECTORY
+
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+
+                            var di = new DirectoryInfo(absolute_on_disk_path);
+
+                            context.Response.ContentType = "text/plain; charset=utf-8";
+
+                            var files = di.GetFiles();
+
+                            string raw_file_list = "";
+
+                            foreach (FileInfo fi in files) {
+                                raw_file_list += $"http://{request.UserHostName}/{passdir}/{share_name}{url_path}/{fi.Name}\n";
+                            }
+
+                            var data = Encoding.UTF8.GetBytes(raw_file_list);
+                            context.Response.ContentLength64 = data.Length;
+                            try {
+                                using (MemoryStream ms = new MemoryStream(data, false)) {
+                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                        Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
+                                        ok_close(context);
+                                    }, CurrentConfig.cancellation_token);
+                                }
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.music_player: // REQUESTED MUSIC PLAYER WEBFORM
+
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+
+                            var di_mp = new DirectoryInfo(absolute_on_disk_path);
+
+                            var files_mp = di_mp.GetFiles();
+
+                            string file_list_mp = "";
+                            foreach (FileInfo fi in files_mp) {
+                                if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
+                                file_list_mp += $"<li onclick=\"loadSong('http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}')\">{fi.Name}</li>\n";
+                            }
+
+                            string file_list_array = "['"; int c = 0;
+                            if (files_mp.Length > 0) {
+                                foreach (FileInfo fi in files_mp) {
+                                    if (!Conversion.GetMimeTypeOrOctet(fi.Name).StartsWith("audio")) continue;
+
+                                    if (c > 0) file_list_array += $"', '";
+                                    file_list_array += $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}";
+
+                                    c++;
+                                }
+                                file_list_array += "'];";
+
+                            } else {
+                                file_list_array = "[];";
+                            }
+
+                            string player = MusicPlayer.music_player_content;
+                            player = player.Replace("{track_list}", file_list_mp).Replace("{file_array}", file_list_array)
+                                           .Replace("{local_dir}", $"http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path)}");
+
+                            context.Response.ContentType = "text/html; charset=utf-8";
+
+                            var data_mp = Encoding.UTF8.GetBytes(player);
+                            context.Response.ContentLength64 = data_mp.LongLength;
+
+                            try {
+                                using (MemoryStream ms = new MemoryStream(data_mp, false)) {
+                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                        Logging.ThreadMessage($"Sent music player for {url_path}", thread_name, thread_id);
+                                        ok_close(context);
+                                    }, CurrentConfig.cancellation_token);
+                                }
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                            }
+                            break;
+
+                        case command_dirs.music_player_dir: // REQUESTED MUSIC PLAYER DIRECTORY BROWSER
+
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                error_bad_request(page_content, context);
+                            }
+                            context.Response.ContentType = "text/html; charset=utf-8";
+
+                            page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
+
+                            var script = """
+                            <script>
+                                function queue_song(filename) {     
+                                    window.parent.queue_song(filename)
+                                }
+                                function change_directory(url) {
+                                    window.parent.change_directory(url)
+                                }
+                            </script>
+                            """;
+
+                            var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script));
+
+                            try {
+                                using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
+                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                        Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                                        ok_close(context);
+                                    }, CurrentConfig.cancellation_token);
+                                }
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.music_info: // REQUESTED BASIC ID3 INFO
+                            context.Response.ContentType = "text/html; charset=utf-8";
+                            bool ffmpeg_can_read = FFProbe.Analyse(absolute_on_disk_path) != null;
+                            if (!file_exists || !ffmpeg_can_read) {
+                                page_content = $"<b>INVALID AUDIO FILE</b>";
+                                error_bad_request(page_content, context);
+                            }
+
+                            page_content = "" +
+                                $"<div id=\"music-info-container\">" +
+                                    $"<div id=\"music-info-cover\"></div>" +
+                                    $"<div id=\"music-info-details\">" +
+                                        $"<div id=\"music-info-title\">Title</div>" +
+                                        $"<div id=\"music-info-artist\">The Artists</div>" +
+                                        $"<div id=\"music-info-album\">The Album</div>" +
+                                    $"</div>" +
+                                $"</div>";
+
+                            var data_mi = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
+                            if (mime.StartsWith("audio")) {
+                                try {
+                                    using (MemoryStream ms = new MemoryStream(data_mi, false)) {
+                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent music info for {url_path}", thread_name, thread_id);
+                                            ok_close(context);
+                                        }, CurrentConfig.cancellation_token);
+                                    }
+                                } catch (HttpListenerException ex) {
+                                    Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                }
+                            } else {
+                                page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.none: break;
+                    }
+
+                /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */
+                } else if (dir_exists) { // REQUESTED DIRECTORY
                     byte[] data = null;
 
                     if (!show_dirs && url_path != "/") {
@@ -629,8 +639,8 @@ namespace ShareHole
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                     }
 
-                    //Requested a file
-                } else if (File.Exists(absolute_on_disk_path)) {
+                    
+                } else if (file_exists) { // REQUESTED FILE
                     string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     try {
@@ -672,16 +682,26 @@ namespace ShareHole
                     context.Response.SendChunked = false;
 
                     SendFile.SendWithRanges(absolute_on_disk_path, mimetype, context);
-
-                    //User gave a very fail URL
-                } else {
+                    
+                } else { // USER GAVE A FAIL URL
                     page_content = $"<b>NOT FOUND</b>";
                     error404(page_content, context);
                 }
+
+                context.Response.StatusCode = (int)HttpStatusCode.OK;
+                context.Response.StatusDescription = "200 OK";
             }
 
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
 
+        }
+
+        void ok_close(HttpListenerContext context) {
+            context.Response.StatusCode = (int)HttpStatusCode.OK;
+            context.Response.StatusDescription = "200 OK";
+            try {
+                context.Response.Close();
+            } catch (HttpListenerException e) { }
         }
 
         void error404(string page_content, HttpListenerContext context) {
