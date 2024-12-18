@@ -275,8 +275,8 @@ namespace ShareHole {
                             .WithCustomArgument("-map_metadata 0")
 
                             .ForcePixelFormat("yuv420p")
-                            //.WithConstantRateFactor(30)
-                            .WithVideoBitrate(CurrentConfig.server["transcode"]["bit_rate_kb"].ToInt() * 1024)
+                            .WithConstantRateFactor(30)
+                            //.WithVideoBitrate(CurrentConfig.server["transcode"]["bit_rate_kb"].ToInt() * 1024)
                             .WithSpeedPreset(Speed.VeryFast)
                             .WithFastStart()
 
