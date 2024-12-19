@@ -215,7 +215,7 @@ namespace ShareHole {
                             { "text_color", new ConfigValue(Color.FromArgb(255, 235, 235, 235)) },
 
                             { "background_color", new ConfigValue(Color.FromArgb(255, 16,16,16)) },
-                            { "secondary_background_color", new ConfigValue(Color.FromArgb(255, 96,42,96)) }
+                            { "secondary_background_color", new ConfigValue(Color.FromArgb(255, 69,28,69)) }
                         }
                     },
 

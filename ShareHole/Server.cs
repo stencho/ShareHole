@@ -267,6 +267,8 @@ namespace ShareHole
                     }
                 }
 
+
+
                 //Clean URL
                 while (url_path.EndsWith("/#")) url_path = url_path.Remove(url_path.Length - 2);
                 while (url_path.StartsWith('/')) {

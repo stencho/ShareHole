@@ -344,6 +344,7 @@ namespace ShareHole.Threads {
                     span.innerHTML = "<div><a href=\"javascript:void(0)\" onclick=\"loadSong('" + filename + "')\">" + filename + "</a></div>";
 
                     if (file_list.length == 1) {
+                        audio_player.src = filename;
                         play();
                     }
             
