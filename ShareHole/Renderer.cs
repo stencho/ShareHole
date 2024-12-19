@@ -94,7 +94,11 @@ namespace ShareHole {
         static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
             if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].ToBool()) {
-                converters += $"⸢<text class=\"converters\"><a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"></a></text>⸥ ";
+                converters += $"⸢<text class=\"converter-text\">" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                    $"⯈MP4" +
+                    $"</a>" +
+                    $"</text>⸥";
             }
             return converters;
         }
@@ -103,7 +107,7 @@ namespace ShareHole {
             string conversion = Conversion.CheckConversion(mime, true, false, false);
 
             if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
-                converters += $"⸢<text class=\"converters\">" +
+                converters += $"⸢<text class=\"converter-text\">" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
                     $"/" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_jpg/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">JPG</a>" +
@@ -137,29 +141,29 @@ namespace ShareHole {
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
                 result += $"" +
                     $"<div class=\"list-item\">" +
-                    $"<span class=\"emojitint\">" +
+                    $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
+                    $"<span class=\"file\">" +
                     $"📁" +
-                    $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
-                    $"↑ [/{info.up_dir}]" +
-                    $"</a>" +
+                    $"↑ ⸢/{info.up_dir}⸥" +
                     $"</span>" +
+                    $"</a>" +
                     $"</div>";
             }
 
             // DIRECTORIES
             if (info.show_dirs) {
                 if (info.grouping != "none" && info.cares_about_groups && info.directories.Length > 0) 
-                    result += $"<b>Directories</b>";
+                    result += $"<p class=\"head\"><b>⸢Directories⸥</b></p>";
                 
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {
                     result += $"" +
                         $"<div class=\"list-item\">" +
-                        $"<span class=\"emojitint\">" +
+                        $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
+                        $"<span class=\"file\">" +
                         $"📁" +
-                        $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
                         $"{dir.Name}" +
-                        $"</a>" +
                         $"</span>" +
+                        $"</a>" +
                         $"</div>";
                     dir_c++;
                 }
@@ -186,8 +190,11 @@ namespace ShareHole {
 
                     result += $"" +
                         $"<div class=\"list-item\">" +
-                        $"{converters}<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<span class=\"converter-container\">{converters}</span>" +
+                        $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<span class=\"file\">" +
                         $"{file.Name}" +
+                        $"</span>" +
                         $"</a>" +
                         $"</div>";
                     file_c++;
@@ -201,7 +208,7 @@ namespace ShareHole {
 
                     if (ext != previous_ext) {
                         if ((info.using_extensions && info.extensions.Contains(ext.ToLower())) || !info.using_extensions ) 
-                        result += $"<p class=\"head\"><b>{ext}</b></p>\n";
+                        result += $"<p class=\"head\"><b>⸢{ext}⸥</b></p>\n";
                     }
 
                     previous_ext = ext;
@@ -219,10 +226,12 @@ namespace ShareHole {
 
                     result += $"" +
                         $"<div class=\"list-item\">" +
-                        $"{converters}" +
-                        $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<span class=\"file\">" +
                         $"{file.Name}" +
+                        $"</span>" +
                         $"</a>" +
+                        $"<span class=\"converter-container\">{converters}</span>" +
                         $"</div>";
                     file_c++;
                 }
@@ -242,7 +251,7 @@ namespace ShareHole {
                         var slashi = mime.IndexOf("/");
                         var t = mime.Substring(0, slashi);
                         if (current_type != t) {
-                            result += $"<p class=\"head\"><b>{t}</b></p>\n";
+                            result += $"<p class=\"head\"><b>⸢{t}⸥</b></p>\n";
                             current_type = t;
                         }
                     }
@@ -259,10 +268,12 @@ namespace ShareHole {
 
                     result += $"" +
                         $"<div class=\"list-item\">" +
-                        $"{converters}" +
-                        $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
+                        $"<span class=\"file\">" +
                         $"{file.Name}" +
+                        $"</span>" +
                         $"</a>" +
+                        $"<span class=\"converter-container\">{converters}</span>" +
                         $"</div>";
                     file_c++;
                 }
@@ -302,10 +313,10 @@ namespace ShareHole {
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
                     $"<span class=\"thumbnail\" >" +
                     $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
-                    $"<text class=\"emojitint\">⮝</text>" +
+                    $"<text class=\"gallery_folder\">⮝</text>" +
                     $"</font>" +
                     $"<br>" +
-                    $"<text class=\"galleryfoldertext\">/{info.up_dir}</text>" +
+                    $"<text class=\"gallery_folder_text\">/{info.up_dir}</text>" +
                     $"</span>" +
                     $"</a>" +
                     $"\n";
@@ -316,10 +327,10 @@ namespace ShareHole {
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
                     $"<span class=\"thumbnail\" >" +
                     $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
-                    $"<text class=\"emojitint\">📁</text>" +
+                    $"<text class=\"gallery_folder\">📁</text>" +
                     $"</font>" +
                     $"<br>" +
-                    $"<text class=\"galleryfoldertext\">{dir.Name}</text>" +
+                    $"<text class=\"gallery_folder_text\">{dir.Name}</text>" +
                     $"</span>" +
                     $"</a>" +
                     $"\n";
@@ -379,7 +390,6 @@ namespace ShareHole {
                         $"<a href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                         $"<span class=\"thumbnail\" >" +
                         $"<img align=center src=\"http://{prefix}/{info.passdir}/thumbnail/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\"/>" +
-                        //(is_raw(mime) ? $"<text>RAW</text>" : "") +
                         $"</span>" +
                         $"</a>\n";
 
@@ -417,16 +427,16 @@ namespace ShareHole {
 
             if (uri.Length > 0) uri = uri + '/';
 
-            listing += $"<div id=\"directory-box\">/{uri}</div><div id=\"music-list\">";            
+            listing += $"<div id=\"music-list-container\"><div id=\"music-list\">";            
 
             //Add up dir if we're showing directories
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
                 listing += $"" +
-                    $"<a href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(info.up_dir).Replace("'", "\\'")}')\">" +
+                    $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(info.up_dir).Replace("'", "\\'")}')\">" +
                     $"<div class=\"music-list-item\">" +
-                    $"<span class=\"emojitint\">" +
+                    $"<span class=\"file\">" +
                     $"📁" +
-                    $"↑ [/{info.up_dir}]" +
+                    $"↑ ⸢/{info.up_dir}⸥" +
                     $"</span>" +
                     $"</div>" +
                     $"</a>";
@@ -437,12 +447,12 @@ namespace ShareHole {
                 foreach (var dir in info.directories.OrderBy(a => a.Name)) {
                     listing += $"" +
                         $"<div class=\"music-list-item\">" +
-                        $"<span class=\"emojitint\">" +
-                        $"📁" +
-                        $"<a href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(uri + dir.Name).Replace("'", "\\'")}')\">" +
+                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"change_directory('http://{prefix}/{info.passdir}/music_player_dir/{share}/{Uri.EscapeUriString(uri + dir.Name).Replace("'", "\\'")}')\">" +
+                        $"<span class=\"file\">" +
+                        $"📁" + 
                         $"{dir.Name}" +
-                        $"</a>" +
                         $"</span>" +
+                        $"</a>" +
                         $"</div>";
                     dir_c++;
                 }
@@ -474,21 +484,26 @@ namespace ShareHole {
                     listing += $"" +
                         $"<div class=\"list-item\">" +
                         $"{converters}" +
-                        $"<a href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<span class=\"file\">" +
                         $"{file.Name}" +
+                        $"</span>" +
+
                         $"</a>" + 
                         $"</div>";
                 else
                     listing += $"" +
                         $"<div class=\"list-item\">" +
                         $"{converters}" +
-                        $"<a href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<span class=\"file\">" +
                         $"{file.Name}" +
+                        $"</span>" +
                         $"</a>" +
                         $"</div>";
                 file_c++;
             }
-            listing += "</div>";
+            listing += "</div></div>";
             return listing;
         }
 
@@ -506,10 +521,24 @@ namespace ShareHole {
 
             if (uri.Length > 0) uri = uri + '/';
 
+            var cdc = uri;
+            cdc = "/" + cdc;
+
+            while (cdc.EndsWith("/")) cdc = cdc.Remove(cdc.Length - 1);
+
+            var lis = cdc.LastIndexOf("/");
+            cdc = cdc.Remove(0, lis+1);
+
+            if (string.IsNullOrEmpty(cdc))
+                cdc = share_name;
+
             string result = MusicPlayer.music_player_main_view
-                .Replace("{music_player_dir}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
-                .Replace("{music_player_url}", $"http://{prefix}/{info.passdir}/music_player/{share}/{uri}")
-                .Replace("{music_info_url}", $"http://{prefix}/{info.passdir}/music_info/{share}/{uri}");
+                .Replace("{music_player_list_dir}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
+                .Replace("{current_directory}", $"http://{prefix}/{info.passdir}/{share}/{uri}")
+                .Replace("{current_directory_cleaned}", cdc)
+                .Replace("{music_info_url}", $"http://{prefix}/{info.passdir}/music_info/{share}/{uri}")
+                .Replace("{share_name}", share_name.Trim())
+                ;
 
             return result;
         }

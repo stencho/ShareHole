@@ -1,4 +1,0 @@
-[config]
-bind_to_address=127.0.0.13
-bind_to_port=80
-db_location=$exe_dir/metadata.db

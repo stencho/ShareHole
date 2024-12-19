@@ -42,72 +42,35 @@ namespace ShareHole.Threads {
                 <link rel="stylesheet" href="base.css">
                 <style>
                     body {
-                        display: block;
-                        width:100vw;
-                        height:100vh;
-                        min-width:100vw;
-                        min-height:100vh;
-                        max-width:100vw;
-                        max-height:100vh;
-                        overflow:hidden;
+                        display: flex;
+                        width: 100vw;
+                        height: 100vh;
+                        max-width: 100vw;
+                        overflow: hidden;
                         margin: 0;
+                        flex-wrap: wrap;
                     }
 
-                    iframe { border: none; }
-                                
+                    iframe { border: none; }                          
+                    audio-player { display: none; }
+                    
+
+                    /* TOP */
+
                     #top {    
                         width: 100%;   
-                        height: 130px;
+                        height: 110px;
                         display: flex;
                         flex-wrap: wrap;
-                        outline-color: rgb(242, 191, 241) !important;
-                        outline-width: 1px;
-                        outline-style: inset;
+
+                        border-bottom: solid 2px var(--main-color);
+
+                        background-color: var(--secondary-background-color);
                     }
 
-                    #bottom {    
-                        overflow:hidden;
-                        width: 100%;    
-                        height: calc(100vh - 130px);
-                        display: flex;
-                        flex-wrap: wrap;
-                    }
 
-                    #bottom-left {    
-                        width: 50%;     
-                        outline-color: rgb(242, 191, 241) !important;
-                        outline-width: 1px;
-                        outline-style: inset;
-                    }
-                    #bottom-right {    
-                        width: 50%;     
-                        outline-color: rgb(242, 191, 241) !important;
-                        outline-width: 1px;
-                        outline-style: inset;
-                    }
+                    /* INFO PANE */            
 
-                    #file-list-frame {
-                        width:100%;
-                        height: 100%;
-                        outline-color: rgb(242, 191, 241) !important;
-                        outline-width: 1px;
-                        outline-style: inset;
-                    }
-
-                    .progress-container {
-                        width: 100%;
-                        height: 10px;
-                        background-color: #e0e0e0;
-                        cursor: pointer;
-                        padding-bottom:5px
-                    }
-            
-                    .progress-bar {
-                        height: 100%;
-                        background-color: #007bff;
-                        width: 0%;
-                    }
-            
                     #music-info-container {
                         display: flex;
                         flex-direction: row;
@@ -142,6 +105,9 @@ namespace ShareHole.Threads {
                         width: 100px;
                         height: 100px;
                     }
+            
+                    
+                    /* MEDIA CONTROLS PANE */
 
                     .audio-controls-container {
                         text-align: center;
@@ -158,29 +124,94 @@ namespace ShareHole.Threads {
                         margin-bottom: 10px;
                         height: 100px;
                         width: 50%;
+                        color: var(--background-color);
                     }
             
                     .audio-controls button {
                         padding: 10px;
-                        background-color: #007bff;
+                        background-color: var(--secondary-color);
                         border: none;
-                        color: white;
                         font-size: 16px;
                         cursor: pointer;
-                        border-radius: 5px;
                         transition: background-color 0.3s;
                     }
             
                     .audio-controls button:hover {
-                        background-color: #0056b3;
+                        background-color: var(--secondary-color-dark);
                     }           
+                        
+                    /* PROGRESS BAR */
+
+                    .progress-container {
+                        width: 100%;
+                        height: 10px;
+                        background-color: transparent;
+                        cursor: pointer;
+                        border-top: solid 2px var(--main-color);
+                    }
             
-                    audio-player {
-                        display: none;
+                    .progress-bar {
+                        height: 100%;
+                        background-color: var(--main-color);
+                        width: 0%;
+                    }
+                    
+                    
+                    /* BOTTOM */
+
+                    #bottom {    
+                        overflow:hidden;
+                        width: 100%;    
+                        display: flex;
+                        
+                        bottom: 100vh;
+                        height: calc(100% - 110px);
+
+                    }
+
+
+                    /* BOTTOM LEFT */
+
+                    #bottom-left {    
+                        width: 50%;     
+            
+                        border-right: solid 1px var(--main-color);
+                        overflow:hidden;
+
+                        margin: 0;
+                    }
+
+                    #directory-box {
+                        background-color:#101010; 
+                        z-index: 9999; 
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 30px; 
+                        text-align: center;
+            
+                        border-bottom: solid 2px var(--main-color);
+                        box-shadow: inset -1px 0 0 var(--main-color);
+            
+                        overflow:hidden;
+                    }
+                    
+                    #file-list-frame {
+                        width:100%;
+                        height:calc(100% - 34px); /* 30px for the directory_box + 4 for the two 2px borders */
+                    }
+
+
+                    /* BOTTOM RIGHT */ 
+
+                    #bottom-right {    
+                        width: 50%;     
+                        height: 100%;    
+                        border-left: solid 1px var(--main-color);
+                        overflow:hidden;               
                     }
 
                     .track-list {
-                        margin-top: 15px;
                         padding: 0;
                         list-style-type: none;
                         text-align: left;
@@ -201,9 +232,11 @@ namespace ShareHole.Threads {
                     .track-list li:selected {
                         color: #ff00ff;                        
                     }
+            
 
                 </style>
             </head>
+
             <body>
                 <audio id="audio-player" preload="auto">
                     <source src="http://localhost:8080/loot/music/50%20Cent/Get%20Rich%20Or%20Die%20Tryin'/50%20Cent%20-%2004%20-%20Many%20Men%20%28Wish%20Death%29.mp3" type="audio/mp3">
@@ -221,8 +254,7 @@ namespace ShareHole.Threads {
                     </div>
                     <div class="audio-controls-containerr">
                         <div class="audio-controls">
-                            <button id="play-button">Play</button>
-                            <button id="pause-button">Pause</button>
+                            <button id="play-pause-button">Play</button>
                             <button id="previous-button">Previous</button>
                             <button id="next-button">Next</button>
                         </div>
@@ -234,35 +266,44 @@ namespace ShareHole.Threads {
 
                 <div id="bottom">
                     <div id="bottom-left">
-                        <iframe id="file-list-frame" name="file_list_frame" src="{music_player_dir}"></iframe> 
+                        <div id="directory-box">{current_directory_cleaned}</div>
+                        <iframe id="file-list-frame" name="file_list_frame" src="{music_player_list_dir}"></iframe> 
                     </div>
                     <div id="bottom-right">
-                        <!-- ADD <li onclick="loadSong('http://{request.UserHostName}/{passdir}/{share_name}{Uri.EscapeDataString(url_path + fi.Name)}')">{fi.Name}</li> -->
-                        <ul class="track-list">
-                            {track_list}
-                        </ul>
+                        <div id="track-list">
+                        </div>
                     </div>
                 </div>
             </body>
+
             <script>
                 const list_frame = document.getElementById('file-list-frame');  
                 const list_frame_window = list_frame.contentWindow ;
             
                 const audio_player = document.getElementById('audio-player');
             
-                const play_button = document.getElementById('play-button');
-                const pause_button = document.getElementById('pause-button');
+                const play_pause_button = document.getElementById('play-pause-button');
                 const next_button = document.getElementById('next-button');
                 const previous_button = document.getElementById('previous-button');
             
                 const progress_bar = document.getElementById('progress-bar');
                 const progress_container = document.getElementById('progress-container');
             
-                const current_file_title = document.getElementById('current-file'); 
-            
+                const directory_box = document.getElementById('directory-box'); 
+
+                const track_list = document.getElementById('track-list');
+                const file_list = [];
+
+                const share_name = '{share_name}';                
+
                 let current_index = 0; 
             
-                const file_list = [];
+            
+                directory_box.addEventListener('onload', () => {
+                    console.log('{current_directory}');
+                    directory_box.innerHTML = '{current_directory}';
+                    directory_box.innerHTML = 'test';
+                });
 
                 // keep the progress bar updated
                 audio_player.addEventListener('timeupdate', () => {
@@ -282,36 +323,63 @@ namespace ShareHole.Threads {
 
                 }
 
-                function queue_song(filename) {     
-                    player_frame.queue(filename, 'test');
-                }
-
                 function change_directory(url) {
                     list_frame.src = url;
-                }            
+                    let i = url.lastIndexOf("/");
+                    directory_box.innerHTML = decodeURIComponent(url.slice(i + 1));
+
+                    if (directory_box.innerHTML.length == 0) {
+                        directory_box.innerHTML = share_name;
+                    }
+
+                }         
+
+                function queue_song(filename) {   
+                    file_list.push(filename);
+            
+                    let span = document.createElement('span');
+            
+                    track_list.appendChild(span);
+            
+                    span.innerHTML = "<div><a href=\"javascript:void(0)\" onclick=\"loadSong('" + filename + "')\">" + filename + "</a></div>";
+
+                    if (file_list.length == 1) {
+                        play();
+                    }
+            
+                }   
+
+                function play_pause() {
+                    if (audio_player.paused) {
+                        play();
+                    } else {
+                        pause();
+                    }
+                }
+
+                function play() {
+                    play_pause_button.innerHTML = "Pause";
+                    audio_player.play();
+                }
+
+                function pause() {
+                    play_pause_button.innerHTML = "Play";
+                    audio_player.pause();
+                }
             
                 function next() {            
                     current_index++;
                     if (current_index > file_list.length-1) current_index = 0;
                     audio_player.src = file_list[current_index];
-                    current_file_title.textContent = current_index + decodeURIComponent(file_list[current_index]); 
-                    audio_player.play();
                 }
             
                 function previous() {
                     current_index--;
                     if (current_index < 0) current_index = file_list.length-1;
                     audio_player.src = file_list[current_index];
-                    current_file_title.textContent = current_index + decodeURIComponent(file_list[current_index]); 
-                    audio_player.play();
                 }
             
-                function queue(filename, displayname) {
-                    console.log(filename);
-                }
-            
-                play_button.addEventListener('click', () => { audio_player.play(); });
-                pause_button.addEventListener('click', () => { audio_player.pause(); });
+                play_pause_button.addEventListener('click', () => { play_pause(); });
             
                 next_button.addEventListener('click', () => { next(); });
                 previous_button.addEventListener('click', () => { previous(); }); 
@@ -322,8 +390,9 @@ namespace ShareHole.Threads {
                 // load a file and attempt to find it in the list for the sake of highlighting + next/previous track stuff
                 function loadSong(filename) {    
                     audio_player.src = filename;
-                    current_file_title.textContent = current_index + decodeURIComponent(filename);  // Update the current file title
-                    audio_player.play();   
+                                
+                    progress_bar.style.width = '0%';
+                    play();
             
                     current_index = file_list.findIndex(function(f) {
                         return decodeURIComponent(filename).endsWith(decodeURIComponent(f)) || filename == decodeURIComponent(f);

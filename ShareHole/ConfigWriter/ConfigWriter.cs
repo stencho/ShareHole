@@ -492,6 +492,7 @@ namespace ShareHole.Configuration
                                 }
                                
                                 dict[current_section].Add(key, new ConfigValue(Color.FromArgb(col[3], col[0], col[1], col[2])));
+
                             } else {
                                 Logging.Config($"| [STRING] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(value));
@@ -700,8 +701,14 @@ namespace ShareHole.Configuration
             else throw new TypeAccessException();
         }
         public Color ToColor() {
-            if (value_type == ValueType.COLOR) return (Color)value;
+            if (value_type == ValueType.COLOR) return Color.FromArgb(((byte[])value)[3], ((byte[])value)[0], ((byte[])value)[1], ((byte[])value)[2]);
             else throw new TypeAccessException();
+        }
+
+        public string ToColorJSString() {
+            var c = ToColor();
+
+            return $"rgb({((byte[])value)[0]}, {((byte[])value)[1]}, {((byte[])value)[2]})";
         }
 
         // GET DEFAULTS

@@ -30,18 +30,38 @@ namespace ShareHole
 
         string base_page_content = "";
 
-        string page_content_strings_replaced(string page_content, string page_title, string script = "") {
+        string page_content_strings_replaced(string page_content, string page_title, string script = "", string style = "") {
             var sc_tagged = script;
 
             if (sc_tagged.Length > 0) {
                 sc_tagged = $"<script>{sc_tagged}</script>";
             }
 
-            return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", sc_tagged);
+            var st_tagged = style;
+
+            if (st_tagged.Length > 0) {
+                st_tagged = $"<style>{st_tagged}</style>";
+            }
+
+            return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", sc_tagged).Replace("{style}", st_tagged);
         }
 
         string base_css_data_replaced {
-            get { return CurrentConfig.base_css.Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].ToInt().ToString()); }
+            get {
+                return CurrentConfig.base_css
+                    .Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].ToInt().ToString())
+
+                    .Replace("{main_color}", CurrentConfig.server["theme"]["main_color"].ToColorJSString())
+                    .Replace("{main_color_dark}", CurrentConfig.server["theme"]["main_color_dark"].ToColorJSString())
+
+                    .Replace("{secondary_color}", CurrentConfig.server["theme"]["secondary_color"].ToColorJSString())
+                    .Replace("{secondary_color_dark}", CurrentConfig.server["theme"]["secondary_color_dark"].ToColorJSString())
+                    
+                    .Replace("{text_color}", CurrentConfig.server["theme"]["text_color"].ToColorJSString())
+                    .Replace("{background_color}", CurrentConfig.server["theme"]["background_color"].ToColorJSString())
+                    .Replace("{secondary_background_color}", CurrentConfig.server["theme"]["secondary_background_color"].ToColorJSString())
+                    ;
+            }
         }
 
         int dispatch_thread_count = 64;
@@ -144,7 +164,15 @@ namespace ShareHole
             to_png,
             transcode,
             file_list,
-            music_player_dir
+            music_player_dir,
+            music_info
+        }
+
+        enum music_info_data_type {
+            artist, title, album,
+            artist_title,
+            artist_dash_title,
+            artist_title_album
         }
 
         async void RequestThread(object? name_id) {
@@ -453,32 +481,28 @@ namespace ShareHole
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
                                 error_bad_request(page_content, context);
                             }
+
                             context.Response.ContentType = "text/html; charset=utf-8";
 
                             page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
 
                             var script = """
                             
-                                const directory_box = document.getElementById('directory-box');
-
-                                // directory_box.onload = () => {
-                                    // directory_box.innerHTML = localStorage.getItem('title');
-                                // };
-
                                 function queue_song(filename) {     
-                                    window.parent.queue_song(filename)
+                                    window.parent.queue_song(filename);
                                 }
 
                                 function change_directory(url) {
-                                    // let i = url.lastIndexOf("/");
-                                    // directory_box.innerHTML = url.slice(i + 1);
-                                    window.parent.change_directory(url)
-                                        
-                                    // localStorage.setItem('title', JSON.stringify(directory_box.innerHTML));
+                                    window.parent.change_directory(url);
+                                    console.log(url);
                                 }
-                            """;
+                            """.Replace("{url}", url_path);
 
-                            var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script));
+                            var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, """
+                                html {
+                                    border-right: solid 2px var(--main-color);                             
+                                }
+                                """));
 
                             try {
                                 using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
@@ -489,6 +513,16 @@ namespace ShareHole
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                error_bad_request(page_content, context);
+                            }
+                            break;
+
+                        case command_dirs.music_info:
+                            if (file_exists && mime.StartsWith("audio")) {
+
+                            } else {
+                                Logging.ThreadError($"Exception", thread_name, thread_id);
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
                                 error_bad_request(page_content, context);
                             }

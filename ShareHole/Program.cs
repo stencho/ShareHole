@@ -20,6 +20,175 @@ namespace ShareHole {
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         internal static CancellationToken cancellation_token => cancellation_token_source.Token;
 
+        public static string base_html = """
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link rel="stylesheet" href="base.css">
+            <title>{page_title}</title>
+            {style}
+          </head>
+          <body>
+            {page_content}
+            {script}
+          </body>
+        </html>
+        """;
+
+        public static string base_css = """
+        :root {
+            --main-color: {main_color};
+            --main-color-dark: {main_color_dark};
+            --secondary-color: {secondary_color};
+            --secondary-color-dark: {secondary_color_dark};
+            --text-color: {text_color};
+            --background-color: {background_color};
+            --secondary-background-color: {secondary_background_color};
+        }
+
+        /* COMMON */
+        a { text-decoration: none; }
+        a:link { color: var(--main-color);  }
+        a:visited { color: var(--secondary-color) ; }
+        a:hover { color: var(--main-color-dark); }
+        a:active { color: var(--secondary-color-dark) ; }
+        
+        html {
+            scrollbar-color: var(--main-color) var(--background-color);
+            scrollbar-width: thin;
+
+            margin: 0;
+        }
+                
+        body { 
+            color: var(--text-color);
+            background-color: var(--background-color); 
+
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-size: 16pt;
+
+            margin: 0;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100vh;
+            height: auto;
+        }
+
+        text {        
+            font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+
+        .converter-container {
+            font-size: 16pt;
+            font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif !important;     
+            display: flex;
+        }
+
+        .converter-text { 
+            font-size: 12pt;
+            align-content: center;
+         }
+
+        /* LIST */
+        .file { 
+            color: transparent; 
+            text-shadow: 0 0 0 var(--main-color);  
+            width: 100%;
+            display: flex;
+            flex-grow: 1;
+        }
+
+        .file:hover { 
+            color: transparent; 
+            background-color: var(--main-color);  
+            text-shadow: 0 0 0 var(--background-color); 
+            display: inline-block;
+        }
+
+
+        .list-item {
+            width: 100%;
+            height: auto;
+            font-size: 16pt;
+            display: flex; 
+            justify-content: space-between;
+        }
+
+        a.list-item-link {
+            display: flex;
+            flex-grow: 1;
+        }
+        
+        
+        /* GALLERY */
+        #gallery {
+            align-items: end;
+            align-content: normal;        
+        }
+
+        .gallery_folder {
+            color: transparent; 
+            text-shadow: 0 0 0 var(--main-color);              
+        }
+
+        .gallery_folder_text { 
+            font-size: 12px;
+            color: var(--main-color);  
+        }
+                
+        .thumbnail {
+            min-width: {thumbnail_size}px !important;
+            min-height: {thumbnail_size}px !important;
+            max-width: {thumbnail_size}px !important;
+            max-height: {thumbnail_size}px !important;
+
+            display: inline-block;
+            text-align-last: center !important;
+            vertical-align: middle;
+            align-content: center;
+        }
+
+        .thumbnail:hover {
+            background-color: var(--main-color-dark);
+        }
+
+        p.head {
+            color: var(--text-color);
+            font-size: 22;
+        }
+                       
+        
+        /* MUSIC PLAYER */
+        #music-list-container {
+            overflow-y: auto;
+            width:100%;
+            height: 100%;
+            margin: 0;
+            box-shadow: inset -1px 0 0 var(--main-color); 
+        }  
+        
+        #music-list {
+            display: flow;
+            overflow-y: auto;
+            position: absolute;
+            min-height: 100%;
+            width: calc(100% - 2px);
+            border-right: solid 2px var(--main-color); 
+        }  
+        
+        .music-list-item {
+            width:100%;
+            height: auto;
+            font-size: 16pt;
+            margin: 0;
+        }
+
+        """;
+
         public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values =
             new Dictionary<string, Dictionary<string, ConfigValue>>() {
                     { "server",
@@ -31,8 +200,22 @@ namespace ShareHole {
                             { "transfer_buffer_size", new ConfigValue(512)},
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
-                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all
-                            
+                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all                            
+                        }
+                    },
+
+                    { "theme",
+                        new Dictionary<string, ConfigValue>() {
+                            { "main_color", new ConfigValue(Color.FromArgb(255, 242,191,241)) },
+                            { "main_color_dark", new ConfigValue(Color.FromArgb(255, 203, 115, 200)) },
+
+                            { "secondary_color", new ConfigValue(Color.FromArgb(255, 163, 212, 239)) },
+                            { "secondary_color_dark", new ConfigValue(Color.FromArgb(255, 110, 180, 210)) },
+
+                            { "text_color", new ConfigValue(Color.FromArgb(255, 235, 235, 235)) },
+
+                            { "background_color", new ConfigValue(Color.FromArgb(255, 16,16,16)) },
+                            { "secondary_background_color", new ConfigValue(Color.FromArgb(255, 96,42,96)) }
                         }
                     },
 
@@ -46,7 +229,7 @@ namespace ShareHole {
                     { "transcode", new Dictionary<string, ConfigValue>() {
                             { "bit_rate_kb",new ConfigValue(1000)},
                             { "threads_per_video_conversion", new ConfigValue(4) }
-                        } 
+                        }
                     },
 
                     { "list",
@@ -71,6 +254,7 @@ namespace ShareHole {
                         }
                     }
                 };
+
 
         public static void InitializeComments() {
             //SERVER
@@ -102,6 +286,9 @@ namespace ShareHole {
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
+            //THEME
+            ConfigFileIO.comment_manager.AddBefore("theme",
+                "UI color settings in R,G,B,A format");
 
             //CONVERSION
             ConfigFileIO.comment_manager.AddBefore("conversion","""
@@ -169,309 +356,185 @@ namespace ShareHole {
                 """);
         }
 
-        public static string base_html = """
-        <!doctype html>
-        <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="base.css">
-            <title>{page_title}</title>
-          </head>
-          <body>
-            {page_content}
-            {script}
-          </body>
-        </html>
-        """;
 
-        public static string base_css= """
-        /* COMMON */
-        a { text-decoration: none; }
-        a:link { color: rgb(242, 191, 241); }
-        a:visited { color: rgb(163, 212, 239); }
-        a:hover { color: rgb(141, 69, 139); }
-        a:active { color: rgb(203, 115, 200); }
-        
-        html {
-            scrollbar-width: thin; /* thin scrollbar */
-            scrollbar-color: #FEA8EA #101010; /* thumb and track colors */
-        }
+        internal class Program {
+            static List<FolderServer> servers = new List<FolderServer>();
 
-        img {
-          max-width: 100%;
-          max-height: 100vh;
-          height: auto;
-        }
+            internal static void LoadConfig() {
+                CurrentConfig.InitializeComments();
 
-        text {        
-          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
-        }
+                CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
 
-        .converters {        
-          font-size: 12pt;
-          font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif; 
-        }
-
-        body { 
-          color: rgb(235, 235, 235);  
-          font-size: 16pt;
-          background-color: #101010; 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        }
-
-
-        /* LIST */
-        .emojitint { 
-          color: transparent; 
-          text-shadow: 0 0 0 rgb(254, 168, 234); 
-          width: 100%;
-        }
-
-        .list-item {
-            width: 100%;
-            height: auto;
-            font-size: 16pt;
-        }
-        
-        /* GALLERY */
-        #gallery {
-            align-items: end;
-            align-content: normal;        
-        }
-
-        .galleryfoldertext { 
-          font-size: 12px;
-          color: rgb(242, 191, 241); 
-        }
-                
-        .thumbnail {
-            min-width: {thumbnail_size}px !important;
-            min-height: {thumbnail_size}px !important;
-            max-width: {thumbnail_size}px !important;
-            max-height: {thumbnail_size}px !important;
-            display: inline-block;
-            text-align-last: center !important;
-            vertical-align: middle;
-            align-content: center;
-        }
-        .thumbnail:hover {
-            background-color: rgb(141, 69, 139);
-        }
-
-        p.head {
-          color: rgb(255, 255, 255) !important;
-          font-size: 22;
-        }
-                       
-        #music-list {
-            overflow-y: hidden;
-            flex-grow: 1;
-            position: absolute;
-            top: 30px;
-        }  
-        
-        .music-list-item {
-            width:100%;
-            height: auto;
-            font-size: 16pt;
-        }
-        
-        #directory-box {
-            background-color:#101010; 
-            z-index: 9999; 
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 30px;
-            text-align: center;
-            outline-color: rgb(242, 191, 241) !important;
-            outline-width: 1px;
-            outline-style: inset;
-            overflow:hidden;
-        }
-        """;
-    }
-
-    internal class Program {
-        static List<FolderServer> servers = new List<FolderServer>();
-
-        internal static void LoadConfig() {
-            CurrentConfig.InitializeComments();
-
-            CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
-            
-            if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
-                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].ToBool();
-                Logging.Config("Using HTML from disk");
-            } else {
-                Logging.Config("Using CSS from constant");
-            }
-
-            if (CurrentConfig.server["server"].ContainsKey("use_css_file")) {
-                CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].ToBool();
-                Logging.Config("Using CSS from disk");
-            } else {
-                Logging.Config("Using CSS from constant");
-            }
-
-            Logging.Config($"Loaded server config");
-
-            CurrentConfig.shares = new ConfigWithUserValues("shares");
-
-            foreach (var section in CurrentConfig.shares.Keys) {
-                if (!CurrentConfig.shares[section].ContainsKey("path")) {
-                    Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
-                    CurrentConfig.shares.Remove(section);
+                if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
+                    CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].ToBool();
+                    Logging.Config("Using HTML from disk");
+                } else {
+                    Logging.Config("Using CSS from constant");
                 }
-            }
 
-            CurrentConfig.shares.config_file.WriteAllValuesToConfig(CurrentConfig.shares);
+                if (CurrentConfig.server["server"].ContainsKey("use_css_file")) {
+                    CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].ToBool();
+                    Logging.Config("Using CSS from disk");
+                } else {
+                    Logging.Config("Using CSS from constant");
+                }
 
-            if (CurrentConfig.shares.share_count == 0) {
-                Logging.Config($"No shares configured in shares file!");
-                Logging.Config("Add one to the shares file in your config folder using this format:");
+                Logging.Config($"Loaded server config");
 
-                var tmpcol = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Magenta;
+                CurrentConfig.shares = new ConfigWithUserValues("shares");
 
-                Logging.Config($"""                                 
+                foreach (var section in CurrentConfig.shares.Keys) {
+                    if (!CurrentConfig.shares[section].ContainsKey("path")) {
+                        Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
+                        CurrentConfig.shares.Remove(section);
+                    }
+                }
+
+                CurrentConfig.shares.config_file.WriteAllValuesToConfig(CurrentConfig.shares);
+
+                if (CurrentConfig.shares.share_count == 0) {
+                    Logging.Config($"No shares configured in shares file!");
+                    Logging.Config("Add one to the shares file in your config folder using this format:");
+
+                    var tmpcol = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+
+                    Logging.Config($"""                                 
                                  [music]
                                  path=W:\\_STORAGE\MUSIC
                                  show_directories=true
                                  extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
                                  """);
 
-                Console.ForegroundColor = tmpcol;
+                    Console.ForegroundColor = tmpcol;
 
-                return;
-            } else {
-                Logging.Config($"Loaded shares");
+                    return;
+                } else {
+                    Logging.Config($"Loaded shares");
+                }
+
+                //if (!NetworkCache.currently_pruning) {
+                //    NetworkCache.StartPruning();
+                //}
+
+                CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
             }
 
-            //if (!NetworkCache.currently_pruning) {
-            //    NetworkCache.StartPruning();
-            //}
+            static void Exit() {
+                Logging.Warning("Shutting down!");
 
-            CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
-        }   
+                for (int i = 0; i < servers.Count; i++) {
+                    servers[i].StopServer();
+                }
 
-        static void Exit() {
-            Logging.Warning("Shutting down!");
+                Logging.Config($"Flushing config");
+                CurrentConfig.server.config_file.Flush();
 
-            for (int i = 0; i < servers.Count; i++) {
-                servers[i].StopServer();
+                Logging.Message("Goodbye!");
+
+                Console.CursorVisible = true;
+                Console.ForegroundColor = ConsoleColor.White;
+
+                System.Environment.Exit(0);
             }
 
-            Logging.Config($"Flushing config");
-            CurrentConfig.server.config_file.Flush();
+            static void Main(string[] args) {
+                Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            Logging.Message("Goodbye!");
-
-            Console.CursorVisible = true;
-            Console.ForegroundColor = ConsoleColor.White;
-
-            System.Environment.Exit(0);
-        }
-
-        static void Main(string[] args) {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
-
-            if (args.Length > 0) {
-                for (int i = 0; i < args.Length; i++) {
-                    if (args[i] == "-c") {
-                        i++;
-                        string p = args[i];
-                        Logging.Config($"Using {Path.GetFullPath(p)} as config directory");
-                        if (Directory.Exists(Path.GetFullPath(p))) {
-                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
-                        } else {
-                            Logging.Config("Config directory missing. Creating a new one and loading defaults.");
-                            Directory.CreateDirectory(Path.GetFullPath(p));
-                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                if (args.Length > 0) {
+                    for (int i = 0; i < args.Length; i++) {
+                        if (args[i] == "-c") {
+                            i++;
+                            string p = args[i];
+                            Logging.Config($"Using {Path.GetFullPath(p)} as config directory");
+                            if (Directory.Exists(Path.GetFullPath(p))) {
+                                Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                            } else {
+                                Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                                Directory.CreateDirectory(Path.GetFullPath(p));
+                                Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                            }
                         }
                     }
-                }
-            } else {
-                Logging.Config($"Using {Path.GetFullPath(CurrentConfig.config_dir)} as config directory");
-                if (Directory.Exists(Path.GetFullPath(CurrentConfig.config_dir))) {
-                    Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
                 } else {
-                    Directory.CreateDirectory(Path.GetFullPath(CurrentConfig.config_dir));
-                    Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
-                    Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                    Logging.Config($"Using {Path.GetFullPath(CurrentConfig.config_dir)} as config directory");
+                    if (Directory.Exists(Path.GetFullPath(CurrentConfig.config_dir))) {
+                        Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                    } else {
+                        Directory.CreateDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                        Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                        Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                    }
                 }
-            }
 
-            Logging.Config($"Loading configuration");
-            LoadConfig();
-            Logging.Config($"Configuration loaded, starting server!");
+                Logging.Config($"Loading configuration");
+                LoadConfig();
+                Logging.Config($"Configuration loaded, starting server!");
 
-            servers.Add(new FolderServer());
+                servers.Add(new FolderServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start(0.ToString());
 
-            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
-            
-            while (true) { 
-                string line = Console.ReadLine();
+                Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
 
-                if (line == "restart") {
-                    Logging.Warning("Restarting all servers!");
-                    for (int i = 0; i < servers.Count; i++) {
-                        servers[i].StopServer();
-                    }
+                while (true) {
+                    string line = Console.ReadLine();
 
-                    Logging.Config($"Re-loading configuration");
-                    LoadConfig();
-                    Logging.Config($"Configuration loaded, starting server!");
-
-                    for (int i = 0; i < servers.Count; i++) {
-                        servers[i] = new FolderServer();
-                        server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                        server_thread.Start(0.ToString());
-                    }
-
-                } else if (line == "shutdown") {
-                    Exit();
-                    return;
-
-                } else if (line == "threadstatus") {
-                    for (int i = 0; i < servers.Count; i++) {
-                        var port = CurrentConfig.server["server"]["port"].ToInt();
-                        var p = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
-
-                        if (p.StartsWith("http://")) p = p.Remove(0, 7);
-                        if (p.StartsWith("https://")) p = p.Remove(0, 8);
-                        if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
-
-                        FolderServer s = servers[i];
-                        Logging.Message($"[Server] {p}:{port}");
-                        for (int n = 0; n < s.dispatch_threads.Length; n++) {
-                            Thread t = s.dispatch_threads[n];
-                            Logging.Message($"| [Name] {t.Name} [IsAlive] {t.IsAlive} [ThreadState] {t.ThreadState.ToString()}");
+                    if (line == "restart") {
+                        Logging.Warning("Restarting all servers!");
+                        for (int i = 0; i < servers.Count; i++) {
+                            servers[i].StopServer();
                         }
+
+                        Logging.Config($"Re-loading configuration");
+                        LoadConfig();
+                        Logging.Config($"Configuration loaded, starting server!");
+
+                        for (int i = 0; i < servers.Count; i++) {
+                            servers[i] = new FolderServer();
+                            server_thread = new Thread(new ParameterizedThreadStart(start_server));
+                            server_thread.Start(0.ToString());
+                        }
+
+                    } else if (line == "shutdown") {
+                        Exit();
+                        return;
+
+                    } else if (line == "threadstatus") {
+                        for (int i = 0; i < servers.Count; i++) {
+                            var port = CurrentConfig.server["server"]["port"].ToInt();
+                            var p = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
+
+                            if (p.StartsWith("http://")) p = p.Remove(0, 7);
+                            if (p.StartsWith("https://")) p = p.Remove(0, 8);
+                            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
+
+                            FolderServer s = servers[i];
+                            Logging.Message($"[Server] {p}:{port}");
+                            for (int n = 0; n < s.dispatch_threads.Length; n++) {
+                                Thread t = s.dispatch_threads[n];
+                                Logging.Message($"| [Name] {t.Name} [IsAlive] {t.IsAlive} [ThreadState] {t.ThreadState.ToString()}");
+                            }
+                        }
+
+                    } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
+                        line = line.Remove(0, 1);
+                        CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server, line);
+                    } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
+                        line = line.Remove(0, 1);
+                        CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
                     }
-                    
-                } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
-                    line = line.Remove(0, 1);
-                    CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server, line);
-                } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
-                    line = line.Remove(0, 1);
-                    CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
                 }
             }
-        }
 
-        static void start_server(object? id) {
-            servers[servers.Count - 1].StartServer(id.ToString());
-        }
+            static void start_server(object? id) {
+                servers[servers.Count - 1].StartServer(id.ToString());
+            }
 
-        ~Program() {
-            Console.CursorVisible = true;
-            Console.ForegroundColor = ConsoleColor.White;
+            ~Program() {
+                Console.CursorVisible = true;
+                Console.ForegroundColor = ConsoleColor.White;
+            }
         }
-
     }
 }
