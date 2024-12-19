@@ -488,10 +488,9 @@ namespace ShareHole
 
                             page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
 
-                            var script = """
-                            
-                                function queue_song(filename) {     
-                                    window.parent.queue_song(filename);
+                            var script = """                            
+                                function play_song(filename) {     
+                                    window.parent.load_song_and_folder(filename);
                                 }
 
                                 function change_directory(url) {
@@ -500,11 +499,7 @@ namespace ShareHole
                                 }
                             """.Replace("{url}", url_path);
 
-                            var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, """
-                                html {
-                                    border-right: solid 2px var(--main-color);                             
-                                }
-                                """));
+                            var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, ""));
 
                             try {
                                 using (MemoryStream ms = new MemoryStream(data_mpd, false)) {

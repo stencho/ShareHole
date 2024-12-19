@@ -162,23 +162,11 @@ namespace ShareHole.Threads {
                     #bottom {    
                         overflow:hidden;
                         width: 100%;    
-                        display: flex;
+                        display: block;
                         
                         bottom: 100vh;
                         height: calc(100% - 110px);
 
-                    }
-
-
-                    /* BOTTOM LEFT */
-
-                    #bottom-left {    
-                        width: 50%;     
-            
-                        border-right: solid 1px var(--main-color);
-                        overflow:hidden;
-
-                        margin: 0;
                     }
 
                     #directory-box {
@@ -200,39 +188,6 @@ namespace ShareHole.Threads {
                         width:100%;
                         height:calc(100% - 34px); /* 30px for the directory_box + 4 for the two 2px borders */
                     }
-
-
-                    /* BOTTOM RIGHT */ 
-
-                    #bottom-right {    
-                        width: 50%;     
-                        height: 100%;    
-                        border-left: solid 1px var(--main-color);
-                        overflow:hidden;               
-                    }
-
-                    .track-list {
-                        padding: 0;
-                        list-style-type: none;
-                        text-align: left;
-                        max-height: 100vh;
-                        overflow-y: auto;
-                    }
-            
-                    .track-list li {
-                        margin: 5px 0;
-                        cursor: pointer;
-                        color: #007bff;
-                    }
-            
-                    .track-list li:hover {
-                        text-decoration: underline;
-                    }
-            
-                    .track-list li:selected {
-                        color: #ff00ff;                        
-                    }
-            
 
                 </style>
             </head>
@@ -265,18 +220,14 @@ namespace ShareHole.Threads {
                 </div>
 
                 <div id="bottom">
-                    <div id="bottom-left">
-                        <div id="directory-box">{current_directory_cleaned}</div>
-                        <iframe id="file-list-frame" name="file_list_frame" src="{music_player_list_dir}"></iframe> 
-                    </div>
-                    <div id="bottom-right">
-                        <div id="track-list">
-                        </div>
-                    </div>
+                    <div id="directory-box">{current_directory_cleaned}</div>
+                    <iframe id="file-list-frame" name="file_list_frame" src="{music_player_list_dir}"></iframe> 
                 </div>
             </body>
 
             <script>
+                const share_name = '{share_name}';            
+
                 const list_frame = document.getElementById('file-list-frame');  
                 const list_frame_window = list_frame.contentWindow ;
             
@@ -291,13 +242,10 @@ namespace ShareHole.Threads {
             
                 const directory_box = document.getElementById('directory-box'); 
 
-                const track_list = document.getElementById('track-list');
-                const file_list = [];
-
-                const share_name = '{share_name}';                
-
-                let current_index = 0; 
             
+                let current_index = 0; 
+                const file_list = [];
+                
             
                 directory_box.addEventListener('onload', () => {
                     console.log('{current_directory}');
@@ -331,24 +279,7 @@ namespace ShareHole.Threads {
                     if (directory_box.innerHTML.length == 0) {
                         directory_box.innerHTML = share_name;
                     }
-
                 }         
-
-                function queue_song(filename) {   
-                    file_list.push(filename);
-            
-                    let span = document.createElement('span');
-            
-                    track_list.appendChild(span);
-            
-                    span.innerHTML = "<div><a href=\"javascript:void(0)\" onclick=\"loadSong('" + filename + "')\">" + filename + "</a></div>";
-
-                    if (file_list.length == 1) {
-                        audio_player.src = filename;
-                        play();
-                    }
-            
-                }   
 
                 function play_pause() {
                     if (audio_player.paused) {
@@ -369,15 +300,11 @@ namespace ShareHole.Threads {
                 }
             
                 function next() {            
-                    current_index++;
-                    if (current_index > file_list.length-1) current_index = 0;
-                    audio_player.src = file_list[current_index];
+
                 }
             
                 function previous() {
-                    current_index--;
-                    if (current_index < 0) current_index = file_list.length-1;
-                    audio_player.src = file_list[current_index];
+
                 }
             
                 play_pause_button.addEventListener('click', () => { play_pause(); });
@@ -387,9 +314,9 @@ namespace ShareHole.Threads {
                     
                 // skip to next file when current one ends
                 audio_player.addEventListener("ended", () => { next(); });
-            
+                
                 // load a file and attempt to find it in the list for the sake of highlighting + next/previous track stuff
-                function loadSong(filename) {    
+                function load_song_and_folder(filename) {    
                     audio_player.src = filename;
                                 
                     progress_bar.style.width = '0%';

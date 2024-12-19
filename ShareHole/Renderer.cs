@@ -484,7 +484,7 @@ namespace ShareHole {
                     listing += $"" +
                         $"<div class=\"list-item\">" +
                         $"{converters}" +
-                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"play_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
                         $"<span class=\"file\">" +
                         $"{file.Name}" +
                         $"</span>" +
@@ -495,7 +495,7 @@ namespace ShareHole {
                     listing += $"" +
                         $"<div class=\"list-item\">" +
                         $"{converters}" +
-                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"queue_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
+                        $"<a class=\"list-item-link\" href=\"javascript:void(0)\" onclick=\"play_song('http://{prefix}/{info.passdir}{auto_conversion}/{share}/{Uri.EscapeDataString(uri + file.Name)}')\">" +
                         $"<span class=\"file\">" +
                         $"{file.Name}" +
                         $"</span>" +
