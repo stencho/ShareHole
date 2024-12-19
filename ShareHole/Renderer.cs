@@ -190,12 +190,12 @@ namespace ShareHole {
 
                     result += $"" +
                         $"<div class=\"list-item\">" +
-                        $"<span class=\"converter-container\">{converters}</span>" +
                         $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}{auto_conversion}/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                         $"<span class=\"file\">" +
                         $"{file.Name}" +
                         $"</span>" +
                         $"</a>" +
+                        $"<span class=\"converter-container\">{converters}</span>" +
                         $"</div>";
                     file_c++;
                 }
