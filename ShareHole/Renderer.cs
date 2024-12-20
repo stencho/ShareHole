@@ -556,5 +556,9 @@ namespace ShareHole
 
             return result;
         }
+
+        //public static string MusicInfoContent(string file, string prefix, string uri_path, string share_name) {) {
+
+       // }
     }
 }

@@ -15,7 +15,7 @@ namespace ShareHole {
         public static bool use_css_file = false;
 
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
-        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
+        internal static CancellationToken cancellation_token => cancellation_token_source.Token;        
 
         public static string base_html = """
         <!doctype html>

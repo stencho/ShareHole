@@ -152,13 +152,6 @@ namespace ShareHole {
             music_info
         }
 
-        enum music_info_data_type {
-            artist, title, album,
-            artist_title,
-            artist_dash_title,
-            artist_title_album
-        }
-
         async void RequestThread(object? name_id) {
             if (CurrentConfig.cancellation_token.IsCancellationRequested) return;
 

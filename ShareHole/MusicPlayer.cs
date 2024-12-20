@@ -1,4 +1,9 @@
 ﻿namespace ShareHole {
+    public static class MusicInfo {
+        internal static Cache<MusicCacheItem> cache = new Cache<MusicCacheItem>();
+
+
+    }
     public static class MusicPlayerData {
         public static string stylesheet = """
             :root {                            
@@ -23,7 +28,7 @@
                 --top-height: calc(var(--top-info-area-height));
                 --bottom-height: calc(var(--control-area-height) + var(--border-thickness) + var(--progress-bar-height) );
             
-                --middle-list-height: calc(100vh - var(--top-height) - var(--directory-box-height) - var(--bottom-height));
+                --middle-list-height: calc(100vh - var(--top-height) - var(--directory-box-height) - var(--bottom-height) - var(--bars));
                 --middle-height: calc(100vh - var(--top-height) - var(--bottom-height) - var(--bars));
             }
             
@@ -94,8 +99,7 @@
                 max-height: 100px;
                 width: 100px;
                 height: 100px;
-            }
-            
+            }            
                      
                     
             /* MIDDLE */
@@ -158,8 +162,8 @@
                 height: 100%;
                 background-color: var(--main-color);
                 width: 0%;
-            }
-                   
+            }                   
+
             /* MAIN AUDIO CONTROLS */
 
             .audio-controls-container {
