@@ -533,6 +533,7 @@ namespace ShareHole {
                 cdc = share_name;
 
             string result = MusicPlayer.music_player_main_view
+                .Replace("{stylesheet}", MusicPlayer.stylesheet)
                 .Replace("{music_player_list_dir}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
                 .Replace("{current_directory}", $"http://{prefix}/{info.passdir}/{share}/{uri}")
                 .Replace("{current_directory_cleaned}", cdc)

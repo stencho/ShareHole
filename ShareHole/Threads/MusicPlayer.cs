@@ -32,6 +32,171 @@ namespace ShareHole.Threads {
     public static class MusicPlayer {
         // MusicDB db;
 
+        public static string stylesheet = """
+            :root {
+                --info-buttons-height: 100px;
+                --progress-bar-height: 12px;
+            
+                --border-thickness: 2px;
+                --total-border-thickness: calc(var(--border-thickness) * 3);
+            
+                --top-height: calc(var(--info-buttons-height) + var(--progress-bar-height) + var(--border-thickness));
+                --bottom-height: calc(100vh - var(--top-height) - var(--total-border-thickness));
+            }
+            
+            body {
+                display: flex;
+                overflow: hidden;
+                flex-wrap: wrap;            
+            
+                width: 100vw;            
+                height: 100vh;
+                        
+                max-width: 100vw;
+            
+                margin: 0;
+            }
+            
+            iframe { border: none; }                          
+            audio-player { display: none; }
+                    
+            
+            /* TOP */
+            
+            #top {    
+                width: 100%;   
+                height: var(--top-height);
+                display: flex;
+                flex-wrap: wrap;
+            
+                border: solid 2px var(--main-color);
+            
+                background-color: var(--secondary-background-color);
+            }
+            
+            /* INFO PANE */            
+            
+            #music-info-container {
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            
+                height: 100px;
+                width: 50%;
+            }
+            
+            #music-info-details {
+                padding-left: 15px;
+            }
+            
+            #music-info-title {
+                width: fit-content;
+                height: fit-content;
+            }
+            
+            #music-info-artist {
+                width: fit-content;
+                height: fit-content;
+            }
+            
+            #music-info-album {
+                width: fit-content;
+                height: fit-content;
+            }
+            
+            #music-info-cover {            
+                max-width: 100px;
+                max-height: 100px;
+                width: 100px;
+                height: 100px;
+            }
+            
+                    
+            /* MEDIA CONTROLS PANE */
+            
+            .audio-controls-container {
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                overflow:hidden;
+                height: 100px;
+                width: 50%;
+            }
+            
+            .audio-controls {
+                display: inline;
+                justify-content: space-around;
+                margin-bottom: 10px;
+                height: 100px;
+                width: 50%;
+                color: var(--background-color);
+            }
+            
+            .audio-controls button {
+                padding: 10px;
+                background-color: var(--secondary-color);
+                border: none;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+            
+            .audio-controls button:hover {
+                background-color: var(--secondary-color-dark);
+            }           
+                        
+            /* PROGRESS BAR */
+            
+            .progress-container {
+                width: 100%;
+                height: var(--progress-bar-height);
+                background-color: var(--background-color);
+                cursor: pointer;
+            
+                border-top: solid 2px var(--main-color);
+            }
+            
+            .progress-bar {
+                height: 100%;
+                background-color: var(--main-color);
+                width: 0%;
+            }
+                    
+                    
+            /* BOTTOM */
+            
+            #bottom {    
+                overflow:hidden;
+                width: 100%;    
+                display: block;
+                                                
+                height: var(--bottom-height);
+            
+                border-bottom: solid 2px var(--main-color);
+                border-left: solid 2px var(--main-color);
+                border-right: solid 2px var(--main-color);
+            }
+            
+            #directory-box {
+                background-color:#101010; 
+                z-index: 9999; 
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 30px; 
+                text-align: center;                              
+                        
+                border-bottom: solid 2px var(--main-color);            
+                overflow:hidden;
+            }
+                    
+            #file-list-frame {
+                width:100%;
+                height:calc(100% - 32px); /* 30px for the directory_box + 2 for the two 2px border */
+            }
+            """;
+
         public static string music_player_main_view = """
             <!doctype html>
             <html lang="en">
@@ -41,169 +206,7 @@ namespace ShareHole.Threads {
                 <title></title>
                 <link rel="stylesheet" href="base.css">
                 <style>
-                    :root {
-                        --info-buttons-height: 100px;
-                        --progress-bar-height: 12px;
-
-                        --border-thickness: 2px;
-                        --total-border-thickness: calc(var(--border-thickness) * 3);
-
-                        --top-height: calc(var(--info-buttons-height) + var(--progress-bar-height) + var(--border-thickness));
-                        --bottom-height: calc(100vh - var(--top-height) - var(--total-border-thickness));
-                    }
-
-                    body {
-                        display: flex;
-                        overflow: hidden;
-                        flex-wrap: wrap;            
-
-                        width: 100vw;            
-                        height: 100vh;
-                        
-                        max-width: 100vw;
-
-                        margin: 0;
-                    }
-
-                    iframe { border: none; }                          
-                    audio-player { display: none; }
-                    
-
-                    /* TOP */
-
-                    #top {    
-                        width: 100%;   
-                        height: var(--top-height);
-                        display: flex;
-                        flex-wrap: wrap;
-            
-                        border: solid 2px var(--main-color);
-
-                        background-color: var(--secondary-background-color);
-                    }
-
-                    /* INFO PANE */            
-
-                    #music-info-container {
-                        display: flex;
-                        flex-direction: row;
-                        justify-content: flex-start;
-                        flex-wrap: wrap;
-
-                        height: 100px;
-                        width: 50%;
-                    }
-            
-                    #music-info-details {
-                        padding-left: 15px;
-                    }
-            
-                    #music-info-title {
-                        width: fit-content;
-                        height: fit-content;
-                    }
-            
-                    #music-info-artist {
-                        width: fit-content;
-                        height: fit-content;
-                    }
-            
-                    #music-info-album {
-                        width: fit-content;
-                        height: fit-content;
-                    }
-            
-                    #music-info-cover {            
-                        max-width: 100px;
-                        max-height: 100px;
-                        width: 100px;
-                        height: 100px;
-                    }
-            
-                    
-                    /* MEDIA CONTROLS PANE */
-
-                    .audio-controls-container {
-                        text-align: center;
-                        display: flex;
-                        flex-direction: column;
-                        overflow:hidden;
-                        height: 100px;
-                        width: 50%;
-                    }
-            
-                    .audio-controls {
-                        display: inline;
-                        justify-content: space-around;
-                        margin-bottom: 10px;
-                        height: 100px;
-                        width: 50%;
-                        color: var(--background-color);
-                    }
-            
-                    .audio-controls button {
-                        padding: 10px;
-                        background-color: var(--secondary-color);
-                        border: none;
-                        font-size: 16px;
-                        cursor: pointer;
-                        transition: background-color 0.3s;
-                    }
-            
-                    .audio-controls button:hover {
-                        background-color: var(--secondary-color-dark);
-                    }           
-                        
-                    /* PROGRESS BAR */
-
-                    .progress-container {
-                        width: 100%;
-                        height: var(--progress-bar-height);
-                        background-color: var(--background-color);
-                        cursor: pointer;
-            
-                        border-top: solid 2px var(--main-color);
-                    }
-            
-                    .progress-bar {
-                        height: 100%;
-                        background-color: var(--main-color);
-                        width: 0%;
-                    }
-                    
-                    
-                    /* BOTTOM */
-
-                    #bottom {    
-                        overflow:hidden;
-                        width: 100%;    
-                        display: block;
-                                                
-                        height: var(--bottom-height);
-
-                        border-bottom: solid 2px var(--main-color);
-                        border-left: solid 2px var(--main-color);
-                        border-right: solid 2px var(--main-color);
-                    }
-
-                    #directory-box {
-                        background-color:#101010; 
-                        z-index: 9999; 
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 30px; 
-                        text-align: center;                              
-                        
-                        border-bottom: solid 2px var(--main-color);            
-                        overflow:hidden;
-                    }
-                    
-                    #file-list-frame {
-                        width:100%;
-                        height:calc(100% - 32px); /* 30px for the directory_box + 2 for the two 2px border */
-                    }
-
+                {stylesheet}
                 </style>
             </head>
 

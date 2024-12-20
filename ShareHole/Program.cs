@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using ShareHole.Configuration;
 using ShareHole.DBThreads;
+using ShareHole.Threads;
 using static ShareHole.Conversion.Video;
 using static ShareHole.Logging;
 
@@ -419,29 +420,12 @@ namespace ShareHole {
                     Logging.Config($"Loaded shares");
                 }
 
+
                 //if (!NetworkCache.currently_pruning) {
                 //    NetworkCache.StartPruning();
                 //}
 
                 CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
-            }
-
-            static void Exit() {
-                Logging.Warning("Shutting down!");
-
-                for (int i = 0; i < servers.Count; i++) {
-                    servers[i].StopServer();
-                }
-
-                Logging.Config($"Flushing config");
-                CurrentConfig.server.config_file.Flush();
-
-                Logging.Message("Goodbye!");
-
-                Console.CursorVisible = true;
-                Console.ForegroundColor = ConsoleColor.White;
-
-                System.Environment.Exit(0);
             }
 
             static void Main(string[] args) {
@@ -485,7 +469,7 @@ namespace ShareHole {
 
                 while (true) {
                     string line = Console.ReadLine();
-
+                    /*
                     if (line == "restart") {
                         Logging.Warning("Restarting all servers!");
                         for (int i = 0; i < servers.Count; i++) {
@@ -502,7 +486,7 @@ namespace ShareHole {
                             server_thread.Start(0.ToString());
                         }
 
-                    } else if (line == "shutdown") {
+                    } else */if (line == "shutdown") {
                         Exit();
                         return;
 
@@ -535,6 +519,24 @@ namespace ShareHole {
 
             static void start_server(object? id) {
                 servers[servers.Count - 1].StartServer(id.ToString());
+            }
+
+            static void Exit() {
+                Logging.Warning("Shutting down!");
+
+                for (int i = 0; i < servers.Count; i++) {
+                    servers[i].StopServer();
+                }
+
+                Logging.Config($"Flushing config");
+                CurrentConfig.server.config_file.Flush();
+
+                Logging.Message("Goodbye!");
+
+                Console.CursorVisible = true;
+                Console.ForegroundColor = ConsoleColor.White;
+
+                System.Environment.Exit(0);
             }
 
             ~Program() {
