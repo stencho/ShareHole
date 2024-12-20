@@ -42,6 +42,16 @@ use_css_file=false
 # 0 = Logging off, 1 = high importance only, 2 = all messages
 log_level=1
 
+# UI color settings in R,G,B,A format
+[theme]
+main_color=242,191,241,255
+main_color_dark=203,115,200,255
+secondary_color=163,212,239,255
+secondary_color_dark=110,180,210,255
+text_color=235,235,235,255
+background_color=16,16,16,255
+secondary_background_color=69,28,69,255
+
 # Settings for converting between different file types
 [conversion]
 # Toggle between lossless and compressed JPEG when using /to_jpg
@@ -51,9 +61,15 @@ jpeg_quality=85
 
 # Settings for transcoding video files to MP4 and streaming them over the network
 [transcode]
-# The bitrate of the MP4 transcoding process, in KB
-bit_rate_kb=1000
-# Determines how many threads are used by each /transcode/ converter
+# Switch between using a variable or fixed bit rate to determine video quality and size
+# It is recommended that you use a variable bit rate
+use_variable_bit_rate=true
+# Variable bit rate quality, lower values improve quality but increase file size
+# Values around 18-25 are recommended
+vbr_quality_factor=22
+# The bit rate of the MP4 transcoding process, in Kb
+cbr_bit_rate_kb=1000
+# Determines how many threads are started for each /transcode/
 threads_per_video_conversion=4
 
 # Settings for the default "list" share style
@@ -65,9 +81,10 @@ show_stream_button=true
 # Display "PNG" and "JPG" buttons next to certain files which normally wouldn't be renderable in browser
 show_convert_image_buttons=true
 # Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
-# convert_videos_automatically does the same thing but for videos
+# the others do the same thing but for video/audio
 convert_images_automatically=false
 convert_videos_automatically=false
+convert_audio_automatically=false
 
 # Settings for the 'gallery' view style
 [gallery]
@@ -81,7 +98,7 @@ thumbnail_compression_quality=60
 # On by default
 convert_images_automatically=true
 convert_videos_automatically=true
-
+convert_audio_automatically=true
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"

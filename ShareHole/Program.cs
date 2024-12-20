@@ -234,7 +234,9 @@ namespace ShareHole {
                     },
 
                     { "transcode", new Dictionary<string, ConfigValue>() {
-                            { "bit_rate_kb",new ConfigValue(1000)},
+                            { "use_variable_bit_rate", new ConfigValue(true) },
+                            { "vbr_quality_factor", new ConfigValue(22) },
+                            { "cbr_bit_rate", new ConfigValue(1000) },
                             { "threads_per_video_conversion", new ConfigValue(4) }
                         }
                     },
@@ -294,8 +296,10 @@ namespace ShareHole {
                 """);
 
             //THEME
-            ConfigFileIO.comment_manager.AddBefore("theme",
-                "UI color settings in R,G,B,A format");
+            ConfigFileIO.comment_manager.AddBefore("theme", """
+                UI color settings in R,G,B,A format
+
+                """);
 
             //CONVERSION
             ConfigFileIO.comment_manager.AddBefore("conversion","""
@@ -315,8 +319,18 @@ namespace ShareHole {
                 Settings for transcoding video files to MP4 and streaming them over the network
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("transcode", "bit_rate_kb", """
-                The bitrate of the MP4 transcoding process, in KB
+            ConfigFileIO.comment_manager.AddBefore("transcode", "use_variable_bit_rate", """
+                Switch between using a variable or fixed bit rate to determine video quality and size
+                It is recommended that you use a variable bit rate
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("transcode", "vbr_quality_factor", """
+                Variable bit rate quality, lower values improve quality but increase file size
+                Values around 18-25 are recommended
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("transcode", "cbr_bit_rate", """
+                The bit rate of the MP4 transcoding process, in kb
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("transcode", "threads_per_video_conversion", """
