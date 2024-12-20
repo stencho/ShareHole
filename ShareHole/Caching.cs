@@ -15,14 +15,14 @@ namespace ShareHole {
     }
 
 
-    public class Cache {
+    public class Cache<T> {
         static readonly double max_age = 86400 / 4;
 
-        Dictionary<string, ICacheStruct> cache = new Dictionary<string, ICacheStruct>();
+        Dictionary<string, T> cache = new Dictionary<string, T>();
 
         public bool currently_pruning = false;
 
-        public void Store(string key, ICacheStruct item) {
+        public void Store(string key, T item) {
             if (Test(key)) return;
             cache.Add(key, item);
             Logging.ThreadMessage($"Stored {key} in cache", "Cache", 5);
@@ -32,6 +32,9 @@ namespace ShareHole {
         public void Remove(string key) => cache.Remove(key);
 
         public Cache(bool enable_pruning = true) {
+            if (!typeof(ICacheStruct).IsAssignableFrom(typeof(T)))
+                throw new Exception("Not an ICacheStruct");
+
             if (enable_pruning)
                 StartPruning(CurrentConfig.cancellation_token);
         }
@@ -53,7 +56,7 @@ namespace ShareHole {
         private void Prune() {
         restart:
             foreach (var key in cache.Keys) {
-                if (cache[key].needs_prune()) {
+                if (((ICacheStruct)cache[key]).needs_prune()) {
                     cache.Remove(key);
                     Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
                     goto restart;
