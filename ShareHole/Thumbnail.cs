@@ -1,18 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
-using System.Drawing;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net;
 using FFMpegCore;
 using FFMpegCore.Enums;
 using FFMpegCore.Pipes;
 using ImageMagick;
 
-namespace ShareHole
-{
+namespace ShareHole {
     public class ThumbnailRequest
     {
         public FileInfo file;
@@ -135,7 +127,7 @@ namespace ShareHole
 
                 if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool())
                 {
-                    Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
+                    ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
 
                     try
                     {
@@ -149,7 +141,7 @@ namespace ShareHole
                 }
                 else
                 {
-                    Conversion.Image.ConvertToPng(mi);
+                    ConvertAndParse.Image.ConvertToPng(mi);
 
                     try
                     {
@@ -184,13 +176,13 @@ namespace ShareHole
 
                         if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool())
                         {
-                            Conversion.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
+                            ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
                             img_data = mi.ToByteArray();
                             lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/jpeg", img_data));
                         }
                         else
                         {
-                            Conversion.Image.ConvertToPng(mi);
+                            ConvertAndParse.Image.ConvertToPng(mi);
                             img_data = mi.ToByteArray();
                             lock (thumbnail_cache) thumbnail_cache.Add(request.file.FullName, ("image/png", img_data));
                         }

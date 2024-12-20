@@ -1,20 +1,13 @@
-﻿using FFMpegCore;
-using FFMpegCore.Arguments;
-using FFMpegCore.Enums;
-using FFMpegCore.Pipes;
-using HeyRed.Mime;
+﻿using HeyRed.Mime;
 using ImageMagick;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ShareHole {
-    public static class Conversion {
+    public static class ConvertAndParse {
+        public const string transcode_url = "/transcode";
+        public const string png_url = "/to_png";
+        public const string jpg_url = "/to_jpg";
+
         public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].ToBool();
         public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].ToBool();
         public static bool convert_audio_list() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
@@ -31,8 +24,8 @@ namespace ShareHole {
             return CheckConversion(mime, convert_images_gallery(), convert_videos_gallery(), convert_audio_gallery());
         }
 
-        const string date_fmt = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
 
+        private const string date_fmt_for_range_parse = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
         public static long ParseDateHeaderToSeconds(string header) {
             if (header == null) return 0;
 
@@ -40,7 +33,7 @@ namespace ShareHole {
 
             DateTime.TryParseExact(
                header,
-               date_fmt,
+               date_fmt_for_range_parse,
                CultureInfo.InvariantCulture,
                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                out dt
@@ -52,11 +45,6 @@ namespace ShareHole {
         public static bool IsValidImage(string mime) => 
             mime.StartsWith("image") || mime == "application/postscript" || mime == "application/pdf";
 
-
-        const string transcode_url = "/transcode";
-        const string png_url = "/to_png";
-        const string jpg_url = "/to_jpg";
-
         public static string CheckConversion(string mime, bool images, bool videos, bool audio) {
             if (mime == "application/postscript") return png_url;
 
@@ -66,9 +54,6 @@ namespace ShareHole {
                 //raw formats
                 if (mime.EndsWith("/dng")) return jpg_url;
                 if (mime.EndsWith("/raw")) return jpg_url;
-
-                //should work without this, doesn't in chome
-                //if (mime.EndsWith("/avif")) return "/to_png";
 
                 //adobe
                 if (mime.EndsWith("/vnd.adobe.photoshop")) return png_url;
@@ -93,6 +78,8 @@ namespace ShareHole {
 
                 //wma
                 if (mime.EndsWith("x-ms-wma")) return transcode_url;
+                //flac
+                //
             }
 
             return "";

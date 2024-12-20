@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using System.Runtime.CompilerServices;
 using ShareHole.Configuration;
 using static ShareHole.Logging;
 

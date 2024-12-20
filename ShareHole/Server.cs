@@ -1,23 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Text;
-using System.Threading.Tasks;
-using System.Net.Mime;
-using HeyRed.Mime;
-using ShareHole.Configuration;
-using System.ComponentModel.Design;
-using System.Drawing;
 using ImageMagick;
-using System.Net.Http.Headers;
 using FFMpegCore;
-using System.Security.Cryptography;
-using System.Reflection.Metadata;
-using FFMpegCore.Exceptions;
 
-namespace ShareHole
-{
+namespace ShareHole {
     public class ShareServer {
         bool running = true;
         HttpListener listener;
@@ -26,9 +12,9 @@ namespace ShareHole
         public string id { get; private set; }
         public string name { get; private set; }
 
-        string base_page_content = "";
+        static string base_page_content = "";
 
-        string page_content_strings_replaced(string page_content, string page_title, string script = "", string style = "") {
+        public static string page_content_strings_replaced(string page_content, string page_title, string script = "", string style = "") {
             var sc_tagged = script;
 
             if (sc_tagged.Length > 0) {
@@ -312,7 +298,7 @@ namespace ShareHole
                 string absolute_on_disk_path = folder_path.Replace("\\", "/") + Uri.UnescapeDataString(url_path);
 
                 var ext = new FileInfo(absolute_on_disk_path).Extension.Replace(".", "");
-                var mime = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
+                var mime = ConvertAndParse.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                 bool file_exists = File.Exists(absolute_on_disk_path);
                 bool dir_exists = Directory.Exists(absolute_on_disk_path);
@@ -339,20 +325,20 @@ namespace ShareHole
                         case command_dirs.none: break;
                         case command_dirs.thumbnail: // REQUESTED THUMBNAIL
 
-                            if (file_exists && (mime.StartsWith("video") || Conversion.IsValidImage(mime))) {
+                            if (file_exists && (mime.StartsWith("video") || ConvertAndParse.IsValidImage(mime))) {
                                 enable_cache(context);
                                 ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
 
                             } else {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
 
                             break;
 
                         case command_dirs.to_jpg: // REQUESTED IMAGE -> JPG CONVERSION
 
-                            if (file_exists && Conversion.IsValidImage(mime)) {
+                            if (file_exists && ConvertAndParse.IsValidImage(mime)) {
                                 enable_cache(context);
 
                                 using (MagickImage mi = new MagickImage(absolute_on_disk_path)) {
@@ -381,20 +367,20 @@ namespace ShareHole
                                     context.Response.ContentLength64 = bytes.Length;
                                     using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                            ok_close(context);
+                                            Send.OK(context);
                                         }, CurrentConfig.cancellation_token);
                                     }
                                 }
 
                             } else {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
                         case command_dirs.to_png: // REQUESTED IMAGE -> PNG CONVERSION
 
-                            if (file_exists && Conversion.IsValidImage(mime)) {
+                            if (file_exists && ConvertAndParse.IsValidImage(mime)) {
                                 enable_cache(context);
                                 MagickReadSettings settings = null;
 
@@ -415,14 +401,14 @@ namespace ShareHole
                                     context.Response.ContentLength64 = bytes.Length;
                                     using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                            ok_close(context);
+                                            Send.OK(context);
                                         }, CurrentConfig.cancellation_token);
                                     }
                                 }
 
                             } else {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE FILE</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
@@ -433,11 +419,11 @@ namespace ShareHole
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
 
                             } else {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VIDEO FILE</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
@@ -445,7 +431,7 @@ namespace ShareHole
 
                             if (!dir_exists) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
 
                             var di = new DirectoryInfo(absolute_on_disk_path);
@@ -466,13 +452,13 @@ namespace ShareHole
                                 using (MemoryStream ms = new MemoryStream(data, false)) {
                                     var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                         Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
-                                        ok_close(context);
+                                        Send.OK(context);
                                     }, CurrentConfig.cancellation_token);
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
@@ -481,7 +467,7 @@ namespace ShareHole
 
                             if (!dir_exists) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
 
                             context.Response.ContentType = "text/html; charset=utf-8";
@@ -518,13 +504,13 @@ namespace ShareHole
                                 using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
                                     var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                         Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                                        ok_close(context);
+                                        Send.OK(context);
                                     }, CurrentConfig.cancellation_token);
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
@@ -534,7 +520,7 @@ namespace ShareHole
                             } else {
                                 Logging.ThreadError($"Exception", thread_name, thread_id);
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
-                                error_bad_request(page_content, context);
+                                Send.ErrorBadRequest(page_content, context);
                             }
                             break;
 
@@ -579,7 +565,7 @@ namespace ShareHole
                     try {
                         using (MemoryStream ms = new MemoryStream(data, false)) {
                             var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                ok_close(context);
+                                Send.OK(context);
                                 Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
                             }, CurrentConfig.cancellation_token);
                         }
@@ -590,7 +576,7 @@ namespace ShareHole
 
                     
                 } else if (file_exists) { // REQUESTED FILE
-                    string mimetype = Conversion.GetMimeTypeOrOctet(absolute_on_disk_path);
+                    string mimetype = ConvertAndParse.GetMimeTypeOrOctet(absolute_on_disk_path);
 
                     try {
                         if (mimetype.StartsWith("video")) {
@@ -629,62 +615,17 @@ namespace ShareHole
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
                     context.Response.ContentType = mimetype;                 
 
-                    SendFile.SendWithRanges(absolute_on_disk_path, mimetype, context);
+                    Send.FileWithRanges(absolute_on_disk_path, mimetype, context);
                     
                 } else { // USER GAVE A FAIL URL
                     page_content = $"<b>NOT FOUND</b>";
-                    error404(page_content, context);
+                    Send.Error404(page_content, context);
                 }
 
             }
 
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
 
-        }
-
-        void ok_close(HttpListenerContext context) {
-            context.Response.StatusCode = (int)HttpStatusCode.OK;
-            context.Response.StatusDescription = "200 OK";
-            Logging.Error("200");
-            try {
-                context.Response.Close();
-            } catch (HttpListenerException e) { }
-        }
-
-        void error404(string page_content, HttpListenerContext context) {
-            var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.ContentLength64 = data.LongLength;
-
-            using (MemoryStream ms = new MemoryStream(data, false)) {
-                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                    context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                    context.Response.StatusDescription = "404 NOT FOUND";
-                    context.Response.Close();
-                }, CurrentConfig.cancellation_token);
-            }
-            Logging.Error("404");
-
-        }
-        void error_bad_request(string page_content, HttpListenerContext context) {
-            var data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.ContentLength64 = data.LongLength;
-
-            using (MemoryStream ms = new MemoryStream(data, false)) {
-                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    context.Response.StatusDescription = "400 BAD REQUEST";
-                    context.Response.Close();
-                }, CurrentConfig.cancellation_token);
-                Logging.Error("400");
-            }
-
-        }
-
-        public static byte[] ImageToByte(Image img) {
-            ImageConverter converter = new ImageConverter();
-            return (byte[])converter.ConvertTo(img, typeof(byte[]));
         }
 
         void enable_cache(HttpListenerContext context) {

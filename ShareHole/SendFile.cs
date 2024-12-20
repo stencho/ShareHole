@@ -1,14 +1,48 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Security.Cryptography;
+﻿using System.Net;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace ShareHole {
-    public class SendFile {
-        public static void SendWithRanges(string filename, string mime, HttpListenerContext context) {
+    public class Send {
+        public static void OK(HttpListenerContext context) {
+            context.Response.StatusCode = (int)HttpStatusCode.OK;
+            context.Response.StatusDescription = "200 OK";
+            Logging.Error("200");
+            try {
+                context.Response.Close();
+            } catch (HttpListenerException e) { }
+        }
+
+        public static void Error404(string page_content, HttpListenerContext context) {
+            var data = Encoding.UTF8.GetBytes(ShareServer.page_content_strings_replaced(page_content, ""));
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = data.LongLength;
+
+            using (MemoryStream ms = new MemoryStream(data, false)) {
+                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                    context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                    context.Response.StatusDescription = "404 NOT FOUND";
+                    context.Response.Close();
+                }, CurrentConfig.cancellation_token);
+            }
+            Logging.Error("404");
+
+        }
+        public static void ErrorBadRequest(string page_content, HttpListenerContext context) {
+            var data = Encoding.UTF8.GetBytes(ShareServer.page_content_strings_replaced(page_content, ""));
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = data.LongLength;
+
+            using (MemoryStream ms = new MemoryStream(data, false)) {
+                var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    context.Response.StatusDescription = "400 BAD REQUEST";
+                    context.Response.Close();
+                }, CurrentConfig.cancellation_token);
+                Logging.Error("400");
+            }
+        }
+
+        public static void FileWithRanges(string filename, string mime, HttpListenerContext context) {
             Task.Run(() => { send_file_ranges(filename, mime, context); }, CurrentConfig.cancellation_token);
         }   
 

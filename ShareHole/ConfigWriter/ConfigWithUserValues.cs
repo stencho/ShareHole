@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ShareHole.Configuration
-{
+﻿namespace ShareHole.Configuration {
     public class ConfigWithUserValues : Dictionary<string, Dictionary<string, ConfigValue>>
     {
         string config_location = "shares";

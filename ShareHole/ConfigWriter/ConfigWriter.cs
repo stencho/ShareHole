@@ -1,17 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
-using System.Net;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+﻿using System.Drawing;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace ShareHole.Configuration
-{
+namespace ShareHole.Configuration {
     public enum ValueType { STRING, INT, BOOL, IP, COLOR }
 
     public class ConfigFileCommentManager {

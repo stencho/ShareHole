@@ -104,7 +104,20 @@ namespace ShareHole
         }
         static string build_image_convert_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
-            string conversion = Conversion.CheckConversion(mime, true, false, false);
+            string conversion = ConvertAndParse.CheckConversion(mime, true, false, false);
+
+            if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
+                converters += $"⸢<text class=\"converter-text\">" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
+                    $"/" +
+                    $"<a href=\"http://{prefix}/{info.passdir}/to_jpg/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">JPG</a>" +
+                    $"</text>⸥ ";
+            }
+            return converters;
+        }
+        static string build_audio_convert_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
+            string converters = "";
+            string conversion = ConvertAndParse.CheckConversion(mime, true, false, false);
 
             if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
                 converters += $"⸢<text class=\"converter-text\">" +
@@ -175,16 +188,16 @@ namespace ShareHole
             if (info.grouping == "none" || !info.cares_about_groups) {
                 foreach (var file in info.files.OrderBy(a => a.Name)) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+                    var mime = ConvertAndParse.GetMimeTypeOrOctet(file.Name);
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    auto_conversion = Conversion.CheckConversionList(mime);
+                    auto_conversion = ConvertAndParse.CheckConversionList(mime);
 
                     if (mime.StartsWith("video")) {
                         converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
-                    } else if (Conversion.IsValidImage(mime)) {
+                    } else if (ConvertAndParse.IsValidImage(mime)) {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
@@ -204,7 +217,7 @@ namespace ShareHole
                 string previous_ext = "";
                 foreach (var file in info.files.OrderBy(x => new FileInfo(x.Name).Extension.Replace(".", ""))) {
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+                    var mime = ConvertAndParse.GetMimeTypeOrOctet(file.Name);
 
                     if (ext != previous_ext) {
                         if ((info.using_extensions && info.extensions.Contains(ext.ToLower())) || !info.using_extensions ) 
@@ -216,11 +229,11 @@ namespace ShareHole
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower())) 
                         continue;
 
-                    auto_conversion = Conversion.CheckConversionList(mime);
+                    auto_conversion = ConvertAndParse.CheckConversionList(mime);
 
                     if (mime.StartsWith("video")) {
                         converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
-                    } else if (Conversion.IsValidImage(mime)) {
+                    } else if (ConvertAndParse.IsValidImage(mime)) {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
@@ -240,9 +253,9 @@ namespace ShareHole
                 string previous_mime = "";
                 string current_type = "";
 
-                foreach (var file in info.files.OrderBy(x => Conversion.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name)) {                    
+                foreach (var file in info.files.OrderBy(x => ConvertAndParse.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name)) {                    
                     var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                    var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+                    var mime = ConvertAndParse.GetMimeTypeOrOctet(file.Name);
 
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
@@ -258,11 +271,11 @@ namespace ShareHole
                 
                     previous_mime = mime;
 
-                    auto_conversion = Conversion.CheckConversionList(mime);
+                    auto_conversion = ConvertAndParse.CheckConversionList(mime);
 
                     if (mime.StartsWith("video")) {
                         converters = build_mp4_stream_tag(mime, prefix, info, share, uri, file);
-                    } else if (Conversion.IsValidImage(mime)) {
+                    } else if (ConvertAndParse.IsValidImage(mime)) {
                         converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                     }
 
@@ -343,7 +356,7 @@ namespace ShareHole
             bool group_by_type = false;
             bool group_by_ext  = false;
             if (info.grouping == "type") {
-                files = info.files.OrderBy(x => Conversion.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name);
+                files = info.files.OrderBy(x => ConvertAndParse.GetMimeTypeOrOctetMinusExt(x.Name)).ThenBy(x => x.Name);
                 group_by_type = true;
             } else if (info.grouping == "extension") {
                 files = info.files.OrderBy(x => x.Extension.Replace(".","")).ThenBy(x => x.Name);
@@ -358,7 +371,7 @@ namespace ShareHole
 
             foreach (var file in files) {            
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+                var mime = ConvertAndParse.GetMimeTypeOrOctet(file.Name);
                 
                 string auto_conversion = "";
                 bool raw = false;
@@ -368,7 +381,7 @@ namespace ShareHole
                     if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                         continue;
 
-                    auto_conversion = Conversion.CheckConversionGallery(mime);
+                    auto_conversion = ConvertAndParse.CheckConversionGallery(mime);
 
                     if (group_by_type && mime != previous_mime) {
                         var slashi = mime.IndexOf("/");
@@ -464,19 +477,19 @@ namespace ShareHole
             // FILES
             foreach (var file in info.files.OrderBy(a => a.Name)) {
                 var ext = new FileInfo(file.Name).Extension.Replace(".", "");
-                var mime = Conversion.GetMimeTypeOrOctet(file.Name);
+                var mime = ConvertAndParse.GetMimeTypeOrOctet(file.Name);
 
                 //if (!mime.StartsWith("audio") && !mime.StartsWith("video") && !mime.StartsWith("image")) continue;
 
                 if (info.using_extensions && !info.extensions.Contains(ext.ToLower()))
                     continue;
 
-                auto_conversion = Conversion.CheckConversionList(mime);
+                auto_conversion = ConvertAndParse.CheckConversionList(mime);
 
                 if (mime.StartsWith("video")) {
                     //VID
 
-                } else if (Conversion.IsValidImage(mime)) {
+                } else if (ConvertAndParse.IsValidImage(mime)) {
                     converters = build_image_convert_tag(mime, prefix, info, share, uri, file);
                 }
 
@@ -532,8 +545,8 @@ namespace ShareHole
             if (string.IsNullOrEmpty(cdc))
                 cdc = share_name;
 
-            string result = MusicPlayer.music_player_main_view
-                .Replace("{stylesheet}", MusicPlayer.stylesheet)
+            string result = MusicPlayerData.music_player_main_view
+                .Replace("{stylesheet}", MusicPlayerData.stylesheet)
                 .Replace("{music_player_list_dir}", $"http://{prefix}/{info.passdir}/music_player_dir/{share}/{uri}")
                 .Replace("{current_directory}", $"http://{prefix}/{info.passdir}/{share}/{uri}")
                 .Replace("{current_directory_cleaned}", cdc)

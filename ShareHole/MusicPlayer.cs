@@ -1,16 +1,5 @@
-﻿using ImageMagick;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ShareHole
-{
-    public static class MusicPlayer
-    {
-        // MusicDB db;
-
+﻿namespace ShareHole {
+    public static class MusicPlayerData {
         public static string stylesheet = """
             :root {
                 --info-buttons-height: 100px;
@@ -18,7 +7,8 @@ namespace ShareHole
             
                 --border-thickness: 2px;
                 --total-border-thickness: calc(var(--border-thickness) * 3);
-            
+
+                --progress-bar-full-height: calc(var(--progress-bar-height) + var(--border-thickness));
                 --top-height: calc(var(--info-buttons-height) + var(--progress-bar-height) + var(--border-thickness));
                 --bottom-height: calc(100vh - var(--top-height) - var(--total-border-thickness));
             }
@@ -104,25 +94,32 @@ namespace ShareHole
             }
             
             .audio-controls {
-                display: inline;
-                justify-content: space-around;
-                margin-bottom: 10px;
+                display: flex;
+                justify-content: end;
                 height: 100px;
-                width: 50%;
+                width: 100%;
                 color: var(--background-color);
             }
             
             .audio-controls button {
-                padding: 10px;
-                background-color: var(--secondary-color);
+                background-color: var(--background-color);
+                color: var(--main-color);
+            
                 border: none;
-                font-size: 16px;
-                cursor: pointer;
-                transition: background-color 0.3s;
+                border-left: solid 2px var(--main-color);
+                            
+                font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif !important;     
+                font-size: calc(var(--top-height) * 0.5);
+                text-align:center;
+                align-content: center;
+
+                height: var(--info-buttons-height);
+                width: var(--info-buttons-height);
             }
             
             .audio-controls button:hover {
-                background-color: var(--secondary-color-dark);
+                color: var(--background-color);
+                background-color: var(--main-color);
             }           
                         
             /* PROGRESS BAR */
@@ -206,9 +203,9 @@ namespace ShareHole
                     </div>
                     <div class="audio-controls-container">
                         <div class="audio-controls">
-                            <button id="play-pause-button">Play</button>
-                            <button id="previous-button">Previous</button>
-                            <button id="next-button">Next</button>
+                           <button id="play-pause-button"></button>
+                           <!-- <button id="previous-button">Previous</button> -->
+                           <!-- <button id="next-button">Next</button> -->
                         </div>
                     </div>
                     <div class="progress-container" id="progress-container"> 
@@ -285,12 +282,12 @@ namespace ShareHole
                 }
 
                 function play() {
-                    play_pause_button.innerHTML = "Pause";
+                    play_pause_button.innerHTML = "";
                     audio_player.play();
                 }
 
                 function pause() {
-                    play_pause_button.innerHTML = "Play";
+                    play_pause_button.innerHTML = "";
                     audio_player.pause();
                 }
             
@@ -324,6 +321,5 @@ namespace ShareHole
             </script>
             </html>
             """;
-
     }
 }

@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ShareHole.Configuration {
+﻿namespace ShareHole.Configuration {
     public class ConfigWithExpectedValues : Dictionary<string, Dictionary<string, ConfigValue>> {
         string config_location = "server";
         string config_full_path => new FileInfo(config_location).FullName;
