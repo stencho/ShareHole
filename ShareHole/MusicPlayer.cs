@@ -1,16 +1,30 @@
 ﻿namespace ShareHole {
     public static class MusicPlayerData {
         public static string stylesheet = """
-            :root {
-                --info-buttons-height: 100px;
-                --progress-bar-height: 12px;
-            
+            :root {                            
                 --border-thickness: 2px;
-                --total-border-thickness: calc(var(--border-thickness) * 3);
+                --total-borders: 5;
 
-                --progress-bar-full-height: calc(var(--progress-bar-height) + var(--border-thickness));
-                --top-height: calc(var(--info-buttons-height) + var(--progress-bar-height) + var(--border-thickness));
-                --bottom-height: calc(100vh - var(--top-height) - var(--total-border-thickness));
+                /* top - info */
+                --top-info-area-height: 100px;
+                --progress-bar-height: 12px;
+
+                /* middle - files */
+                --directory-box-height: calc(30px + var(--border-thickness));
+
+                /* bottom - controls */
+                --control-area-height: 100px;
+
+                /* computed */
+                --progress-bar-full-height: calc(var(--progress-bar-height));
+
+                --bars: calc(var(--border-thickness) * var(--total-borders));
+
+                --top-height: calc(var(--top-info-area-height));
+                --bottom-height: calc(var(--control-area-height) + var(--border-thickness) + var(--progress-bar-height) );
+            
+                --middle-list-height: calc(100vh - var(--top-height) - var(--directory-box-height) - var(--bottom-height));
+                --middle-height: calc(100vh - var(--top-height) - var(--bottom-height) - var(--bars));
             }
             
             body {
@@ -35,10 +49,11 @@
             #top {    
                 width: 100%;   
                 height: var(--top-height);
+
                 display: flex;
                 flex-wrap: wrap;
             
-                border: solid 2px var(--main-color);
+                border: solid var(--border-thickness) var(--main-color);
             
                 background-color: var(--background-color);
             }
@@ -81,77 +96,20 @@
                 height: 100px;
             }
             
+                     
                     
-            /* MEDIA CONTROLS PANE */
+            /* MIDDLE */
             
-            .audio-controls-container {
-                text-align: center;
-                display: flex;
-                flex-direction: column;
-                overflow:hidden;
-                height: 100px;
-                width: 50%;
-            }
-            
-            .audio-controls {
-                display: flex;
-                justify-content: end;
-                height: 100px;
-                width: 100%;
-                color: var(--background-color);
-            }
-            
-            .audio-controls button {
-                background-color: var(--background-color);
-                color: var(--main-color);
-            
-                border: none;
-                border-left: solid 2px var(--main-color);
-                            
-                font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif !important;     
-                font-size: calc(var(--top-height) * 0.5);
-                text-align:center;
-                align-content: center;
-
-                height: var(--info-buttons-height);
-                width: var(--info-buttons-height);
-            }
-            
-            .audio-controls button:hover {
-                color: var(--background-color);
-                background-color: var(--main-color);
-            }           
-                        
-            /* PROGRESS BAR */
-            
-            .progress-container {
-                width: 100%;
-                height: var(--progress-bar-height);
-                background-color: var(--background-color);
-                cursor: pointer;
-            
-                border-top: solid 2px var(--main-color);
-            }
-            
-            .progress-bar {
-                height: 100%;
-                background-color: var(--main-color);
-                width: 0%;
-            }
-                    
-                    
-            /* BOTTOM */
-            
-            #bottom {    
+            #middle {    
                 overflow:hidden;
                 width: 100%;    
                 display: block;
                                                 
-                height: var(--bottom-height);
+                height: var(--middle-height);
             
-                border-bottom: solid 2px var(--main-color);
-                border-left: solid 2px var(--main-color);
-                border-right: solid 2px var(--main-color);
+                border-bottom: solid var(--border-thickness) var(--main-color);
+                border-left: solid var(--border-thickness) var(--main-color);
+                border-right: solid var(--border-thickness) var(--main-color);
             }
             
             #directory-box {
@@ -163,14 +121,97 @@
                 height: 30px; 
                 text-align: center;                              
                         
-                border-bottom: solid 2px var(--main-color);            
+                border-bottom: solid var(--border-thickness) var(--main-color);            
                 overflow:hidden;
             }
                     
             #file-list-frame {
                 width:100%;
-                height:calc(100% - 32px); /* 30px for the directory_box + 2 for the two 2px border */
+                height:var(--middle-list-height); 
             }
+
+
+            /* BOTTOM */
+
+            #bottom {    
+                width: 100%;   
+                height: var(--bottom-height);
+
+                overflow:hidden;
+                            
+                border: solid var(--border-thickness) var(--main-color);
+                border-top: none;
+
+                background-color: var(--background-color);
+            }
+
+            /* PROGRESS BAR */
+            
+            .progress-container {
+                width: 100%;
+                height: var(--progress-bar-height);
+                background-color: var(--background-color);
+                cursor: pointer;
+            }
+            
+            .progress-bar {
+                height: 100%;
+                background-color: var(--main-color);
+                width: 0%;
+            }
+                   
+            /* MAIN AUDIO CONTROLS */
+
+            .audio-controls-container {
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                overflow:hidden;
+                height: 100px;
+                width: 100%;
+            
+                border-top: solid var(--border-thickness) var(--main-color);
+            }
+            
+            .audio-controls {
+                display: flex;
+                justify-content: center;
+                height: 100vh;
+                width: 100%;
+                color: var(--background-color);
+            }
+            
+            .audio-controls button {
+                all: unset; 
+
+                background-color: var(--background-color);
+                color: var(--main-color);
+            
+                border: none;
+                padding 0px;
+                            
+                font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif !important;     
+                font-size: calc(var(--top-height) * 0.5);
+                text-align:center;
+                align-content: center;
+            
+                height: calc(var(--control-area-height));
+                width:  calc(var(--control-area-height));
+            }
+
+            .audio-controls button:hover {
+                color: var(--background-color);
+                background-color: var(--main-color);
+            }         
+
+            .button-separator {
+                background-color: var(--main-color);
+                height: 100%;
+                width: var(--border-thickness);
+                margin:0;
+                border:none;
+            }
+              
             """;
 
         public static string music_player_main_view = """
@@ -201,21 +242,26 @@
                             <div id="music-info-album">The Album</div>
                         </div>
                     </div>
+                </div>
+
+                <div id="middle">
+                    <div id="directory-box">{current_directory_cleaned}</div>
+                    <iframe id="file-list-frame" name="file_list_frame" src="{music_player_list_dir}"></iframe> 
+                </div>
+
+                <div id="bottom">            
+                    <div class="progress-container" id="progress-container"> 
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>        
                     <div class="audio-controls-container">
                         <div class="audio-controls">
-                           <button id="play-pause-button"></button>
                            <!-- <button id="previous-button">Previous</button> -->
+                           <hr class="button-separator"/>
+                           <button id="play-pause-button"></button>
+                           <hr class="button-separator"/>
                            <!-- <button id="next-button">Next</button> -->
                         </div>
                     </div>
-                    <div class="progress-container" id="progress-container"> 
-                        <div class="progress-bar" id="progress-bar"></div>
-                    </div>
-                </div>
-
-                <div id="bottom">
-                    <div id="directory-box">{current_directory_cleaned}</div>
-                    <iframe id="file-list-frame" name="file_list_frame" src="{music_player_list_dir}"></iframe> 
                 </div>
             </body>
 
@@ -301,8 +347,8 @@
             
                 play_pause_button.addEventListener('click', () => { play_pause(); });
             
-                next_button.addEventListener('click', () => { next(); });
-                previous_button.addEventListener('click', () => { previous(); }); 
+                //next_button.addEventListener('click', () => { next(); });
+                //previous_button.addEventListener('click', () => { previous(); }); 
                     
                 // skip to next file when current one ends
                 audio_player.addEventListener("ended", () => { next(); });

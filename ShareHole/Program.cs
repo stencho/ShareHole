@@ -173,9 +173,7 @@ namespace ShareHole {
         
         #music-list {
             display: flow;
-            overflow-y: auto;
             position: absolute;
-            height: auto;
             width: 100%;
         }  
         #music-list.scrollbar-visible {
