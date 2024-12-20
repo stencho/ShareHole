@@ -1,9 +1,6 @@
 ﻿using System.Drawing;
 using System.Runtime.CompilerServices;
 using ShareHole.Configuration;
-using ShareHole.DBThreads;
-using ShareHole.Threads;
-using static ShareHole.Conversion.Video;
 using static ShareHole.Logging;
 
 namespace ShareHole {
@@ -378,7 +375,7 @@ namespace ShareHole {
 
 
         internal class Program {
-            static List<FolderServer> servers = new List<FolderServer>();
+            static List<ShareServer> servers = new List<ShareServer>();
 
             internal static void LoadConfig() {
                 CurrentConfig.InitializeComments();
@@ -474,7 +471,7 @@ namespace ShareHole {
                 LoadConfig();
                 Logging.Config($"Configuration loaded, starting server!");
 
-                servers.Add(new FolderServer());
+                servers.Add(new ShareServer());
                 Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
                 server_thread.Start(0.ToString());
 
@@ -482,21 +479,24 @@ namespace ShareHole {
 
                 while (true) {
                     string line = Console.ReadLine();
-                    /*
-                    if (line == "restart") {
+                    
+                    /*if (line == "restart") {
                         Logging.Warning("Restarting all servers!");
                         for (int i = 0; i < servers.Count; i++) {
                             servers[i].StopServer();
                         }
+
+                        //await Task.WhenAll(cancellation_token);
 
                         Logging.Config($"Re-loading configuration");
                         LoadConfig();
                         Logging.Config($"Configuration loaded, starting server!");
 
                         for (int i = 0; i < servers.Count; i++) {
-                            servers[i] = new FolderServer();
-                            server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                            server_thread.Start(0.ToString());
+                            Task.Run(() => {
+                                servers[i] = new FolderServer();
+                                start_server(i);                            
+                            }, cancellation_token);
                         }
 
                     } else */if (line == "shutdown") {
@@ -512,7 +512,7 @@ namespace ShareHole {
                             if (p.StartsWith("https://")) p = p.Remove(0, 8);
                             if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
 
-                            FolderServer s = servers[i];
+                            ShareServer s = servers[i];
                             Logging.Message($"[Server] {p}:{port}");
                             for (int n = 0; n < s.dispatch_threads.Length; n++) {
                                 Thread t = s.dispatch_threads[n];

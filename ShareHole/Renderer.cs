@@ -2,7 +2,6 @@
 using HeyRed.Mime;
 using ImageMagick;
 using Microsoft.VisualBasic;
-using ShareHole.Threads;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
@@ -12,7 +11,8 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ShareHole {
+namespace ShareHole
+{
     internal static class Renderer {
         struct listing_info {
             public string passdir => CurrentConfig.server["server"]["passdir"].ToString().Trim();

@@ -5,31 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ShareHole.Threads {
-    public struct MusicCacheItem {
-        string filename;
-        long birth;
-
-        string title;
-        string artist;
-        string album;
-
-        MagickImage cover;
-    }
-
-    public class MusicCache {
-        Dictionary<string, MusicCacheItem> items = new Dictionary<string, MusicCacheItem>();
-
-        public void Store(string filename, MusicCacheItem item) => items.Add(filename, item); 
-        public bool Test(string filename) => items.ContainsKey(filename);
-        public void Remove(string filename) => items.Remove(filename);
-
-        public MusicCache() { 
-        
-        }
-    }
-
-    public static class MusicPlayer {
+namespace ShareHole
+{
+    public static class MusicPlayer
+    {
         // MusicDB db;
 
         public static string stylesheet = """

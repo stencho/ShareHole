@@ -9,18 +9,16 @@ using HeyRed.Mime;
 using ShareHole.Configuration;
 using System.ComponentModel.Design;
 using System.Drawing;
-using ShareHole.DBThreads;
 using ImageMagick;
 using System.Net.Http.Headers;
 using FFMpegCore;
 using System.Security.Cryptography;
-using ShareHole.Threads;
 using System.Reflection.Metadata;
 using FFMpegCore.Exceptions;
 
 namespace ShareHole
 {
-    public class FolderServer {
+    public class ShareServer {
         bool running = true;
         HttpListener listener;
 
@@ -176,6 +174,8 @@ namespace ShareHole
         }
 
         async void RequestThread(object? name_id) {
+            if (CurrentConfig.cancellation_token.IsCancellationRequested) return;
+
             (string name, int id) nid = (((string, int))name_id);
             string thread_name = nid.name.ToString();
             int thread_id = nid.id;
@@ -429,7 +429,7 @@ namespace ShareHole
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
-                                Conversion.Video.transcode_mp4_full(new FileInfo(absolute_on_disk_path), context);
+                                Task.Run(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); }, CurrentConfig.cancellation_token);
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
