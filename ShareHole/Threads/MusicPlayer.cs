@@ -41,14 +41,28 @@ namespace ShareHole.Threads {
                 <title></title>
                 <link rel="stylesheet" href="base.css">
                 <style>
+                    :root {
+                        --info-buttons-height: 100px;
+                        --progress-bar-height: 12px;
+
+                        --border-thickness: 2px;
+                        --total-border-thickness: calc(var(--border-thickness) * 3);
+
+                        --top-height: calc(var(--info-buttons-height) + var(--progress-bar-height) + var(--border-thickness));
+                        --bottom-height: calc(100vh - var(--top-height) - var(--total-border-thickness));
+                    }
+
                     body {
                         display: flex;
-                        width: 100vw;
-                        height: 100vh;
-                        max-width: 100vw;
                         overflow: hidden;
+                        flex-wrap: wrap;            
+
+                        width: 100vw;            
+                        height: 100vh;
+                        
+                        max-width: 100vw;
+
                         margin: 0;
-                        flex-wrap: wrap;
                     }
 
                     iframe { border: none; }                          
@@ -59,15 +73,14 @@ namespace ShareHole.Threads {
 
                     #top {    
                         width: 100%;   
-                        height: 110px;
+                        height: var(--top-height);
                         display: flex;
                         flex-wrap: wrap;
-
-                        border-bottom: solid 2px var(--main-color);
+            
+                        border: solid 2px var(--main-color);
 
                         background-color: var(--secondary-background-color);
                     }
-
 
                     /* INFO PANE */            
 
@@ -76,6 +89,7 @@ namespace ShareHole.Threads {
                         flex-direction: row;
                         justify-content: flex-start;
                         flex-wrap: wrap;
+
                         height: 100px;
                         width: 50%;
                     }
@@ -144,9 +158,10 @@ namespace ShareHole.Threads {
 
                     .progress-container {
                         width: 100%;
-                        height: 10px;
-                        background-color: transparent;
+                        height: var(--progress-bar-height);
+                        background-color: var(--background-color);
                         cursor: pointer;
+            
                         border-top: solid 2px var(--main-color);
                     }
             
@@ -163,10 +178,12 @@ namespace ShareHole.Threads {
                         overflow:hidden;
                         width: 100%;    
                         display: block;
-                        
-                        bottom: 100vh;
-                        height: calc(100% - 110px);
+                                                
+                        height: var(--bottom-height);
 
+                        border-bottom: solid 2px var(--main-color);
+                        border-left: solid 2px var(--main-color);
+                        border-right: solid 2px var(--main-color);
                     }
 
                     #directory-box {
@@ -176,17 +193,15 @@ namespace ShareHole.Threads {
                         left: 0;
                         width: 100%;
                         height: 30px; 
-                        text-align: center;
-            
-                        border-bottom: solid 2px var(--main-color);
-                        box-shadow: inset -1px 0 0 var(--main-color);
-            
+                        text-align: center;                              
+                        
+                        border-bottom: solid 2px var(--main-color);            
                         overflow:hidden;
                     }
                     
                     #file-list-frame {
                         width:100%;
-                        height:calc(100% - 34px); /* 30px for the directory_box + 4 for the two 2px borders */
+                        height:calc(100% - 32px); /* 30px for the directory_box + 2 for the two 2px border */
                     }
 
                 </style>
@@ -207,14 +222,14 @@ namespace ShareHole.Threads {
                             <div id="music-info-album">The Album</div>
                         </div>
                     </div>
-                    <div class="audio-controls-containerr">
+                    <div class="audio-controls-container">
                         <div class="audio-controls">
                             <button id="play-pause-button">Play</button>
                             <button id="previous-button">Previous</button>
                             <button id="next-button">Next</button>
                         </div>
                     </div>
-                    <div class="progress-container" id="progress-container">
+                    <div class="progress-container" id="progress-container"> 
                         <div class="progress-bar" id="progress-bar"></div>
                     </div>
                 </div>
@@ -229,7 +244,8 @@ namespace ShareHole.Threads {
                 const share_name = '{share_name}';            
 
                 const list_frame = document.getElementById('file-list-frame');  
-                const list_frame_window = list_frame.contentWindow ;
+                const list_frame_window = list_frame.contentWindow;
+                const list_frame_doc = list_frame.contentDocument;
             
                 const audio_player = document.getElementById('audio-player');
             
@@ -241,16 +257,13 @@ namespace ShareHole.Threads {
                 const progress_container = document.getElementById('progress-container');
             
                 const directory_box = document.getElementById('directory-box'); 
-
-            
+                        
                 let current_index = 0; 
                 const file_list = [];
                 
-            
-                directory_box.addEventListener('onload', () => {
-                    console.log('{current_directory}');
-                    directory_box.innerHTML = '{current_directory}';
-                    directory_box.innerHTML = 'test';
+                // set the text in the current directory box above the file list
+                directory_box.addEventListener('load', () => {
+                    directory_box.innerHTML = '{current_directory}';                    
                 });
 
                 // keep the progress bar updated

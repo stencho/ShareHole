@@ -60,6 +60,7 @@ namespace ShareHole {
             scrollbar-width: thin;
 
             margin: 0;
+            height: 100%;
         }
                 
         body { 
@@ -70,6 +71,8 @@ namespace ShareHole {
             font-size: 16pt;
 
             margin: 0;
+
+            height: auto;
         }
 
         img {
@@ -175,10 +178,13 @@ namespace ShareHole {
             display: flow;
             overflow-y: auto;
             position: absolute;
-            min-height: 100%;
-            width: calc(100% - 2px);
-            border-right: solid 2px var(--main-color); 
+            height: auto;
+            width: 100%;
         }  
+        #music-list.scrollbar-visible {
+            width: calc(100% - 2px) !important;
+            border-right: solid 2px var(--main-color); 
+        }
         
         .music-list-item {
             width:100%;

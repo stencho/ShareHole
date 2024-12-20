@@ -488,7 +488,20 @@ namespace ShareHole
 
                             page_content = Renderer.MusicPlayerDirectoryView(folder_path, request.UserHostName, url_path, share_name);
 
-                            var script = """                            
+                            var script = """
+                                const music_list = document.getElementById('music-list'); 
+                                    
+                                function scroll_bar_music_list_border() {
+                                    if (music_list.scrollHeight > document.documentElement.clientHeight) {
+                                        music_list.classList.add('scrollbar-visible');
+                                    } else {
+                                        music_list.classList.remove('scrollbar-visible');
+                                    }
+                                }
+
+                                window.addEventListener('load', scroll_bar_music_list_border);
+                                window.addEventListener('resize', scroll_bar_music_list_border);
+                                
                                 function play_song(filename) {     
                                     window.parent.load_song_and_folder(filename);
                                 }
