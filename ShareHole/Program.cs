@@ -298,7 +298,6 @@ namespace ShareHole {
             //THEME
             ConfigFileIO.comment_manager.AddBefore("theme", """
                 UI color settings in R,G,B,A format
-
                 """);
 
             //CONVERSION

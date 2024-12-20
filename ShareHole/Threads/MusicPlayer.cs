@@ -71,7 +71,7 @@ namespace ShareHole.Threads {
             
                 border: solid 2px var(--main-color);
             
-                background-color: var(--secondary-background-color);
+                background-color: var(--background-color);
             }
             
             /* INFO PANE */            
