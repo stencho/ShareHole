@@ -316,7 +316,6 @@ namespace ShareHole {
                             { "use_css_file", new ConfigValue(false) },
                             //{ "log_to_file", new ConfigValue("")}, //todo
                             { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
-                            { "log_to_queue", new ConfigValue(false) },
                             { "show_info", new ConfigValue(true)}
                         }
                     },
