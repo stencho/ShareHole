@@ -2,7 +2,6 @@
 
 namespace ShareHole {
     public static class Logging {
-        static String printing = "";
         enum LOG_TYPES { MSG, WRN, ERR, CNF }
 
         public enum LogLevel {
@@ -10,7 +9,50 @@ namespace ShareHole {
             HIGH_IMPORTANCE = 1,
             ALL = 2
         };
-        
+
+        struct LogItem {
+            string text;
+
+            string tag;
+            ConsoleColor tag_color;
+
+            string second_tag;
+            ConsoleColor second_tag_color;
+
+            bool show_caller = false;
+            string caller_file_name = "";
+            string caller_member_name = "";
+
+            public LogItem(string text, string tag, ConsoleColor tag_color, string second_tag, ConsoleColor second_tag_color, bool show_caller, string callerfilename, string membername) {
+                this.text = text;
+                this.tag = tag;
+                this.tag_color = tag_color;
+                this.second_tag = second_tag;
+                this.second_tag_color = second_tag_color;
+                this.show_caller = show_caller;
+                this.caller_file_name = callerfilename;
+                this.caller_member_name = membername;
+            }
+
+            public void print() {
+                if (string.IsNullOrEmpty(text)) return;
+                if (show_caller) {
+                    var last_slash = caller_file_name.Replace('\\', '/').LastIndexOf('/') + 1;
+                    var fn = caller_file_name.Replace('\\', '/').Substring(last_slash, caller_file_name.Length - last_slash);
+                    fn = fn.Remove(fn.Length - 3);
+                    Logging.WriteColor($"[{fn}->{caller_member_name}] ", tag_color);
+                } else Console.Write(" ");
+
+                if (!string.IsNullOrEmpty(second_tag)) {
+                    Logging.WriteColor($"[{second_tag}] ", second_tag_color);
+                }
+                Console.WriteLine(text);
+            }
+
+        };
+
+        static Queue<LogItem> LogQueue = new Queue<LogItem>();
+
         public static void Message(string text, bool show_caller=true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername);
         }
@@ -25,35 +67,35 @@ namespace ShareHole {
         }
 
         public static void ThreadMessage(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "MSG", ConsoleColor.Green, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadWarning(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "WRN", ConsoleColor.Yellow, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "WRN", ConsoleColor.Yellow, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadConfig(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "CFG", ConsoleColor.Cyan, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "CFG", ConsoleColor.Cyan, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadError(string text, string thread_name, int thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "ERR", ConsoleColor.Red, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "ERR", ConsoleColor.Red, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadMessage(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "MSG", ConsoleColor.Green, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadWarning(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "WRN", ConsoleColor.Yellow, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "WRN", ConsoleColor.Yellow, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadConfig(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "CFG", ConsoleColor.Cyan, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "CFG", ConsoleColor.Cyan, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
         public static void ThreadError(string text, string thread_name, long thread_id, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, "ERR", ConsoleColor.Red, thread_name, SeededRandomConsoleColor(thread_id), show_caller, callerfilename, membername);
+            Log(text, "ERR", ConsoleColor.Red, show_caller, callerfilename, membername, thread_name, SeededRandomConsoleColor(thread_id));
         }
 
         public static void Custom(string text, string tag, ConsoleColor tag_color, bool show_caller = false, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            Log(text, tag, tag_color, show_caller);
+            Log(text, tag, tag_color, show_caller, callerfilename, membername);
         }
         public static void CustomDouble(string text, string tag, ConsoleColor tag_color, string second_tag, ConsoleColor second_tag_color, bool show_caller = false, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
-            LogExtra(text, tag, tag_color, second_tag, second_tag_color, show_caller);
+            Log(text, tag, tag_color, show_caller, callerfilename, membername, second_tag, second_tag_color);
         }
 
         public static void ErrorAndThrow(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
@@ -61,48 +103,38 @@ namespace ShareHole {
             throw new Exception($"{text}");            
         }
 
-        static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
+        static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "", string extra_tag = "", ConsoleColor extra_color = ConsoleColor.White) {
             if (CurrentConfig.LogLevel == 0) return;
-            lock (printing) {
-                WriteColor($"[{tag}]", color);
-                if (show_caller) {
-                    var last_slash = caller_fn.Replace('\\', '/').LastIndexOf('/') + 1;
-                    var fn = caller_fn.Replace('\\', '/').Substring(last_slash, caller_fn.Length - last_slash);
-                    fn = fn.Remove(fn.Length - 3);
-                    WriteColor($"[{fn}->{caller_mn}] ", color);
-                } else Console.Write(" ");
-                Console.WriteLine(text);
+            LogQueue.Enqueue(new LogItem(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
+        }
+
+        static bool started = false;
+
+        public static void StartLogger() {
+            if (!started) {
+                started = true;
+
+                Task.Run(ProcessQueue);
             }
         }
 
-        static void LogExtra(string text, string tag, ConsoleColor color, string extra_tag, ConsoleColor extra_color, bool show_caller = true, string caller_fn = "", string caller_mn = "") {
-            if (CurrentConfig.LogLevel == 0) return;
-            lock (printing) {
-                WriteColor($"[{tag}]", color);
-                if (show_caller) {
-                    var last_slash = caller_fn.Replace('\\', '/').LastIndexOf('/') + 1;
-                    var fn = caller_fn.Replace('\\', '/').Substring(last_slash, caller_fn.Length - last_slash);
-                    fn = fn.Remove(fn.Length - 3);
-                    WriteColor($"[{fn}->{caller_mn}] ", color);
-                } else Console.Write(" ");
-                WriteColor($"[{extra_tag}] ", extra_color);
-                Console.WriteLine(text);
+        static void ProcessQueue() {
+            while (started && !CurrentConfig.cancellation_token.IsCancellationRequested) {
+                LogItem li;
+                bool success = false;
+
+                lock (LogQueue) {
+                    if (success = LogQueue.TryDequeue(out li)) {
+                        li.print();
+                    }
+                }
+
+                if (success)
+                    Thread.Sleep(10);
             }
         }
 
-        static void CustomTag(string text, string tag_text, ConsoleColor tag_color, [CallerFilePath] string callerfilename = "") {
-            var last_slash = callerfilename.Replace('\\', '/').LastIndexOf('/') + 1;
-            var stripped = callerfilename.Replace('\\', '/').Substring(last_slash, callerfilename.Length - last_slash);
-        }
-
-        public static void WriteLineColor(string str, ConsoleColor color) {
-            if (CurrentConfig.LogLevel == 0) return;
-            Console.ForegroundColor = color;
-            Console.WriteLine(str);
-            Console.ForegroundColor = ConsoleColor.White;
-        }
-
-        public static void WriteColor(string str, ConsoleColor color) {
+        internal static void WriteColor(string str, ConsoleColor color) {
             if (CurrentConfig.LogLevel == 0) return;
             Console.ForegroundColor = color;
             Console.Write(str);

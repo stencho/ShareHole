@@ -437,6 +437,8 @@ namespace ShareHole {
 
             static void Main(string[] args) {
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
+               
+                Logging.StartLogger();
 
                 if (args.Length > 0) {
                     for (int i = 0; i < args.Length; i++) {
