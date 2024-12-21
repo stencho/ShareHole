@@ -129,6 +129,9 @@ namespace ShareHole {
         public static void ConsoleTitleInfo() {
             Console.Title = "";
         }
+        
+        public static readonly ConsoleColor UserForegroundColor = Console.ForegroundColor;
+        public static readonly ConsoleColor UserBackgroundColor = Console.BackgroundColor;
 
         public static string base_html = """
         <!doctype html>

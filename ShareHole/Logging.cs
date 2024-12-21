@@ -110,9 +110,7 @@ namespace ShareHole {
         public static void Start() {
             if (!running) {
                 running = true;
-                Task.Run(ProcessQueue, cancellation_token);
-                Console.CursorVisible = false;
-                
+                Task.Run(ProcessQueue, cancellation_token);                
                 Task.Run(find_processor_usage, cancellation_token);                
             }
         }
@@ -126,8 +124,8 @@ namespace ShareHole {
             Console.WriteLine("Stopped all logging threads");
 
             Console.CursorVisible = true;
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = State.UserForegroundColor;
+            Console.BackgroundColor = State.UserBackgroundColor;
         }
 
 
@@ -320,7 +318,7 @@ namespace ShareHole {
             while (!cancellation_token.IsCancellationRequested) {
                 log_item li;
                 if (LogQueue.Count > 0) {
-                    if (enable_info_bar) Console.CursorLeft = 0;
+                    if (enable_info_bar) { Console.CursorVisible = false; Console.CursorLeft = 0; }
 
                 keep_going:
                     if (LogQueue.TryDequeue(out li)) {
