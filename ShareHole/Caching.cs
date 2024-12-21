@@ -22,7 +22,7 @@ namespace ShareHole {
     }
 
     public class ConcurrentCache<T> {
-        static readonly double max_age = 86400 / 4; // 6 hours
+        double max_age = 86400; // 1 day
 
         Type type;
         ConcurrentDictionary<string, (cache_item_life life, T item)> cache = new ConcurrentDictionary<string, (cache_item_life life, T item)>();
@@ -39,14 +39,24 @@ namespace ShareHole {
             StartPruning();
         }
 
+        public ConcurrentCache(double age_seconds) {
+            max_age = age_seconds;
+            type = typeof(T);
+            StartPruning();
+        }
+
+        ~ConcurrentCache() {
+            currently_pruning = false;            
+        }
+
         public void Store(string key, T item) {
             if (item == null) return;
             if (!item.GetType().IsAssignableFrom(type)) return;
             if (Test(key)) return;
             if (cache.TryAdd(key, (new cache_item_life(max_age), item))) {
-                Logging.Message($"Stored {item.ToString()} in cache");
+                Logging.Message($"Stored {key}::{item.ToString()} in cache");
             } else {
-                Logging.Error($"Failed cache store on {item.ToString()}");
+                Logging.Error($"Failed cache store on {key}::{item.ToString()}");
             }
         }
         public void Update(string key, T item) {
@@ -63,120 +73,25 @@ namespace ShareHole {
                 .ContinueWith(a => { currently_pruning = false; });
         }
 
-        private void Prune() {
+        private async void Prune() {
             currently_pruning = true;
-
+            
             while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
             restart:
                 if (cache.Keys.Count > 0)
                 foreach (var key in cache.Keys.ToList()) {
                     if (cache[key].life.needs_prune()) {
                         cache.TryRemove(key, out _);
-                        Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
+                        Logging.ThreadMessage($"Pruned {key}::{cache[key].item.ToString()} from cache", "Cache", 5);
                         goto restart;
                     }
                 }
 
-                Task.Delay(1000);
+                await Task.Delay(1000);
             }
+
+            currently_pruning = false;
         }
     }
-
-    public class Cache<T> {
-        static readonly double max_age = 86400 / 4;
-
-        Dictionary<string, (cache_item_life life, T item)> cache = new Dictionary<string, (cache_item_life life, T item)>();
-
-        public void Clear() => cache.Clear();
-
-        public bool currently_pruning = false;
-
-        public void Store(string key, T item) {            
-            if (Test(key)) return;
-            cache.Add(key, (new cache_item_life(max_age), item));
-        }
-
-        public bool Test(string key) => cache.ContainsKey(key);
-        public void Remove(string key) => cache.Remove(key);
-
-        public Cache(bool enable_pruning = true) {
-            if (!typeof(ICacheStruct).IsAssignableFrom(typeof(T)))
-                throw new Exception("Not an ICacheStruct");
-
-            if (enable_pruning) StartPruning();
-        }
-
-        public T Request(string key) {
-            return cache[key].item;
-        }
-
-        public void StartPruning() {
-            State.task_start(Prune, CacheCancellation.cancellation_token)
-                .ContinueWith(a => { currently_pruning = false; });
-        }
-
-        private void Prune() {
-            currently_pruning = true;
-
-            while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
-            restart:
-                foreach (var key in cache.Keys) {
-                    if (cache[key].life.needs_prune()) {
-                        cache.Remove(key);
-                        Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
-                        goto restart;
-                    }
-                }
-
-                Thread.Sleep(1000);
-            }
-        }
-    }
-
-    public interface ICacheStruct {
-        public cache_item_life life { get; set; }
-        public bool needs_prune() => life.needs_prune();
-        public void refresh() => life.refresh();
-
-        public void init(double life_time) {
-            life = new cache_item_life(life_time);
-        }
-    }
-    public class MusicCacheItem : ICacheStruct {
-        cache_item_life ICacheStruct.life { get; set; }
-
-        internal string filename;
-        string mime;
-
-        public string title;
-        public string artist;
-        public string album;
-
-        public MagickImage cover;
-
-
-        public MusicCacheItem(string filename, string mime, double life_time=43200.00) {
-            ((ICacheStruct)this).init(life_time);
-        }
-
-    }
-    public class ByteArrayCacheItem : ICacheStruct {
-        cache_item_life ICacheStruct.life { get; set; }
-
-        string filename;
-        internal string mime;
-
-        internal byte[] data;
-        internal int length => data.Length;
-
-
-        cache_item_life life;
-
-        internal ByteArrayCacheItem(double life_time, string mime) {
-            ((ICacheStruct)this).init(life_time);
-            this.mime = mime;
-        }
-    }
-
 
 }
