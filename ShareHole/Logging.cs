@@ -163,6 +163,7 @@ namespace ShareHole {
         public static Action<string> HandleReadLineAction;
 
         public static bool enable_info_bar => !force_disable_info_bar && State.server["server"]["show_info"].ToBool();
+        public static bool log_to_queue => State.server["server"]["log_to_queue"].ToBool();
         public static bool force_disable_info_bar = false;
         static void invert() {
             Console.ForegroundColor = ConsoleColor.Black;

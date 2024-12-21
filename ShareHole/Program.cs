@@ -316,6 +316,7 @@ namespace ShareHole {
                             { "use_css_file", new ConfigValue(false) },
                             //{ "log_to_file", new ConfigValue("")}, //todo
                             { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
+                            { "log_to_queue", new ConfigValue(false) },
                             { "show_info", new ConfigValue(true)}
                         }
                     },
@@ -555,13 +556,6 @@ namespace ShareHole {
 
             Logging.Start();
             
-            Logging.Message($"ImageMagick version: {MagickNET.ImageMagickVersion}");
-            
-            Logging.Message($"Magick thread limit of {MagickNET.GetEnvironmentVariable("MAGICK_THREAD_LIMIT")}");
-
-            //Logging.Message($"FFMpeg version: {}");
-            MagickNET.SetEnvironmentVariable("MAGICK_THREAD_LIMIT", "13");
-
             if (args.Length > 0) {
                 for (int i = 0; i < args.Length; i++) {
                     if (args[i] == "-c") {
@@ -603,7 +597,7 @@ namespace ShareHole {
 
             log_console_view_loop();
         }
-
+        bool running = true;
         static void handle_readline(string line) {
             if (line == "restart") {
                 Logging.Warning("Restarting server!");
@@ -620,7 +614,7 @@ namespace ShareHole {
                 start_server();
 
             } else if (line == "shutdown" || line == "quit" || line == "exit") {
-                Exit();
+                Exit();                
                 return;
 
             } else if (line == "threadstatus") {
@@ -674,6 +668,7 @@ namespace ShareHole {
             Console.CursorVisible = true;
             Console.ForegroundColor = ConsoleColor.White;
             Console.Title = "";
+
             System.Environment.Exit(0);
         }
 
