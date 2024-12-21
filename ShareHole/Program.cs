@@ -632,7 +632,7 @@ namespace ShareHole {
 
         static void log_console_view_loop() {
             Logging.HandleReadLineAction = handle_readline;
-            while (true) {
+            while (!State.cancellation_token.IsCancellationRequested) {
                 if (Logging.enable_info_bar)
                     Logging.ProcessKeyboard();
                 else
