@@ -113,7 +113,7 @@ namespace ShareHole {
                 Task.Run(ProcessQueue, cancellation_token);
                 Console.CursorVisible = false;
                 
-                //Task.Run(find_processor_usage, cancellation_token);
+                Task.Run(find_processor_usage, cancellation_token);
                 
             }
         }
