@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using Microsoft.VisualBasic;
 using ShareHole.Configuration;
 using static ShareHole.Logging;
 
@@ -15,7 +16,48 @@ namespace ShareHole {
         public static bool use_css_file = false;
 
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
-        internal static CancellationToken cancellation_token => cancellation_token_source.Token;        
+        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
+
+        public static void reset_cancellation_token() {
+            cancellation_token_source = new CancellationTokenSource();
+        }
+
+        static int _task_count = 0;
+        public static int task_count => _task_count;
+
+        public static void task_count_increment() => Interlocked.Increment(ref _task_count);
+        public static void task_count_decrement() => Interlocked.Decrement(ref _task_count);
+
+
+        public static Task task_start(Action task) {
+            task_count_increment();
+            return Task.Run(() => {
+                try {
+                    task.Invoke();
+                } finally {
+                    task_count_decrement();
+                }
+            }, cancellation_token).ContinueWith(t => {
+                if (t.IsFaulted) {
+                    Logging.Error($"Task failed: ");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public static Task task_start(Task task) {
+            task_count_increment();
+            return Task.Run(() => {
+                try {
+                    task.Start();
+                } finally {
+                    task_count_decrement();
+                }
+            }, cancellation_token).ContinueWith(t => {
+                if (t.IsFaulted) {
+                    Logging.Error($"Task failed: ");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
 
         public static string base_html = """
         <!doctype html>
@@ -197,7 +239,7 @@ namespace ShareHole {
                             { "prefix", new ConfigValue("localhost") },
                             { "port", new ConfigValue(8080) },
                             { "passdir", new ConfigValue("loot") },
-                            { "threads", new ConfigValue(100) },
+                            { "threads", new ConfigValue(16) },
                             { "transfer_buffer_size", new ConfigValue(512)},
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
@@ -273,8 +315,7 @@ namespace ShareHole {
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "threads", """
-                The number of threads for handling requests and uploads 
-                This includes thumbnails, so if you're using gallery mode, you may want to increase this
+                The number of threads for handling requests 
                 """);
 
             ConfigFileIO.comment_manager.AddBefore("server", "transfer_buffer_size", """
@@ -372,7 +413,7 @@ namespace ShareHole {
 
 
         internal class Program {
-            static List<ShareServer> servers = new List<ShareServer>();
+            static ShareServer server;
 
             internal static void LoadConfig() {
                 State.InitializeComments();
@@ -427,18 +468,13 @@ namespace ShareHole {
                     Logging.Config($"Loaded shares");
                 }
 
-
-                //if (!NetworkCache.currently_pruning) {
-                //    NetworkCache.StartPruning();
-                //}
-
                 State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
             }
 
             static void Main(string[] args) {
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
                
-                Logging.StartLogger();
+                Logging.Start();
 
                 if (args.Length > 0) {
                     for (int i = 0; i < args.Length; i++) {
@@ -470,54 +506,38 @@ namespace ShareHole {
                 LoadConfig();
                 Logging.Config($"Configuration loaded, starting server!");
 
-                servers.Add(new ShareServer());
-                Thread server_thread = new Thread(new ParameterizedThreadStart(start_server));
-                server_thread.Start(0.ToString());
+                server = new ShareServer();
+
+                State.task_start(() => {
+                    server = new ShareServer();
+                    start_server();
+                });
 
                 Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
 
                 while (true) {
                     string line = Console.ReadLine();
-                    
-                    /*if (line == "restart") {
-                        Logging.Warning("Restarting all servers!");
-                        for (int i = 0; i < servers.Count; i++) {
-                            servers[i].StopServer();
-                        }
 
-                        //await Task.WhenAll(cancellation_token);
+                    if (line == "restart") {
+                        Logging.Warning("Restarting server!");
+
+                        stop_server();
+
+                        reset_cancellation_token();
 
                         Logging.Config($"Re-loading configuration");
                         LoadConfig();
                         Logging.Config($"Configuration loaded, starting server!");
 
-                        for (int i = 0; i < servers.Count; i++) {
-                            Task.Run(() => {
-                                servers[i] = new FolderServer();
-                                start_server(i);                            
-                            }, cancellation_token);
-                        }
+                        server = new ShareServer();
+                        start_server();
 
-                    } else */if (line == "shutdown") {
+                    } else if (line == "shutdown" || line == "quit" || line == "exit") {
                         Exit();
                         return;
 
                     } else if (line == "threadstatus") {
-                        for (int i = 0; i < servers.Count; i++) {
-                            var port = State.server["server"]["port"].ToInt();
-                            var p = State.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
-
-                            if (p.StartsWith("http://")) p = p.Remove(0, 7);
-                            if (p.StartsWith("https://")) p = p.Remove(0, 8);
-                            if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
-
-                            ShareServer s = servers[i];
-                            Logging.Message($"[Server] {p}:{port}");
-                            for (int n = 0; n < s.dispatch_threads.Length; n++) {
-                                Thread t = s.dispatch_threads[n];
-                                Logging.Message($"| [Name] {t.Name} [IsAlive] {t.IsAlive} [ThreadState] {t.ThreadState.ToString()}");
-                            }
-                        }
+                        Logging.Message($"{State.task_count} total threads");
 
                     } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                         line = line.Remove(0, 1);
@@ -529,22 +549,35 @@ namespace ShareHole {
                 }
             }
 
-            static void start_server(object? id) {
-                servers[servers.Count - 1].StartServer(id.ToString());
+            static void start_server() {
+                server.Start();
+            }
+
+            static async void stop_server() {
+                Logging.Warning($"Sending cancellation signal to all threads");
+
+                State.cancellation_token_source.Cancel(true);
+
+                while (State.task_count > 0) {
+                    Thread.Sleep(50);
+                }
+
+                Logging.Message($"All threads stopped");
+
+                server.StopListener();
             }
 
             static void Exit() {
                 Logging.Warning("Shutting down!");
 
-                for (int i = 0; i < servers.Count; i++) {
-                    servers[i].StopServer();
-                }
+                stop_server();
 
                 Logging.Config($"Flushing config");
                 State.server.config_file.Flush();
 
                 Logging.Message("Goodbye!");
 
+                Logging.Stop();
                 Console.CursorVisible = true;
                 Console.ForegroundColor = ConsoleColor.White;
 

@@ -37,13 +37,21 @@ namespace ShareHole {
 
             public void print() {
                 if (string.IsNullOrEmpty(text)) return;
+
+                //draw caller tag
                 if (show_caller) {
                     var last_slash = caller_file_name.Replace('\\', '/').LastIndexOf('/') + 1;
                     var fn = caller_file_name.Replace('\\', '/').Substring(last_slash, caller_file_name.Length - last_slash);
                     fn = fn.Remove(fn.Length - 3);
                     Logging.WriteColor($"[{fn}->{caller_member_name}] ", tag_color);
-                } else Console.Write(" ");
 
+                    //draw tag
+                } else if (!string.IsNullOrEmpty(tag)) 
+                    Logging.WriteColor($"[{tag}] ", tag_color);
+                else 
+                    Console.Write(" ");
+
+                //draw second/"thread" tag
                 if (!string.IsNullOrEmpty(second_tag)) {
                     Logging.WriteColor($"[{second_tag}] ", second_tag_color);
                 }
@@ -109,22 +117,28 @@ namespace ShareHole {
             LogQueue.Enqueue(new LogItem(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
         }
 
-        static bool started = false;
-
-        public static void StartLogger() {
-            if (!started) {
-                started = true;
-                Task.Run(ProcessQueue);
+        static bool running = false;
+        static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
+        static CancellationToken cancellation_token => cancellation_token_source.Token;
+        public static void Start() {
+            if (!running) {
+                running = true;
+                Task.Run(ProcessQueue, cancellation_token);
             }
+        }
+        public static void Stop() {
+            running = false;
+            cancellation_token_source.Cancel();
         }
 
         static void ProcessQueue() {
-            while (started && !State.cancellation_token.IsCancellationRequested) {
+            while (running && !cancellation_token.IsCancellationRequested) {
                 LogItem li;
 
                 if (LogQueue.TryDequeue(out li)) li.print();
                 else Thread.Sleep(10);
             }
+            running = false;
         }
 
         internal static void WriteColor(string str, ConsoleColor color) {

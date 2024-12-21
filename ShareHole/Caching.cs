@@ -35,12 +35,11 @@ namespace ShareHole {
             if (!typeof(ICacheStruct).IsAssignableFrom(typeof(T)))
                 throw new Exception("Not an ICacheStruct");
 
-            if (enable_pruning)
-                StartPruning(State.cancellation_token);
+            if (enable_pruning) StartPruning();
         }
 
-        public void StartPruning(CancellationToken cancellation_token) {
-            Task.Run(() => {
+        public void StartPruning() {
+            State.task_start(() => {
                 currently_pruning = true;
                 Logging.ThreadMessage($"Started pruning thread", "Cache", 5);
                 
@@ -48,9 +47,10 @@ namespace ShareHole {
                     Prune();
                 }
 
-            }, cancellation_token).ContinueWith(a => {
+            }).ContinueWith(a => {
                 currently_pruning = false;
-            }, cancellation_token);
+
+            });
         }
 
         private void Prune() {

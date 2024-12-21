@@ -56,7 +56,7 @@ namespace ShareHole {
         {
             var tr = new ThumbnailRequest(file, context, parent_server, mime_type, thread_id);
 
-            Task.Run(() => { build_thumbnail(tr); }, State.cancellation_token);
+            State.task_start(() => { build_thumbnail(tr); });
 
             //Task bt = new Task(build_thumbnail, CurrentConfig.cancellation_token);
         }
@@ -212,7 +212,7 @@ namespace ShareHole {
             try
             {
                 MemoryStream ms = new MemoryStream(request.thumbnail, false);
-                ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r =>
+                await ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r =>
                 {
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;

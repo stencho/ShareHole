@@ -31,9 +31,8 @@ port=8080
 # The name of the first section of the URL, required to access shares
 # For example: example.com:8080/loot/share
 passdir=loot
-# The number of threads for handling requests and uploads 
-# This includes thumbnails, so if you're using gallery mode, you may want to increase this
-threads=100
+# The number of threads for handling requests 
+threads=16
 # The size of each partial transfer chunk's buffer size in kilobytes
 transfer_buffer_size=512
 # Look for base.html and base.css in the config directory instead of loading them from memory
@@ -67,8 +66,8 @@ use_variable_bit_rate=true
 # Variable bit rate quality, lower values improve quality but increase file size
 # Values around 18-25 are recommended
 vbr_quality_factor=22
-# The bit rate of the MP4 transcoding process, in Kb
-cbr_bit_rate_kb=1000
+# The bit rate of the MP4 transcoding process, in kb
+cbr_bit_rate=1000
 # Determines how many threads are started for each /transcode/
 threads_per_video_conversion=4
 
@@ -99,6 +98,7 @@ thumbnail_compression_quality=60
 convert_images_automatically=true
 convert_videos_automatically=true
 convert_audio_automatically=true
+
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"

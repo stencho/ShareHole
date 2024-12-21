@@ -6,11 +6,11 @@ using FFMpegCore;
 namespace ShareHole {
     public class ShareServer {
         bool running = true;
+
         HttpListener listener;
 
         string CSS = "";
-        public string id { get; private set; }
-        public string name { get; private set; }
+        public string prefix { get; private set; }
 
         static string base_page_content = "";
 
@@ -30,7 +30,7 @@ namespace ShareHole {
             return base_page_content.Replace("{page_content}", page_content).Replace("{page_title}", page_title).Replace("{script}", sc_tagged).Replace("{style}", st_tagged);
         }
 
-        string base_css_data_replaced {
+        static string base_css_data_replaced {
             get {
                 return State.base_css
                     .Replace("{thumbnail_size}", State.server["gallery"]["thumbnail_size"].ToInt().ToString())
@@ -49,11 +49,8 @@ namespace ShareHole {
         }
 
         int dispatch_thread_count = 64;
-        public Thread[] dispatch_threads;
 
-        public void StartServer(string id) {
-            this.id = id;
-
+        public async void Start() {
             if (State.use_html_file) {
                 if (File.Exists("base.html"))
                     base_page_content = File.ReadAllText("base.html");
@@ -84,11 +81,13 @@ namespace ShareHole {
             var prefixes = State.server["server"]["prefix"].ToString().Trim().Split(' ');
             dispatch_thread_count = State.server["server"]["threads"].ToInt();
 
+            ThreadPool.SetMinThreads(dispatch_thread_count * 2, ThreadPool.ThreadCount);
+
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
             if (p.StartsWith("https://")) p = p.Remove(0, 8);
             if (p.EndsWith('/')) p = p.Remove(p.Length - 1, 1);
-            name = $"{p}:{port}";
+            prefix = $"{p}:{port}";
 
             for (int i = 0; i < prefixes.Length; i++) {
                 string prefix = prefixes[i].Trim();
@@ -103,42 +102,15 @@ namespace ShareHole {
 
             listener.Start();
 
-            dispatch_threads = new Thread[dispatch_thread_count];
-
             Logging.Message($"Starting server on port {port}");
 
-            for (int i = 0; i < dispatch_thread_count; i++) {
-                dispatch_threads[i] = new Thread(RequestThread);
-                dispatch_threads[i].Name = $"{prefixes[0]}:{port}:{i}";
-                dispatch_threads[i].Start((dispatch_threads[i].Name, i));
-            }
+            Parallel.For(0, dispatch_thread_count, i => {
+                State.task_start(() => { RequestThread($"{prefixes[0]}:{port}:{i}", i); });
+            });
         }
 
-        public void StopServer() {
-            running = false;
-
-            State.cancellation_token_source.Cancel(true);
-
-            while (true) {
-                if (all_threads_stopped())
-                    break;
-            }
-
-            Logging.Message($"All threads stopped");
-
+        public async void StopListener() {
             listener.Stop();
-        }
-
-        bool all_threads_stopped() {
-            int i = 0;
-
-            foreach (Thread t in dispatch_threads) {
-                if (t.ThreadState != ThreadState.Stopped) {
-                    i++;
-                }
-            }
-
-            return i == 0;
         }
 
         enum command_dirs {
@@ -152,12 +124,9 @@ namespace ShareHole {
             music_info
         }
 
-        async void RequestThread(object? name_id) {
+        async void RequestThread(string thread_name, int thread_id) {
             if (State.cancellation_token.IsCancellationRequested) return;
 
-            (string name, int id) nid = (((string, int))name_id);
-            string thread_name = nid.name.ToString();
-            int thread_id = nid.id;
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
 
             while (listener.IsListening && running) {
@@ -174,6 +143,7 @@ namespace ShareHole {
                     while (context == null) {
                         if (State.cancellation_token.IsCancellationRequested) {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                            running = false;
                             return;
                         }
 
@@ -194,6 +164,8 @@ namespace ShareHole {
                     }
                     continue;
                 }
+
+                /* COMICAL AMOUNTS OF SETUP */
 
                 var request = context.Request;
 
@@ -246,8 +218,6 @@ namespace ShareHole {
                     }
                 }
 
-
-
                 //Clean URL
                 while (url_path.EndsWith("/#")) url_path = url_path.Remove(url_path.Length - 2);
                 while (url_path.StartsWith('/')) {
@@ -296,6 +266,8 @@ namespace ShareHole {
                 bool file_exists = File.Exists(absolute_on_disk_path);
                 bool dir_exists = Directory.Exists(absolute_on_disk_path);
 
+                /* ACTUAL SERVING BEGINS HERE */
+                
                 /* CLIENT REQUESTED CSS */
                 if (request.Url.AbsolutePath.EndsWith("base.css")) { 
                     absolute_on_disk_path = Path.GetFullPath("base.css");
@@ -304,12 +276,14 @@ namespace ShareHole {
                     var data = Encoding.UTF8.GetBytes(CSS);
                     context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
-
-                    using (MemoryStream ms = new MemoryStream(data, false)) {
-                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                            //ok_close(context);
-                        }, State.cancellation_token);
-                    }
+                    State.task_start(async () => {
+                        using (MemoryStream ms = new MemoryStream(data, false)) {
+                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                //ok_close(context);
+                            }, State.cancellation_token);
+                        }
+                     });
+                    
 
                 /* COMMAND DIRECTORIES */
                 } else if (command_dir != command_dirs.none) { 
@@ -358,11 +332,13 @@ namespace ShareHole {
 
                                     var bytes = mi.ToByteArray();
                                     context.Response.ContentLength64 = bytes.Length;
-                                    using (MemoryStream ms = new MemoryStream(bytes, false)) {
-                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                            Send.OK(context);
-                                        }, State.cancellation_token);
-                                    }
+                                    State.task_start(async () => {
+                                        using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                                Send.OK(context);
+                                            }, State.cancellation_token);
+                                        }
+                                    });                                    
                                 }
 
                             } else {
@@ -392,11 +368,15 @@ namespace ShareHole {
 
                                     var bytes = mi.ToByteArray();
                                     context.Response.ContentLength64 = bytes.Length;
-                                    using (MemoryStream ms = new MemoryStream(bytes, false)) {
-                                        var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                            Send.OK(context);
-                                        }, State.cancellation_token);
-                                    }
+
+                                    State.task_start(async () => {
+                                        using (MemoryStream ms = new MemoryStream(bytes, false)) {
+                                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                                Send.OK(context);
+                                            }, State.cancellation_token);
+                                        }
+                                    });
+                                    
                                 }
 
                             } else {
@@ -408,7 +388,7 @@ namespace ShareHole {
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
-                                Task.Run(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); }, State.cancellation_token);
+                                State.task_start(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); });
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
@@ -442,12 +422,15 @@ namespace ShareHole {
                             var data = Encoding.UTF8.GetBytes(raw_file_list);
                             context.Response.ContentLength64 = data.Length;
                             try {
-                                using (MemoryStream ms = new MemoryStream(data, false)) {
-                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                        Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
-                                        Send.OK(context);
-                                    }, State.cancellation_token);
-                                }
+
+                                State.task_start(async () => {
+                                    using (MemoryStream ms = new MemoryStream(data, false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+                                });
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
@@ -497,12 +480,15 @@ namespace ShareHole {
                             var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, ""));
 
                             try {
-                                using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
-                                    var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                        Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                                        Send.OK(context);
-                                    }, State.cancellation_token);
-                                }
+                                State.task_start(async () => {
+                                    using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+                                });
+
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
@@ -559,12 +545,14 @@ namespace ShareHole {
                     context.Response.ContentLength64 = data.LongLength;
 
                     try {
-                        using (MemoryStream ms = new MemoryStream(data, false)) {
-                            var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                Send.OK(context);
-                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                            }, State.cancellation_token);
-                        }
+                        State.task_start(async () => {
+                            using (MemoryStream ms = new MemoryStream(data, false)) {
+                                await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                    Send.OK(context);
+                                    Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                                }, State.cancellation_token);
+                            }
+                        });
 
                     } catch (HttpListenerException ex) {
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
@@ -619,7 +607,7 @@ namespace ShareHole {
                 }
 
             }
-
+            running = false;
             Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
 
         }
