@@ -325,11 +325,12 @@ namespace ShareHole {
                     }
                     if (LogQueue.Count > 0) goto keep_going;
                     Console.WriteLine();
+
                     if (enable_info_bar) print_status_bar_bottom();
-                    else {
-                        var i = draw_keyboard_buffer_with_cursor();
-                        Console.Write(new string(' ', Console.WindowWidth - i - 1));
-                    }
+                    //else {
+                    //    var i = draw_keyboard_buffer_with_cursor();
+                    //    Console.Write(new string(' ', Console.WindowWidth - i - 1));
+                    //}
                     LastConsoleBottom = ConsoleBottom;
 
                 } else Thread.Sleep(200);

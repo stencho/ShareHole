@@ -624,7 +624,7 @@ namespace ShareHole {
                 return;
 
             } else if (line == "threadstatus") {
-                Logging.Message($"{State.TaskCount} total threads");
+                Logging.Message($"{server.running_request_threads}threads, {State.TaskCount} taskss");
 
             } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                 line = line.Remove(0, 1);
@@ -640,7 +640,11 @@ namespace ShareHole {
         static void log_console_view_loop() {
             Logging.HandleReadLineAction = handle_readline;
             while (true) {
-                Logging.ProcessKeyboard();
+                if (Logging.enable_info_bar)
+                    Logging.ProcessKeyboard();
+                else
+                    handle_readline(Console.ReadLine());
+
                 Thread.Sleep(3);
             }
         }
