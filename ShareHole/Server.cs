@@ -469,6 +469,14 @@ namespace ShareHole {
 
                             var script = """
                                 const music_list = document.getElementById('music-list'); 
+                                
+                                function play_song(filename) {     
+                                    window.parent.load_song_and_folder(filename);
+                                }
+                            
+                                function change_directory(url) {
+                                    window.parent.change_directory(url);                                    
+                                }
                                     
                                 function scroll_bar_music_list_border() {
                                     if (music_list.scrollHeight > document.documentElement.clientHeight) {
@@ -478,18 +486,13 @@ namespace ShareHole {
                                     }
                                 }
 
-                                window.addEventListener('load', scroll_bar_music_list_border);
-                                window.addEventListener('resize', scroll_bar_music_list_border);
-                                
-                                function play_song(filename) {     
-                                    window.parent.load_song_and_folder(filename);
-                                }
+                                window.addEventListener('load', () => {
+                                    scroll_bar_music_list_border();                            
+                                    window.parent.change_directory_visual('{url}');                       
+                                });
 
-                                function change_directory(url) {
-                                    window.parent.change_directory(url);
-                                    console.log(url);
-                                }
-                            """.Replace("{url}", url_path);
+                                window.addEventListener('resize', scroll_bar_music_list_border);
+                            """.Replace("{url}", Uri.EscapeDataString(url_path));
 
                             var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, ""));
 

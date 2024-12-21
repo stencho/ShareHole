@@ -8,7 +8,7 @@
         public static string stylesheet = """
             :root {                            
                 --border-thickness: 2px;
-                --total-borders: 5;
+                --total-borders: 4;
 
                 /* top - info */
                 --top-info-area-height: 100px;
@@ -315,13 +315,18 @@
 
                 function change_directory(url) {
                     list_frame.src = url;
-                    let i = url.lastIndexOf("/");
-                    directory_box.innerHTML = decodeURIComponent(url.slice(i + 1));
+                    change_directory_visual(url);
+                }         
 
+                function change_directory_visual(url) {
+                    let i = decodeURIComponent(url).lastIndexOf("/");
+                    directory_box.innerHTML = decodeURIComponent(url).slice(i + 1);
+            
                     if (directory_box.innerHTML.length == 0) {
                         directory_box.innerHTML = share_name;
                     }
-                }         
+
+                }
 
                 function play_pause() {
                     if (audio_player.paused) {
