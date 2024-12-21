@@ -18,8 +18,9 @@ namespace ShareHole {
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         internal static CancellationToken cancellation_token => cancellation_token_source.Token;
 
-        public static void reset_cancellation_token() {
+        public static void reset_cancellation_tokens() {
             cancellation_token_source = new CancellationTokenSource();
+            CacheCancellation.cancellation_token_source = new CancellationTokenSource();
         }
 
         static int _task_count = 0;
@@ -45,6 +46,36 @@ namespace ShareHole {
         }
 
         public static Task task_start(Task task) {
+            task_count_increment();
+            return Task.Run(() => {
+                try {
+                    task.Start();
+                } finally {
+                    task_count_decrement();
+                }
+            }, cancellation_token).ContinueWith(t => {
+                if (t.IsFaulted) {
+                    Logging.Error($"Task failed: ");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public static Task task_start(Action task, CancellationToken cancellation_token) {
+            task_count_increment();
+            return Task.Run(() => {
+                try {
+                    task.Invoke();
+                } finally {
+                    task_count_decrement();
+                }
+            }, cancellation_token).ContinueWith(t => {
+                if (t.IsFaulted) {
+                    Logging.Error($"Task failed: ");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public static Task task_start(Task task, CancellationToken cancellation_token) {
             task_count_increment();
             return Task.Run(() => {
                 try {
@@ -523,7 +554,7 @@ namespace ShareHole {
 
                         stop_server();
 
-                        reset_cancellation_token();
+                        reset_cancellation_tokens();
 
                         Logging.Config($"Re-loading configuration");
                         LoadConfig();

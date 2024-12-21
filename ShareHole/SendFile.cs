@@ -24,8 +24,7 @@ namespace ShareHole {
                         context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                         context.Response.StatusDescription = "404 NOT FOUND";
                         context.Response.Close();
-                    }, State.cancellation_token);
-                    
+                    }, State.cancellation_token);                    
                 }
             });
         }
@@ -143,10 +142,10 @@ namespace ShareHole {
 
                 byte[] buffer = new byte[chunk_size];
 
-                FileStream fs = System.IO.File.OpenRead(filename);
-                fs.Seek(range_info.start, SeekOrigin.Begin);
-                await fs.ReadAsync(buffer, 0, buffer.Length, State.cancellation_token);
-                fs.Close();
+                using (FileStream fs = System.IO.File.OpenRead(filename)) {
+                    fs.Seek(range_info.start, SeekOrigin.Begin);
+                    await fs.ReadAsync(buffer, 0, buffer.Length, State.cancellation_token);                 
+                }
 
                 using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
                     await buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
@@ -169,22 +168,20 @@ namespace ShareHole {
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.StatusDescription = "200 OK";
 
-                FileStream fs = System.IO.File.OpenRead(file.FullName);
-                context.Response.ContentLength64 = fs.Length;
+                using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
+                    context.Response.ContentLength64 = fs.Length;
 
-                await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
-                    try {
-                        //context.Response.OutputStream.Close();
-                        if (State.LogLevel == Logging.LogLevel.ALL)
-                            Logging.Warning($"Finished writing {file.Name}");
+                    await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
+                        try {
+                            //context.Response.OutputStream.Close();
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.Warning($"Finished writing {file.Name}");
 
-                        fs.Close();
-                    } catch (HttpListenerException ex) {
-                        Logging.Error($"{ex.Message}");
-
-                        fs.Close();
-                    }
-                }, State.cancellation_token);
+                        } catch (HttpListenerException ex) {
+                            Logging.Error($"{ex.Message}");
+                        }
+                    }, State.cancellation_token);
+                }
             }
         }
     }

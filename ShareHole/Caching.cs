@@ -1,10 +1,12 @@
 ﻿using ImageMagick;
+using System.Collections.Concurrent;
+using System.ComponentModel.Design;
 
 namespace ShareHole {
     public struct cache_item_life {
         internal double birth_time; internal double life_time = 0;
 
-        public cache_item_life(double life_time) {            
+        public cache_item_life(double life_time) {
             this.life_time = life_time;
             refresh();
         }
@@ -14,18 +16,84 @@ namespace ShareHole {
         public bool needs_prune() => age > life_time;
     }
 
+    public static class CacheCancellation {
+        internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
+        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
+    }
+
+    public class ConcurrentCache<T> {
+        static readonly double max_age = 86400 / 4; // 6 hours
+
+        Type type;
+        ConcurrentDictionary<string, (cache_item_life life, T item)> cache = new ConcurrentDictionary<string, (cache_item_life life, T item)>();
+
+        public bool currently_pruning = false;
+
+        public bool Test(string key) => cache.ContainsKey(key);
+        public void Remove(string key) => cache.TryRemove(key, out _);
+
+        public void Clear() => cache.Clear();        
+
+        public ConcurrentCache() {
+            type = typeof(T);
+            StartPruning();
+        }
+
+        public void Store(string key, T item) {
+            if (item == null) return;
+            if (!item.GetType().IsAssignableFrom(type)) return;
+            if (Test(key)) return;
+            if (cache.TryAdd(key, (new cache_item_life(max_age), item))) {
+                Logging.Message($"Stored {item.ToString()} in cache");
+            } else {
+                Logging.Error($"Failed cache store on {item.ToString()}");
+            }
+        }
+        public void Update(string key, T item) {
+            if (item == null) return;
+            if (!item.GetType().IsAssignableFrom(type)) return;
+            cache.AddOrUpdate(key, (new cache_item_life(max_age), item), (key, old) => (new cache_item_life(), item));
+        }
+        public T Request(string key) {
+            return cache[key].item;
+        }
+
+        public void StartPruning() {
+            State.task_start(Prune, CacheCancellation.cancellation_token)
+                .ContinueWith(a => { currently_pruning = false; });
+        }
+
+        private void Prune() {
+            currently_pruning = true;
+
+            while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
+            restart:
+                if (cache.Keys.Count > 0)
+                foreach (var key in cache.Keys.ToList()) {
+                    if (cache[key].life.needs_prune()) {
+                        cache.TryRemove(key, out _);
+                        Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
+                        goto restart;
+                    }
+                }
+
+                Task.Delay(1000);
+            }
+        }
+    }
 
     public class Cache<T> {
         static readonly double max_age = 86400 / 4;
 
-        Dictionary<string, T> cache = new Dictionary<string, T>();
+        Dictionary<string, (cache_item_life life, T item)> cache = new Dictionary<string, (cache_item_life life, T item)>();
+
+        public void Clear() => cache.Clear();
 
         public bool currently_pruning = false;
 
-        public void Store(string key, T item) {
+        public void Store(string key, T item) {            
             if (Test(key)) return;
-            cache.Add(key, item);
-            Logging.ThreadMessage($"Stored {key} in cache", "Cache", 5);
+            cache.Add(key, (new cache_item_life(max_age), item));
         }
 
         public bool Test(string key) => cache.ContainsKey(key);
@@ -38,32 +106,30 @@ namespace ShareHole {
             if (enable_pruning) StartPruning();
         }
 
+        public T Request(string key) {
+            return cache[key].item;
+        }
+
         public void StartPruning() {
-            State.task_start(() => {
-                currently_pruning = true;
-                Logging.ThreadMessage($"Started pruning thread", "Cache", 5);
-                
-                while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
-                    Prune();
-                }
-
-            }).ContinueWith(a => {
-                currently_pruning = false;
-
-            });
+            State.task_start(Prune, CacheCancellation.cancellation_token)
+                .ContinueWith(a => { currently_pruning = false; });
         }
 
         private void Prune() {
-        restart:
-            foreach (var key in cache.Keys) {
-                if (((ICacheStruct)cache[key]).needs_prune()) {
-                    cache.Remove(key);
-                    Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
-                    goto restart;
-                }
-            }
+            currently_pruning = true;
 
-            Thread.Sleep(1000);
+            while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
+            restart:
+                foreach (var key in cache.Keys) {
+                    if (cache[key].life.needs_prune()) {
+                        cache.Remove(key);
+                        Logging.ThreadMessage($"Pruned {key} from cache", "Cache", 5);
+                        goto restart;
+                    }
+                }
+
+                Thread.Sleep(1000);
+            }
         }
     }
 
