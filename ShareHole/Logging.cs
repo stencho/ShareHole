@@ -113,19 +113,19 @@ namespace ShareHole {
                 Task.Run(ProcessQueue, cancellation_token);
                 Console.CursorVisible = false;
                 
-                Task.Run(find_processor_usage, cancellation_token);
-                
+                Task.Run(find_processor_usage, cancellation_token);                
             }
         }
         public static void Stop() {      
             cancellation_token_source.Cancel();
+
             while (running) { Thread.Sleep(50); }
             
             finish_queue();
 
+            Console.WriteLine("Stopped all logging threads");
+
             Console.CursorVisible = true;
-            Console.CursorLeft = 0;
-            Console.CursorTop = Console.WindowTop + Console.WindowHeight;
             Console.ForegroundColor = ConsoleColor.White;
             Console.BackgroundColor = ConsoleColor.Black;
         }
@@ -317,7 +317,7 @@ namespace ShareHole {
         }
 
         static void ProcessQueue() {            
-            while (running && !cancellation_token.IsCancellationRequested) {
+            while (!cancellation_token.IsCancellationRequested) {
                 log_item li;
                 if (LogQueue.Count > 0) {
                     if (enable_info_bar) Console.CursorLeft = 0;
@@ -351,9 +351,7 @@ namespace ShareHole {
         static void finish_queue() {
             while (LogQueue.Count > 0) {
                 log_item li;
-
                 if (LogQueue.TryDequeue(out li)) li.print();
-                else Thread.Sleep(10);
             }
         }
 
