@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace ShareHole {
     public static class Logging {
@@ -51,7 +52,7 @@ namespace ShareHole {
 
         };
 
-        static Queue<LogItem> LogQueue = new Queue<LogItem>();
+        static ConcurrentQueue<LogItem> LogQueue = new ConcurrentQueue<LogItem>();
 
         public static void Message(string text, bool show_caller=true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername);
@@ -121,16 +122,9 @@ namespace ShareHole {
         static void ProcessQueue() {
             while (started && !CurrentConfig.cancellation_token.IsCancellationRequested) {
                 LogItem li;
-                bool success = false;
 
-                lock (LogQueue) {
-                    if (success = LogQueue.TryDequeue(out li)) {
-                        li.print();
-                    }
-                }
-
-                if (success)
-                    Thread.Sleep(10);
+                if (LogQueue.TryDequeue(out li)) li.print();
+                else Thread.Sleep(10);
             }
         }
 
