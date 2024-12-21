@@ -77,11 +77,10 @@ namespace ShareHole {
 
             listener = new HttpListener();
 
-            var port = State.server["server"]["port"].ToInt();
-            var prefixes = State.server["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = State.server["server"]["threads"].ToInt();
-
-            ThreadPool.SetMinThreads(dispatch_thread_count * 2, ThreadPool.ThreadCount);
+            var port = State.Port;
+            var prefixes = State.Prefixes.Trim().Split(' ');
+            
+            ThreadPool.SetMinThreads(dispatch_thread_count * 4, dispatch_thread_count * 4);
 
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
@@ -104,8 +103,8 @@ namespace ShareHole {
 
             Logging.Message($"Starting server on port {port}");
 
-            Parallel.For(0, dispatch_thread_count, i => {
-                State.task_start(() => { RequestThread($"{prefixes[0]}:{port}:{i}", i); });
+            Parallel.For(0, State.RequestThreads, i => {
+                State.StartTask(() => { HandleRequests($"{prefixes[0]}:{port}:{i}", i); });
             });
         }
 
@@ -124,10 +123,19 @@ namespace ShareHole {
             music_info
         }
 
-        async void RequestThread(string thread_name, int thread_id) {
-            if (State.cancellation_token.IsCancellationRequested) return;
+        internal CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
+        internal CancellationToken cancellation_token => cancellation_token_source.Token;
+        internal int running_request_threads = 0;
+
+        async void HandleRequests(string thread_name, int thread_id) {
+            if (cancellation_token.IsCancellationRequested) {
+                Interlocked.Decrement(ref running_request_threads);
+                Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                return;
+            }
 
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
+            Interlocked.Increment(ref running_request_threads);
 
             while (listener.IsListening && running) {
                 HttpListenerContext context = null;
@@ -135,10 +143,12 @@ namespace ShareHole {
                     //Asynchronously begin waiting for a new HTTP request,
                     //but continue on to the while loop below to make it
                     //possible to exit idly waiting threads 
-                    listener.GetContextAsync().ContinueWith(a => {
-                        context = a.Result;
-                    }, State.cancellation_token);
 
+                    await listener.GetContextAsync().ContinueWith(a => {
+                        context = a.Result;
+                    }, cancellation_token);
+
+                    /*
                     //Wait for a new HTTP request
                     while (context == null) {
                         if (State.cancellation_token.IsCancellationRequested) {
@@ -148,9 +158,10 @@ namespace ShareHole {
                         }
 
                         //sleep for a random amount of time, purely to reduce cpu usage at idle. 
-                        Thread.Sleep(Random.Shared.Next(5, 50));
+                        Thread.Sleep(Random.Shared.Next(5, 10));
                     }
-
+                    */
+                    //Logging.ThreadMessage($"Got context!", thread_name, thread_id);
                 } catch (HttpListenerException ex) {
                     //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
                     if (running) {
@@ -163,6 +174,10 @@ namespace ShareHole {
                         Logging.ThreadError($"Failed to get context: {ex.Message}", thread_name, thread_id);
                     }
                     continue;
+                } catch (TaskCanceledException ex) {
+                    Interlocked.Decrement(ref running_request_threads);
+                    Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                    return;
                 }
 
                 /* COMICAL AMOUNTS OF SETUP */
@@ -276,7 +291,7 @@ namespace ShareHole {
                     var data = Encoding.UTF8.GetBytes(CSS);
                     context.Response.ContentType = "text/css; charset=utf-8";
                     context.Response.ContentLength64 = data.LongLength;
-                    State.task_start(async () => {
+                    State.StartTask(async () => {
                         using (MemoryStream ms = new MemoryStream(data, false)) {
                             await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                 //ok_close(context);
@@ -332,7 +347,7 @@ namespace ShareHole {
 
                                     var bytes = mi.ToByteArray();
                                     context.Response.ContentLength64 = bytes.Length;
-                                    State.task_start(async () => {
+                                    State.StartTask(async () => {
                                         using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                             await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                                 Send.OK(context);
@@ -369,7 +384,7 @@ namespace ShareHole {
                                     var bytes = mi.ToByteArray();
                                     context.Response.ContentLength64 = bytes.Length;
 
-                                    State.task_start(async () => {
+                                    State.StartTask(async () => {
                                         using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                             await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                                 Send.OK(context);
@@ -388,7 +403,7 @@ namespace ShareHole {
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
-                                State.task_start(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); });
+                                State.StartTask(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); });
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
@@ -423,7 +438,7 @@ namespace ShareHole {
                             context.Response.ContentLength64 = data.Length;
                             try {
 
-                                State.task_start(async () => {
+                                State.StartTask(async () => {
                                     using (MemoryStream ms = new MemoryStream(data, false)) {
                                         await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                             Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
@@ -480,7 +495,7 @@ namespace ShareHole {
                             var data_mpd = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", script, ""));
 
                             try {
-                                State.task_start(async () => {
+                                State.StartTask(async () => {
                                     using (MemoryStream ms = new MemoryStream(data_mpd, false)) {
                                         await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                             Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
@@ -545,7 +560,7 @@ namespace ShareHole {
                     context.Response.ContentLength64 = data.LongLength;
 
                     try {
-                        State.task_start(async () => {
+                        State.StartTask(async () => {
                             using (MemoryStream ms = new MemoryStream(data, false)) {
                                 await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                     Send.OK(context);
@@ -593,7 +608,8 @@ namespace ShareHole {
                         continue;
                     }
 
-                    Logging.ThreadMessage($"[Share] {share_name} [Filename]: {absolute_on_disk_path} [Content-type] {mimetype}", thread_name, thread_id);
+                    if (State.LogLevel == Logging.LogLevel.ALL)
+                        Logging.ThreadMessage($"[Share] {share_name} [Filename]: {absolute_on_disk_path} [Content-type] {mimetype}", thread_name, thread_id);
 
                     enable_cache(context);
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
@@ -607,9 +623,6 @@ namespace ShareHole {
                 }
 
             }
-            running = false;
-            Logging.ThreadMessage($"Stopped thread", thread_name, thread_id);
-
         }
 
         void enable_cache(HttpListenerContext context) {

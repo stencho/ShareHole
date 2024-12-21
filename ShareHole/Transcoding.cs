@@ -28,7 +28,7 @@ namespace ShareHole {
                 context.Response.StatusDescription = "200 OK";
 
                 if (State.server["transcode"]["use_variable_bit_rate"].ToBool()) {
-                    State.task_start(async () => {
+                    State.StartTask(async () => {
                         await FFMpegArguments
                             .FromFileInput(file.FullName)
                             .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
@@ -56,7 +56,7 @@ namespace ShareHole {
                     });
 
                 } else {
-                    State.task_start(async () => {
+                    State.StartTask(async () => {
                     await FFMpegArguments
                     .FromFileInput(file.FullName)
                         .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options

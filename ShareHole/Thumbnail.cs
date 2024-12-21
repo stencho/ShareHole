@@ -41,7 +41,7 @@ namespace ShareHole {
         //static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
         static ConcurrentCache<(string mime, byte[] data)> thumbnail_cache = new ConcurrentCache<(string mime, byte[] data)>();
-
+        public static int ThumbsInCache => thumbnail_cache.Count;
         static int thumb_compression_quality => State.server["gallery"]["thumbnail_compression_quality"].ToInt();
 
         public static void RequestThumbnail(string filename, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
@@ -58,7 +58,7 @@ namespace ShareHole {
         {
             var tr = new ThumbnailRequest(file, context, parent_server, mime_type, thread_id);
 
-            State.task_start(() => { build_thumbnail(tr); });
+            State.StartTask(() => { build_thumbnail(tr); });
         }
 
         static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest request)
@@ -197,21 +197,18 @@ namespace ShareHole {
             else goto cache_fail;
 
             try {
-                using (MemoryStream ms = new MemoryStream(request.thumbnail, false)) {
-                    await ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r => {
-                        //success
-                        request.response.StatusCode = (int)HttpStatusCode.OK;
-                        request.response.StatusDescription = "200 OK";
+                State.StartTask(async() => {
+                    using (MemoryStream ms = new MemoryStream(request.thumbnail, false)) {
+                        await ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r => {
+                            //success
+                            request.response.StatusCode = (int)HttpStatusCode.OK;
+                            request.response.StatusDescription = "200 OK";
 
-                        request.response.Close();
-
-                        ms.Close();
-                        ms.Dispose();
-
-                        if (State.LogLevel == Logging.LogLevel.ALL)
-                            Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
-                    });
-                }
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                        });                
+                    }
+                });
             }
             catch (HttpListenerException ex)
             {

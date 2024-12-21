@@ -18,7 +18,7 @@ namespace ShareHole {
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = data.LongLength;
 
-            State.task_start(async () => {
+            State.StartTask(async () => {
                 using (MemoryStream ms = new MemoryStream(data, false)) {
                     await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                         context.Response.StatusCode = (int)HttpStatusCode.NotFound;
@@ -35,7 +35,7 @@ namespace ShareHole {
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength64 = data.LongLength;
 
-            State.task_start(async () => {
+            State.StartTask(async () => {
                 using (MemoryStream ms = new MemoryStream(data, false)) {
                     await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                         context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -47,14 +47,14 @@ namespace ShareHole {
         }
 
         public static void FileWithRanges(string filename, string mime, HttpListenerContext context) {
-            State.task_start(() => { send_file_ranges(filename, mime, context); });
+            State.StartTask(() => { send_file_ranges(filename, mime, context); });
         }
 
         public async void File(FileInfo file, string mime, HttpListenerContext context) {
             context.Response.StatusCode = (int)HttpStatusCode.OK;
             context.Response.StatusDescription = "200 OK";
 
-            State.task_start(async () => {
+            State.StartTask(async () => {
                 using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
                     context.Response.ContentLength64 = fs.Length;
                     try {
@@ -147,19 +147,21 @@ namespace ShareHole {
                     await fs.ReadAsync(buffer, 0, buffer.Length, State.cancellation_token);                 
                 }
 
-                using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
-                    await buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                        try {
-                            context.Response.OutputStream.Close();
-                            if (State.LogLevel == Logging.LogLevel.ALL)
-                                Logging.Message($"{file.Name} :: Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\"");
+                State.StartTask(async () => {
+                    using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
+                        await buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                            try {
+                                context.Response.OutputStream.Close();
+                                if (State.LogLevel == Logging.LogLevel.ALL)
+                                    Logging.Message($"{file.Name} :: Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\"");
 
 
-                        } catch (Exception ex) {
-                            Logging.Error($"{ex.Message}");
-                        }
-                    }, State.cancellation_token);
-                }
+                            } catch (Exception ex) {
+                                Logging.Error($"{ex.Message}");
+                            }
+                        }, State.cancellation_token);
+                    }
+                });
 
             } else {
                 if (State.LogLevel == Logging.LogLevel.ALL)
@@ -168,20 +170,22 @@ namespace ShareHole {
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.StatusDescription = "200 OK";
 
-                using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
-                    context.Response.ContentLength64 = fs.Length;
+                State.StartTask(async () => {
+                    using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
+                        context.Response.ContentLength64 = fs.Length;
 
-                    await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
-                        try {
-                            //context.Response.OutputStream.Close();
-                            if (State.LogLevel == Logging.LogLevel.ALL)
-                                Logging.Warning($"Finished writing {file.Name}");
+                        await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
+                            try {
+                                //context.Response.OutputStream.Close();
+                                if (State.LogLevel == Logging.LogLevel.ALL)
+                                    Logging.Warning($"Finished writing {file.Name}");
 
-                        } catch (HttpListenerException ex) {
-                            Logging.Error($"{ex.Message}");
-                        }
-                    }, State.cancellation_token);
-                }
+                            } catch (HttpListenerException ex) {
+                                Logging.Error($"{ex.Message}");
+                            }
+                        }, State.cancellation_token);
+                    }
+                });
             }
         }
     }

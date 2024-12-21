@@ -1,9 +1,23 @@
-﻿namespace ShareHole {
+﻿using ImageMagick;
+
+namespace ShareHole {
     public static class MusicInfo {
-        internal static Cache<MusicCacheItem> cache = new Cache<MusicCacheItem>();
+        internal static ConcurrentCache<MusicCacheItem> cache = new ConcurrentCache<MusicCacheItem>();
 
+        public class MusicCacheItem {
 
+            internal string filename;
+            string mime;
+
+            public string title;
+            public string artist;
+            public string album;
+
+            public byte[] cover;
+        }
     }
+
+
     public static class MusicPlayerData {
         public static string stylesheet = """
             :root {                            

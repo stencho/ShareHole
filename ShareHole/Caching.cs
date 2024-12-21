@@ -3,6 +3,14 @@ using System.Collections.Concurrent;
 using System.ComponentModel.Design;
 
 namespace ShareHole {
+    public static class CacheCancellation {
+        internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
+        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
+
+        public static void Cancel() => cancellation_token_source.Cancel(true);        
+        public static void Reset() => cancellation_token_source = new CancellationTokenSource();
+    }
+
     public struct cache_item_life {
         internal double birth_time; internal double life_time = 0;
 
@@ -14,11 +22,6 @@ namespace ShareHole {
         public double age => DateTimeOffset.UtcNow.ToUnixTimeSeconds() - birth_time;
         public void refresh() => birth_time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         public bool needs_prune() => age > life_time;
-    }
-
-    public static class CacheCancellation {
-        internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
-        internal static CancellationToken cancellation_token => cancellation_token_source.Token;
     }
 
     public class ConcurrentCache<T> {
@@ -54,9 +57,11 @@ namespace ShareHole {
             if (!item.GetType().IsAssignableFrom(type)) return;
             if (Test(key)) return;
             if (cache.TryAdd(key, (new cache_item_life(max_age), item))) {
-                Logging.Message($"Stored {key}::{item.ToString()} in cache");
+                if (State.LogLevel == Logging.LogLevel.ALL)
+                    Logging.Message($"Stored {key}::{item.ToString()} in cache");
             } else {
-                Logging.Error($"Failed cache store on {key}::{item.ToString()}");
+                if (State.LogLevel == Logging.LogLevel.ALL)
+                    Logging.Error($"Failed cache store on {key}::{item.ToString()}");
             }
         }
         public void Update(string key, T item) {
@@ -68,8 +73,10 @@ namespace ShareHole {
             return cache[key].item;
         }
 
+        public int Count => cache.Count;
+
         public void StartPruning() {
-            State.task_start(Prune, CacheCancellation.cancellation_token)
+            State.StartTask(Prune, CacheCancellation.cancellation_token)
                 .ContinueWith(a => { currently_pruning = false; });
         }
 
@@ -82,7 +89,8 @@ namespace ShareHole {
                 foreach (var key in cache.Keys.ToList()) {
                     if (cache[key].life.needs_prune()) {
                         cache.TryRemove(key, out _);
-                        Logging.ThreadMessage($"Pruned {key}::{cache[key].item.ToString()} from cache", "Cache", 5);
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.ThreadMessage($"Pruned {key}::{cache[key].item.ToString()} from cache", "Cache", 5);
                         goto restart;
                     }
                 }
@@ -93,5 +101,4 @@ namespace ShareHole {
             currently_pruning = false;
         }
     }
-
 }

@@ -1,4 +1,9 @@
-﻿using System.Drawing;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Drawing;
+using System.Runtime.CompilerServices;
+using System.Security.AccessControl;
+using ImageMagick;
 using Microsoft.VisualBasic;
 using ShareHole.Configuration;
 using static ShareHole.Logging;
@@ -15,28 +20,46 @@ namespace ShareHole {
         public static bool use_html_file = false;
         public static bool use_css_file = false;
 
+        public static int RequestThreads => server["server"]["threads"].ToInt();
+        public static int Port => server["server"]["port"].ToInt();
+        public static string Prefixes => server["server"]["prefix"].ToString();
+
         internal static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         internal static CancellationToken cancellation_token => cancellation_token_source.Token;
 
-        public static void reset_cancellation_tokens() {
+        public static void reset_cancellation_token() {
             cancellation_token_source = new CancellationTokenSource();
-            CacheCancellation.cancellation_token_source = new CancellationTokenSource();
         }
 
         static int _task_count = 0;
-        public static int task_count => _task_count;
+        public static int TaskCount => _task_count;
 
-        public static void task_count_increment() => Interlocked.Increment(ref _task_count);
-        public static void task_count_decrement() => Interlocked.Decrement(ref _task_count);
+        public static void IncrementTaskCount() => Interlocked.Increment(ref _task_count);
+        public static void DecrementTaskCount() => Interlocked.Decrement(ref _task_count);
 
+        struct ThreadInfo {
+            public string caller_filename;
+            public string caller_member_name;
 
-        public static Task task_start(Action task) {
-            task_count_increment();
+            public ThreadInfo(string caller_filename, string caller_member_name) {
+                this.caller_filename = caller_filename;
+                this.caller_member_name = caller_member_name;
+            }
+        }
+
+        static ConcurrentDictionary<Guid, ThreadInfo> threads = new ConcurrentDictionary<Guid, ThreadInfo>();
+
+        public static Task StartTask(Action action, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Guid task_guid = Guid.NewGuid();
+            
             return Task.Run(() => {
+                IncrementTaskCount();
                 try {
-                    task.Invoke();
+                    threads.TryAdd(task_guid, new ThreadInfo(callerfilename, membername));
+                    action.Invoke();
                 } finally {
-                    task_count_decrement();
+                    threads.TryRemove(task_guid, out _);
+                    DecrementTaskCount();
                 }
             }, cancellation_token).ContinueWith(t => {
                 if (t.IsFaulted) {
@@ -45,13 +68,36 @@ namespace ShareHole {
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
-        public static Task task_start(Task task) {
-            task_count_increment();
+        public static Task StartTask(Action action, CancellationToken cancellation_token, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {            
+            Guid task_guid = Guid.NewGuid();
+
             return Task.Run(() => {
+                IncrementTaskCount();
                 try {
-                    task.Start();
+                    threads.TryAdd(task_guid, new ThreadInfo(callerfilename, membername));
+                    action.Invoke();
                 } finally {
-                    task_count_decrement();
+                    threads.TryRemove(task_guid, out _);
+                    DecrementTaskCount();
+                }
+            }, cancellation_token).ContinueWith(t => {
+                if (t.IsFaulted) {
+                    Logging.Error($"Task failed: ");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+        public static Task StartTask(Action action, out Guid guid, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Guid task_guid = Guid.NewGuid();
+            guid = task_guid;
+
+            return Task.Run(() => {
+                IncrementTaskCount();
+                try {
+                    threads.TryAdd(task_guid, new ThreadInfo(callerfilename, membername));
+                    action.Invoke();
+                } finally {
+                     threads.TryRemove(task_guid, out _);
+                    DecrementTaskCount();
                 }
             }, cancellation_token).ContinueWith(t => {
                 if (t.IsFaulted) {
@@ -60,13 +106,18 @@ namespace ShareHole {
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
-        public static Task task_start(Action task, CancellationToken cancellation_token) {
-            task_count_increment();
+        public static Task StartTask(Action action, out Guid guid, CancellationToken cancellation_token, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
+            Guid task_guid = Guid.NewGuid();
+            guid = task_guid;
+
             return Task.Run(() => {
+                IncrementTaskCount();
                 try {
-                    task.Invoke();
+                    threads.TryAdd(task_guid, new ThreadInfo(callerfilename, membername));
+                    action.Invoke();
                 } finally {
-                    task_count_decrement();
+                    threads.TryRemove(task_guid, out _);
+                    DecrementTaskCount();
                 }
             }, cancellation_token).ContinueWith(t => {
                 if (t.IsFaulted) {
@@ -75,19 +126,8 @@ namespace ShareHole {
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
-        public static Task task_start(Task task, CancellationToken cancellation_token) {
-            task_count_increment();
-            return Task.Run(() => {
-                try {
-                    task.Start();
-                } finally {
-                    task_count_decrement();
-                }
-            }, cancellation_token).ContinueWith(t => {
-                if (t.IsFaulted) {
-                    Logging.Error($"Task failed: ");
-                }
-            }, TaskContinuationOptions.OnlyOnFaulted);
+        public static void ConsoleTitleInfo() {
+            Console.Title = "";
         }
 
         public static string base_html = """
@@ -274,7 +314,9 @@ namespace ShareHole {
                             { "transfer_buffer_size", new ConfigValue(512)},
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
-                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all                            
+                            //{ "log_to_file", new ConfigValue("")}, //todo
+                            { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
+                            { "show_info", new ConfigValue(true)}
                         }
                     },
 
@@ -361,6 +403,11 @@ namespace ShareHole {
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
+            ConfigFileIO.comment_manager.AddBefore("server", "show_info", """
+                Shows information about CPU/memory usage, thread count, etc in the command line
+                May not work properly on some systems
+                """);
+
             //THEME
             ConfigFileIO.comment_manager.AddBefore("theme", """
                 UI color settings in R,G,B,A format
@@ -443,182 +490,207 @@ namespace ShareHole {
         }
 
 
-        internal class Program {
-            static ShareServer server;
+    }
+    internal class Program {
+        public static ShareServer server;
 
-            internal static void LoadConfig() {
-                State.InitializeComments();
+        internal static void LoadConfig() {
+            State.InitializeComments();
 
-                State.server = new ConfigWithExpectedValues(State.server_config_values);
+            State.server = new ConfigWithExpectedValues(State.server_config_values);
 
-                if (State.server["server"].ContainsKey("use_html_file")) {
-                    State.use_css_file = State.server["server"]["use_html_file"].ToBool();
-                    Logging.Config("Using HTML from disk");
-                } else {
-                    Logging.Config("Using CSS from constant");
+            if (State.server["server"].ContainsKey("use_html_file")) {
+                State.use_css_file = State.server["server"]["use_html_file"].ToBool();
+                Logging.Config("Using HTML from disk");
+            } else {
+                Logging.Config("Using CSS from constant");
+            }
+
+            if (State.server["server"].ContainsKey("use_css_file")) {
+                State.use_css_file = State.server["server"]["use_css_file"].ToBool();
+                Logging.Config("Using CSS from disk");
+            } else {
+                Logging.Config("Using CSS from constant");
+            }
+
+            Logging.Config($"Loaded server config");
+
+            State.shares = new ConfigWithUserValues("shares");
+
+            foreach (var section in State.shares.Keys) {
+                if (!State.shares[section].ContainsKey("path")) {
+                    Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
+                    State.shares.Remove(section);
                 }
+            }
 
-                if (State.server["server"].ContainsKey("use_css_file")) {
-                    State.use_css_file = State.server["server"]["use_css_file"].ToBool();
-                    Logging.Config("Using CSS from disk");
-                } else {
-                    Logging.Config("Using CSS from constant");
-                }
+            State.shares.config_file.WriteAllValuesToConfig(State.shares);
 
-                Logging.Config($"Loaded server config");
+            if (State.shares.share_count == 0) {
+                Logging.Config($"No shares configured in shares file!");
+                Logging.Config("Add one to the shares file in your config folder using this format:");
 
-                State.shares = new ConfigWithUserValues("shares");
+                var tmpcol = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Magenta;
 
-                foreach (var section in State.shares.Keys) {
-                    if (!State.shares[section].ContainsKey("path")) {
-                        Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
-                        State.shares.Remove(section);
-                    }
-                }
-
-                State.shares.config_file.WriteAllValuesToConfig(State.shares);
-
-                if (State.shares.share_count == 0) {
-                    Logging.Config($"No shares configured in shares file!");
-                    Logging.Config("Add one to the shares file in your config folder using this format:");
-
-                    var tmpcol = Console.ForegroundColor;
-                    Console.ForegroundColor = ConsoleColor.Magenta;
-
-                    Logging.Config($"""                                 
+                Logging.Config($"""                                 
                                  [music]
                                  path=W:\\_STORAGE\MUSIC
                                  show_directories=true
                                  extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
                                  """);
 
-                    Console.ForegroundColor = tmpcol;
+                Console.ForegroundColor = tmpcol;
 
-                    return;
-                } else {
-                    Logging.Config($"Loaded shares");
-                }
-
-                State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
+                return;
+            } else {
+                Logging.Config($"Loaded shares");
             }
 
-            static void Main(string[] args) {
-                Console.OutputEncoding = System.Text.Encoding.UTF8;
-               
-                Logging.Start();
+            State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
+        }
 
-                if (args.Length > 0) {
-                    for (int i = 0; i < args.Length; i++) {
-                        if (args[i] == "-c") {
-                            i++;
-                            string p = args[i];
-                            Logging.Config($"Using {Path.GetFullPath(p)} as config directory");
-                            if (Directory.Exists(Path.GetFullPath(p))) {
-                                Directory.SetCurrentDirectory(Path.GetFullPath(p));
-                            } else {
-                                Logging.Config("Config directory missing. Creating a new one and loading defaults.");
-                                Directory.CreateDirectory(Path.GetFullPath(p));
-                                Directory.SetCurrentDirectory(Path.GetFullPath(p));
-                            }
+        static void Main(string[] args) {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+            Logging.Start();
+            
+            Logging.Message($"ImageMagick version: {MagickNET.ImageMagickVersion}");
+            
+            Logging.Message($"Magick thread limit of {MagickNET.GetEnvironmentVariable("MAGICK_THREAD_LIMIT")}");
+
+            //Logging.Message($"FFMpeg version: {}");
+            MagickNET.SetEnvironmentVariable("MAGICK_THREAD_LIMIT", "13");
+
+            if (args.Length > 0) {
+                for (int i = 0; i < args.Length; i++) {
+                    if (args[i] == "-c") {
+                        i++;
+                        string p = args[i];
+                        Logging.Config($"Using {Path.GetFullPath(p)} as config directory");
+                        if (Directory.Exists(Path.GetFullPath(p))) {
+                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
+                        } else {
+                            Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                            Directory.CreateDirectory(Path.GetFullPath(p));
+                            Directory.SetCurrentDirectory(Path.GetFullPath(p));
                         }
                     }
-                } else {
-                    Logging.Config($"Using {Path.GetFullPath(State.config_dir)} as config directory");
-                    if (Directory.Exists(Path.GetFullPath(State.config_dir))) {
-                        Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
-                    } else {
-                        Directory.CreateDirectory(Path.GetFullPath(State.config_dir));
-                        Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
-                        Logging.Config("Config directory missing. Creating a new one and loading defaults.");
-                    }
                 }
+            } else {
+                Logging.Config($"Using {Path.GetFullPath(State.config_dir)} as config directory");
+                if (Directory.Exists(Path.GetFullPath(State.config_dir))) {
+                    Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
+                } else {
+                    Directory.CreateDirectory(Path.GetFullPath(State.config_dir));
+                    Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
+                    Logging.Config("Config directory missing. Creating a new one and loading defaults.");
+                }
+            }
 
-                Logging.Config($"Loading configuration");
+            Logging.Config($"Loading configuration");
+            LoadConfig();
+            Logging.Config($"Configuration loaded, starting server!");
+
+            server = new ShareServer();
+
+            State.StartTask(() => {
+                server = new ShareServer();
+                start_server();
+            });
+
+            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
+
+            log_console_view_loop();
+        }
+
+        static void handle_readline(string line) {
+            if (line == "restart") {
+                Logging.Warning("Restarting server!");
+
+                stop_server();
+
+                State.reset_cancellation_token();
+
+                Logging.Config($"Re-loading configuration");
                 LoadConfig();
                 Logging.Config($"Configuration loaded, starting server!");
 
                 server = new ShareServer();
+                start_server();
 
-                State.task_start(() => {
-                    server = new ShareServer();
-                    start_server();
-                });
+            } else if (line == "shutdown" || line == "quit" || line == "exit") {
+                Exit();
+                return;
 
-                Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { Exit(); e.Cancel = true; };
+            } else if (line == "threadstatus") {
+                Logging.Message($"{State.TaskCount} total threads");
 
-                while (true) {
-                    string line = Console.ReadLine();
-
-                    if (line == "restart") {
-                        Logging.Warning("Restarting server!");
-
-                        stop_server();
-
-                        reset_cancellation_tokens();
-
-                        Logging.Config($"Re-loading configuration");
-                        LoadConfig();
-                        Logging.Config($"Configuration loaded, starting server!");
-
-                        server = new ShareServer();
-                        start_server();
-
-                    } else if (line == "shutdown" || line == "quit" || line == "exit") {
-                        Exit();
-                        return;
-
-                    } else if (line == "threadstatus") {
-                        Logging.Message($"{State.task_count} total threads");
-
-                    } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
-                        line = line.Remove(0, 1);
-                        State.server.config_file.ChangeValueByString(State.server, line);
-                    } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
-                        line = line.Remove(0, 1);
-                        State.shares.config_file.ChangeValueByString(State.shares, line);
-                    }
-                }
+            } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
+                line = line.Remove(0, 1);
+                State.server.config_file.ChangeValueByString(State.server, line);
+            } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
+                line = line.Remove(0, 1);
+                State.shares.config_file.ChangeValueByString(State.shares, line);
             }
 
-            static void start_server() {
-                server.Start();
+
+        }
+
+        static void log_console_view_loop() {
+            Logging.HandleReadLineAction = handle_readline;
+            while (true) {
+                Logging.ProcessKeyboard();
+                Thread.Sleep(3);
+            }
+        }
+
+
+        static void start_server() {
+            if (CacheCancellation.cancellation_token.IsCancellationRequested)
+                CacheCancellation.Reset();
+
+            server.Start();
+        }
+
+
+        static void Exit() {
+            Logging.Warning("Shutting down!");
+            Logging.force_disable_info_bar = true;
+
+            CacheCancellation.Cancel();
+            stop_server();
+
+            Logging.Config($"Flushing config");
+            State.server.config_file.Flush();
+
+            Logging.Message("Goodbye!");
+            
+            Logging.Stop();
+            Console.CursorVisible = true;
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Title = "";
+            System.Environment.Exit(0);
+        }
+
+        static void stop_server() {
+            Logging.Warning($"Sending cancellation signal to all threads");
+
+            server.cancellation_token_source.Cancel(true);
+            State.cancellation_token_source.Cancel(true);
+
+            while (State.TaskCount != 0 && server.running_request_threads != 0) {
+                Thread.Sleep(50);
             }
 
-            static async void stop_server() {
-                Logging.Warning($"Sending cancellation signal to all threads");
+            Logging.Message($"All threads stopped");
 
-                State.cancellation_token_source.Cancel(true);
+            server.StopListener();
+        }
 
-                while (State.task_count > 0) {
-                    Thread.Sleep(50);
-                }
-
-                Logging.Message($"All threads stopped");
-
-                server.StopListener();
-            }
-
-            static void Exit() {
-                Logging.Warning("Shutting down!");
-
-                stop_server();
-
-                Logging.Config($"Flushing config");
-                State.server.config_file.Flush();
-
-                Logging.Message("Goodbye!");
-
-                Logging.Stop();
-                Console.CursorVisible = true;
-                Console.ForegroundColor = ConsoleColor.White;
-
-                System.Environment.Exit(0);
-            }
-
-            ~Program() {
-                Console.CursorVisible = true;
-                Console.ForegroundColor = ConsoleColor.White;
-            }
+        ~Program() {
+            Console.CursorVisible = true;
+            Console.ForegroundColor = ConsoleColor.White;
         }
     }
 }
