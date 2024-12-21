@@ -524,18 +524,16 @@ namespace ShareHole.Configuration {
                 string line = config_file_text[i].Trim();
                 //found a section with the right header
                 if (line.StartsWith("[") && line.EndsWith("]") && line.Substring(1, line.Length - 2) == section) in_correct_section = true;
+                else if (line.StartsWith("[") && line.EndsWith("]") && line.Substring(1, line.Length - 2) != section) in_correct_section = false;
                 //found the right key, replace its text
                 if (in_correct_section && !loop_2 && line.StartsWith(key)) { config_file_text[i] = $"{key}={value}"; return; }
-                //we're looping through a second time, so that if we didn't find the value the first time, we can write it at the bottom of the first correct section
+                //didn't find a key, so we're looping through a second time,
+                //so that we can write it at the bottom of the first correct section
+                //it's just easier than backing up lol
                 if (in_correct_section && loop_2 && (i == config_file_text.Count - 1 || line.StartsWith("[") && line.EndsWith("]") && line.Substring(1, line.Length - 2) != section))
                 {
                     config_file_text.Insert(i + 1, $"{key}={value}");
                     return;
-                }
-                //we're leaving the correct section on the first loop, continue and see if it shows up again later
-                if (in_correct_section && line.StartsWith("[") && line.EndsWith("]") && line.Substring(1, line.Length - 2) != section)
-                {
-                    in_correct_section = false;
                 }
                 if (i == config_file_text.Count - 1 && loop_2 == false) { i = 0; loop_2 = true; in_correct_section = false; }
             }

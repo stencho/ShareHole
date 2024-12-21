@@ -126,9 +126,12 @@ namespace ShareHole {
                 Task.Run(ProcessQueue, cancellation_token);
             }
         }
-        public static void Stop() {
-            running = false;
+        public static void Stop() {      
             cancellation_token_source.Cancel();
+
+            while (running) { Thread.Sleep(50); }
+            
+            finish_queue();
         }
 
         static void ProcessQueue() {
@@ -139,6 +142,15 @@ namespace ShareHole {
                 else Thread.Sleep(10);
             }
             running = false;
+        }
+
+        static void finish_queue() {
+            while (LogQueue.Count > 0) {
+                LogItem li;
+
+                if (LogQueue.TryDequeue(out li)) li.print();
+                else Thread.Sleep(10);
+            }
         }
 
         internal static void WriteColor(string str, ConsoleColor color) {
