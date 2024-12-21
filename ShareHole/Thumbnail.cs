@@ -40,7 +40,7 @@ namespace ShareHole {
         //cache for thumbnails which have been loaded at least once
         static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
 
-        static int thumb_compression_quality => CurrentConfig.server["gallery"]["thumbnail_compression_quality"].ToInt();
+        static int thumb_compression_quality => State.server["gallery"]["thumbnail_compression_quality"].ToInt();
 
         public static void RequestThumbnail(string filename, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
         {
@@ -56,7 +56,7 @@ namespace ShareHole {
         {
             var tr = new ThumbnailRequest(file, context, parent_server, mime_type, thread_id);
 
-            Task.Run(() => { build_thumbnail(tr); }, CurrentConfig.cancellation_token);
+            Task.Run(() => { build_thumbnail(tr); }, State.cancellation_token);
 
             //Task bt = new Task(build_thumbnail, CurrentConfig.cancellation_token);
         }
@@ -103,19 +103,19 @@ namespace ShareHole {
         static async void build_thumbnail(ThumbnailRequest request)
         {
         cache_fail:
-            thumbnail_size = CurrentConfig.server["gallery"]["thumbnail_size"].ToInt();
+            thumbnail_size = State.server["gallery"]["thumbnail_size"].ToInt();
 
             //cache hit, do nothing
             if (thumbnail_cache.ContainsKey(request.file.FullName))
             {
-                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 //build new thumbnail for an image and add it to the cache
             }
             else if (request.mime_type.StartsWith("image") || request.mime_type == "application/postscript" || request.mime_type == "application/pdf")
             {
-                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 MagickImage mi = new MagickImage(request.file.FullName);
@@ -125,7 +125,7 @@ namespace ShareHole {
 
                 mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
 
-                if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool())
+                if (State.server["gallery"]["thumbnail_compression"].ToBool())
                 {
                     ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
 
@@ -158,7 +158,7 @@ namespace ShareHole {
             }
             else if (request.mime_type.StartsWith("video"))
             {
-                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
 
                 try
@@ -174,7 +174,7 @@ namespace ShareHole {
                         if (mi.Orientation != OrientationType.Undefined)
                             mi.AutoOrient();
 
-                        if (CurrentConfig.server["gallery"]["thumbnail_compression"].ToBool())
+                        if (State.server["gallery"]["thumbnail_compression"].ToBool())
                         {
                             ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
                             img_data = mi.ToByteArray();
@@ -212,7 +212,7 @@ namespace ShareHole {
             try
             {
                 MemoryStream ms = new MemoryStream(request.thumbnail, false);
-                ms.CopyToAsync(request.response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(r =>
+                ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r =>
                 {
                     //success
                     request.response.StatusCode = (int)HttpStatusCode.OK;
@@ -223,7 +223,7 @@ namespace ShareHole {
                     ms.Close();
                     ms.Dispose();
 
-                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                    if (State.LogLevel == Logging.LogLevel.ALL)
                         Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
                 });
 

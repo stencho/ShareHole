@@ -32,18 +32,18 @@ namespace ShareHole {
 
         string base_css_data_replaced {
             get {
-                return CurrentConfig.base_css
-                    .Replace("{thumbnail_size}", CurrentConfig.server["gallery"]["thumbnail_size"].ToInt().ToString())
+                return State.base_css
+                    .Replace("{thumbnail_size}", State.server["gallery"]["thumbnail_size"].ToInt().ToString())
 
-                    .Replace("{main_color}", CurrentConfig.server["theme"]["main_color"].ToColorJSString())
-                    .Replace("{main_color_dark}", CurrentConfig.server["theme"]["main_color_dark"].ToColorJSString())
+                    .Replace("{main_color}", State.server["theme"]["main_color"].ToColorJSString())
+                    .Replace("{main_color_dark}", State.server["theme"]["main_color_dark"].ToColorJSString())
 
-                    .Replace("{secondary_color}", CurrentConfig.server["theme"]["secondary_color"].ToColorJSString())
-                    .Replace("{secondary_color_dark}", CurrentConfig.server["theme"]["secondary_color_dark"].ToColorJSString())
+                    .Replace("{secondary_color}", State.server["theme"]["secondary_color"].ToColorJSString())
+                    .Replace("{secondary_color_dark}", State.server["theme"]["secondary_color_dark"].ToColorJSString())
                     
-                    .Replace("{text_color}", CurrentConfig.server["theme"]["text_color"].ToColorJSString())
-                    .Replace("{background_color}", CurrentConfig.server["theme"]["background_color"].ToColorJSString())
-                    .Replace("{secondary_background_color}", CurrentConfig.server["theme"]["secondary_background_color"].ToColorJSString())
+                    .Replace("{text_color}", State.server["theme"]["text_color"].ToColorJSString())
+                    .Replace("{background_color}", State.server["theme"]["background_color"].ToColorJSString())
+                    .Replace("{secondary_background_color}", State.server["theme"]["secondary_background_color"].ToColorJSString())
                     ;
             }
         }
@@ -54,19 +54,19 @@ namespace ShareHole {
         public void StartServer(string id) {
             this.id = id;
 
-            if (CurrentConfig.use_html_file) {
+            if (State.use_html_file) {
                 if (File.Exists("base.html"))
                     base_page_content = File.ReadAllText("base.html");
                 else {
                     Logging.Error("use_css_file enabled, but base.css is missing from the config directory. Writing default.");
-                    base_page_content = CurrentConfig.base_html;
+                    base_page_content = State.base_html;
                     File.WriteAllText("base.html", base_page_content);
                 }
             } else {
-                base_page_content = CurrentConfig.base_html;
+                base_page_content = State.base_html;
             }
 
-            if (CurrentConfig.use_css_file) {
+            if (State.use_css_file) {
                 if (File.Exists("base.css")) {
                     CSS = File.ReadAllText("base.css");
                 } else {
@@ -80,9 +80,9 @@ namespace ShareHole {
 
             listener = new HttpListener();
 
-            var port = CurrentConfig.server["server"]["port"].ToInt();
-            var prefixes = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ');
-            dispatch_thread_count = CurrentConfig.server["server"]["threads"].ToInt();
+            var port = State.server["server"]["port"].ToInt();
+            var prefixes = State.server["server"]["prefix"].ToString().Trim().Split(' ');
+            dispatch_thread_count = State.server["server"]["threads"].ToInt();
 
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
@@ -117,7 +117,7 @@ namespace ShareHole {
         public void StopServer() {
             running = false;
 
-            CurrentConfig.cancellation_token_source.Cancel(true);
+            State.cancellation_token_source.Cancel(true);
 
             while (true) {
                 if (all_threads_stopped())
@@ -153,7 +153,7 @@ namespace ShareHole {
         }
 
         async void RequestThread(object? name_id) {
-            if (CurrentConfig.cancellation_token.IsCancellationRequested) return;
+            if (State.cancellation_token.IsCancellationRequested) return;
 
             (string name, int id) nid = (((string, int))name_id);
             string thread_name = nid.name.ToString();
@@ -168,11 +168,11 @@ namespace ShareHole {
                     //possible to exit idly waiting threads 
                     listener.GetContextAsync().ContinueWith(a => {
                         context = a.Result;
-                    }, CurrentConfig.cancellation_token);
+                    }, State.cancellation_token);
 
                     //Wait for a new HTTP request
                     while (context == null) {
-                        if (CurrentConfig.cancellation_token.IsCancellationRequested) {
+                        if (State.cancellation_token.IsCancellationRequested) {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                             return;
                         }
@@ -223,7 +223,7 @@ namespace ShareHole {
                 string page_content = "";
 
                 string url_path = Uri.UnescapeDataString(request.Url.AbsolutePath);
-                string passdir = CurrentConfig.server["server"]["passdir"].ToString().Trim();
+                string passdir = State.server["server"]["passdir"].ToString().Trim();
 
                 string share_name = "";
                 string folder_path = "";
@@ -272,13 +272,13 @@ namespace ShareHole {
                 bool show_dirs = true;
 
                 //if requested share exists
-                if (CurrentConfig.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
+                if (State.shares.ContainsKey(share_name) && !request.Url.AbsolutePath.EndsWith("base.css")) {
                     //Check if directories should be listed
-                    if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                        show_dirs = CurrentConfig.shares[share_name]["show_directories"].ToBool();
+                    if (State.shares[share_name].ContainsKey("show_directories")) {
+                        show_dirs = State.shares[share_name]["show_directories"].ToBool();
                     }
 
-                    folder_path = CurrentConfig.shares[share_name]["path"].ToString();
+                    folder_path = State.shares[share_name]["path"].ToString();
                     //Logging.Message($"Accessing share: {share_name}");
 
                 } else if (!request.Url.AbsolutePath.EndsWith("base.css")) {
@@ -308,7 +308,7 @@ namespace ShareHole {
                     using (MemoryStream ms = new MemoryStream(data, false)) {
                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                             //ok_close(context);
-                        }, CurrentConfig.cancellation_token);
+                        }, State.cancellation_token);
                     }
 
                 /* COMMAND DIRECTORIES */
@@ -340,8 +340,8 @@ namespace ShareHole {
 
                                     mi.Settings.Format = MagickFormat.Jpg;
 
-                                    var compress = CurrentConfig.server["conversion"]["jpeg_compression"].ToBool();
-                                    var quality = CurrentConfig.server["conversion"]["jpeg_quality"].ToInt();
+                                    var compress = State.server["conversion"]["jpeg_compression"].ToBool();
+                                    var quality = State.server["conversion"]["jpeg_quality"].ToInt();
 
                                     if (quality < 0) quality = 0;
                                     if (quality > 100) quality = 100;
@@ -361,7 +361,7 @@ namespace ShareHole {
                                     using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                             Send.OK(context);
-                                        }, CurrentConfig.cancellation_token);
+                                        }, State.cancellation_token);
                                     }
                                 }
 
@@ -395,7 +395,7 @@ namespace ShareHole {
                                     using (MemoryStream ms = new MemoryStream(bytes, false)) {
                                         var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                             Send.OK(context);
-                                        }, CurrentConfig.cancellation_token);
+                                        }, State.cancellation_token);
                                     }
                                 }
 
@@ -408,7 +408,7 @@ namespace ShareHole {
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
-                                Task.Run(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); }, CurrentConfig.cancellation_token);
+                                Task.Run(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); }, State.cancellation_token);
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";
@@ -446,7 +446,7 @@ namespace ShareHole {
                                     var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                         Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
                                         Send.OK(context);
-                                    }, CurrentConfig.cancellation_token);
+                                    }, State.cancellation_token);
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
@@ -501,7 +501,7 @@ namespace ShareHole {
                                     var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                         Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
                                         Send.OK(context);
-                                    }, CurrentConfig.cancellation_token);
+                                    }, State.cancellation_token);
                                 }
                             } catch (HttpListenerException ex) {
                                 Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
@@ -533,8 +533,8 @@ namespace ShareHole {
                         continue;
                     } else {
                         //Get the page content based on the share's chosen render style
-                        if (CurrentConfig.shares[share_name].ContainsKey("style")) {
-                            switch (CurrentConfig.shares[share_name]["style"].ToString()) {                                
+                        if (State.shares[share_name].ContainsKey("style")) {
+                            switch (State.shares[share_name]["style"].ToString()) {                                
                                 case "gallery":
                                     page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
                                     data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
@@ -563,7 +563,7 @@ namespace ShareHole {
                             var task = ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                                 Send.OK(context);
                                 Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
-                            }, CurrentConfig.cancellation_token);
+                            }, State.cancellation_token);
                         }
 
                     } catch (HttpListenerException ex) {
@@ -590,8 +590,8 @@ namespace ShareHole {
                     var using_extensions = false;
                     string[] extensions = null;
 
-                    if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
-                        extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+                    if (State.shares[share_name].ContainsKey("extensions")) {
+                        extensions = State.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                         using_extensions = true;
                         for (int i = 0; i < extensions.Length; i++) {
                             extensions[i] = extensions[i].Trim();

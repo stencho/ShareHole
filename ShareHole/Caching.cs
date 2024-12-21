@@ -36,7 +36,7 @@ namespace ShareHole {
                 throw new Exception("Not an ICacheStruct");
 
             if (enable_pruning)
-                StartPruning(CurrentConfig.cancellation_token);
+                StartPruning(State.cancellation_token);
         }
 
         public void StartPruning(CancellationToken cancellation_token) {
@@ -44,7 +44,7 @@ namespace ShareHole {
                 currently_pruning = true;
                 Logging.ThreadMessage($"Started pruning thread", "Cache", 5);
                 
-                while (currently_pruning && !CurrentConfig.cancellation_token.IsCancellationRequested) {
+                while (currently_pruning && !State.cancellation_token.IsCancellationRequested) {
                     Prune();
                 }
 

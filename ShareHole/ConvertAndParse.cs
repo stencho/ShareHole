@@ -8,13 +8,13 @@ namespace ShareHole {
         public const string png_url = "/to_png";
         public const string jpg_url = "/to_jpg";
 
-        public static bool convert_images_list() => CurrentConfig.server["list"]["convert_images_automatically"].ToBool();
-        public static bool convert_videos_list() => CurrentConfig.server["list"]["convert_videos_automatically"].ToBool();
-        public static bool convert_audio_list() => CurrentConfig.server["list"]["convert_audio_automatically"].ToBool();
+        public static bool convert_images_list() => State.server["list"]["convert_images_automatically"].ToBool();
+        public static bool convert_videos_list() => State.server["list"]["convert_videos_automatically"].ToBool();
+        public static bool convert_audio_list() => State.server["list"]["convert_audio_automatically"].ToBool();
 
-        public static bool convert_images_gallery() => CurrentConfig.server["gallery"]["convert_images_automatically"].ToBool();
-        public static bool convert_videos_gallery() => CurrentConfig.server["gallery"]["convert_videos_automatically"].ToBool();
-        public static bool convert_audio_gallery() => CurrentConfig.server["gallery"]["convert_audio_automatically"].ToBool();
+        public static bool convert_images_gallery() => State.server["gallery"]["convert_images_automatically"].ToBool();
+        public static bool convert_videos_gallery() => State.server["gallery"]["convert_videos_automatically"].ToBool();
+        public static bool convert_audio_gallery() => State.server["gallery"]["convert_audio_automatically"].ToBool();
 
         public static string CheckConversionList(string mime) {
             return CheckConversion(mime, convert_images_list(), convert_videos_list(), convert_audio_list());

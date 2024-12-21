@@ -3,7 +3,7 @@ using ShareHole.Configuration;
 using static ShareHole.Logging;
 
 namespace ShareHole {
-    public static class CurrentConfig {
+    public static class State {
         public static string config_dir = "config";
 
         public static LogLevel LogLevel = LogLevel.HIGH_IMPORTANCE;
@@ -375,19 +375,19 @@ namespace ShareHole {
             static List<ShareServer> servers = new List<ShareServer>();
 
             internal static void LoadConfig() {
-                CurrentConfig.InitializeComments();
+                State.InitializeComments();
 
-                CurrentConfig.server = new ConfigWithExpectedValues(CurrentConfig.server_config_values);
+                State.server = new ConfigWithExpectedValues(State.server_config_values);
 
-                if (CurrentConfig.server["server"].ContainsKey("use_html_file")) {
-                    CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_html_file"].ToBool();
+                if (State.server["server"].ContainsKey("use_html_file")) {
+                    State.use_css_file = State.server["server"]["use_html_file"].ToBool();
                     Logging.Config("Using HTML from disk");
                 } else {
                     Logging.Config("Using CSS from constant");
                 }
 
-                if (CurrentConfig.server["server"].ContainsKey("use_css_file")) {
-                    CurrentConfig.use_css_file = CurrentConfig.server["server"]["use_css_file"].ToBool();
+                if (State.server["server"].ContainsKey("use_css_file")) {
+                    State.use_css_file = State.server["server"]["use_css_file"].ToBool();
                     Logging.Config("Using CSS from disk");
                 } else {
                     Logging.Config("Using CSS from constant");
@@ -395,18 +395,18 @@ namespace ShareHole {
 
                 Logging.Config($"Loaded server config");
 
-                CurrentConfig.shares = new ConfigWithUserValues("shares");
+                State.shares = new ConfigWithUserValues("shares");
 
-                foreach (var section in CurrentConfig.shares.Keys) {
-                    if (!CurrentConfig.shares[section].ContainsKey("path")) {
+                foreach (var section in State.shares.Keys) {
+                    if (!State.shares[section].ContainsKey("path")) {
                         Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
-                        CurrentConfig.shares.Remove(section);
+                        State.shares.Remove(section);
                     }
                 }
 
-                CurrentConfig.shares.config_file.WriteAllValuesToConfig(CurrentConfig.shares);
+                State.shares.config_file.WriteAllValuesToConfig(State.shares);
 
-                if (CurrentConfig.shares.share_count == 0) {
+                if (State.shares.share_count == 0) {
                     Logging.Config($"No shares configured in shares file!");
                     Logging.Config("Add one to the shares file in your config folder using this format:");
 
@@ -432,7 +432,7 @@ namespace ShareHole {
                 //    NetworkCache.StartPruning();
                 //}
 
-                CurrentConfig.LogLevel = (LogLevel)CurrentConfig.server["server"]["log_level"].ToInt();
+                State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
             }
 
             static void Main(string[] args) {
@@ -456,12 +456,12 @@ namespace ShareHole {
                         }
                     }
                 } else {
-                    Logging.Config($"Using {Path.GetFullPath(CurrentConfig.config_dir)} as config directory");
-                    if (Directory.Exists(Path.GetFullPath(CurrentConfig.config_dir))) {
-                        Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                    Logging.Config($"Using {Path.GetFullPath(State.config_dir)} as config directory");
+                    if (Directory.Exists(Path.GetFullPath(State.config_dir))) {
+                        Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
                     } else {
-                        Directory.CreateDirectory(Path.GetFullPath(CurrentConfig.config_dir));
-                        Directory.SetCurrentDirectory(Path.GetFullPath(CurrentConfig.config_dir));
+                        Directory.CreateDirectory(Path.GetFullPath(State.config_dir));
+                        Directory.SetCurrentDirectory(Path.GetFullPath(State.config_dir));
                         Logging.Config("Config directory missing. Creating a new one and loading defaults.");
                     }
                 }
@@ -504,8 +504,8 @@ namespace ShareHole {
 
                     } else if (line == "threadstatus") {
                         for (int i = 0; i < servers.Count; i++) {
-                            var port = CurrentConfig.server["server"]["port"].ToInt();
-                            var p = CurrentConfig.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
+                            var port = State.server["server"]["port"].ToInt();
+                            var p = State.server["server"]["prefix"].ToString().Trim().Split(' ')[0];
 
                             if (p.StartsWith("http://")) p = p.Remove(0, 7);
                             if (p.StartsWith("https://")) p = p.Remove(0, 8);
@@ -521,10 +521,10 @@ namespace ShareHole {
 
                     } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                         line = line.Remove(0, 1);
-                        CurrentConfig.server.config_file.ChangeValueByString(CurrentConfig.server, line);
+                        State.server.config_file.ChangeValueByString(State.server, line);
                     } else if (line != null && line.StartsWith("#") && line.Contains('.') && line.Contains('=')) {
                         line = line.Remove(0, 1);
-                        CurrentConfig.shares.config_file.ChangeValueByString(CurrentConfig.shares, line);
+                        State.shares.config_file.ChangeValueByString(State.shares, line);
                     }
                 }
             }
@@ -541,7 +541,7 @@ namespace ShareHole {
                 }
 
                 Logging.Config($"Flushing config");
-                CurrentConfig.server.config_file.Flush();
+                State.server.config_file.Flush();
 
                 Logging.Message("Goodbye!");
 

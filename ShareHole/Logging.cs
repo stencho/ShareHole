@@ -105,7 +105,7 @@ namespace ShareHole {
         }
 
         static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "", string extra_tag = "", ConsoleColor extra_color = ConsoleColor.White) {
-            if (CurrentConfig.LogLevel == 0) return;
+            if (State.LogLevel == 0) return;
             LogQueue.Enqueue(new LogItem(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
         }
 
@@ -114,13 +114,12 @@ namespace ShareHole {
         public static void StartLogger() {
             if (!started) {
                 started = true;
-
                 Task.Run(ProcessQueue);
             }
         }
 
         static void ProcessQueue() {
-            while (started && !CurrentConfig.cancellation_token.IsCancellationRequested) {
+            while (started && !State.cancellation_token.IsCancellationRequested) {
                 LogItem li;
 
                 if (LogQueue.TryDequeue(out li)) li.print();
@@ -129,7 +128,7 @@ namespace ShareHole {
         }
 
         internal static void WriteColor(string str, ConsoleColor color) {
-            if (CurrentConfig.LogLevel == 0) return;
+            if (State.LogLevel == 0) return;
             Console.ForegroundColor = color;
             Console.Write(str);
             Console.ForegroundColor = ConsoleColor.White;

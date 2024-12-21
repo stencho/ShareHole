@@ -15,7 +15,7 @@ namespace ShareHole
 {
     internal static class Renderer {
         struct listing_info {
-            public string passdir => CurrentConfig.server["server"]["passdir"].ToString().Trim();
+            public string passdir => State.server["server"]["passdir"].ToString().Trim();
             public string up_dir;
             public string grouping;
             public string[] extensions;
@@ -61,15 +61,15 @@ namespace ShareHole
             Logging.Custom($"up_dir: {info.up_dir}", "RENDER][BuildListing", ConsoleColor.DarkYellow);
 
             info.show_dirs = true;
-            if (CurrentConfig.shares[share_name].ContainsKey("show_directories")) {
-                info.show_dirs = CurrentConfig.shares[share_name]["show_directories"].ToBool();
+            if (State.shares[share_name].ContainsKey("show_directories")) {
+                info.show_dirs = State.shares[share_name]["show_directories"].ToBool();
             }
 
             info.grouping = "";
             info.cares_about_groups = false;
-            if (CurrentConfig.shares[share_name].ContainsKey("group_by")) {
+            if (State.shares[share_name].ContainsKey("group_by")) {
                 info.cares_about_groups = true;
-                info.grouping = CurrentConfig.shares[share_name]["group_by"].ToString();
+                info.grouping = State.shares[share_name]["group_by"].ToString();
                 if (info.grouping.Trim().ToLower() != "type" && info.grouping.Trim().ToLower() != "extension" && info.grouping.Trim().ToLower() != "none") {
                     info.cares_about_groups = false;
                     info.grouping = "none";
@@ -79,8 +79,8 @@ namespace ShareHole
 
             info.using_extensions = false;
             info.extensions = null;
-            if (CurrentConfig.shares[share_name].ContainsKey("extensions")) {
-                info.extensions = CurrentConfig.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
+            if (State.shares[share_name].ContainsKey("extensions")) {
+                info.extensions = State.shares[share_name]["extensions"].ToString().Trim().ToLower().Split(" ");
                 info.using_extensions = true;
                 for (int i = 0; i < info.extensions.Length; i++) {
                     info.extensions[i] = info.extensions[i].Trim();
@@ -93,7 +93,7 @@ namespace ShareHole
 
         static string build_mp4_stream_tag(string mime, string prefix, listing_info info, string share, string uri, FileInfo file) {
             string converters = "";
-            if (mime.StartsWith("video") && CurrentConfig.server["list"]["show_stream_button"].ToBool()) {
+            if (mime.StartsWith("video") && State.server["list"]["show_stream_button"].ToBool()) {
                 converters += $"⸢<text class=\"converter-text\">" +
                     $"<a href=\"http://{prefix}/{info.passdir}/transcode/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">" +
                     $"⯈MP4" +
@@ -106,7 +106,7 @@ namespace ShareHole
             string converters = "";
             string conversion = ConvertAndParse.CheckConversion(mime, true, false, false);
 
-            if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
+            if (!string.IsNullOrEmpty(conversion) && State.server["list"]["show_convert_image_buttons"].ToBool()) {
                 converters += $"⸢<text class=\"converter-text\">" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
                     $"/" +
@@ -119,7 +119,7 @@ namespace ShareHole
             string converters = "";
             string conversion = ConvertAndParse.CheckConversion(mime, true, false, false);
 
-            if (!string.IsNullOrEmpty(conversion) && CurrentConfig.server["list"]["show_convert_image_buttons"].ToBool()) {
+            if (!string.IsNullOrEmpty(conversion) && State.server["list"]["show_convert_image_buttons"].ToBool()) {
                 converters += $"⸢<text class=\"converter-text\">" +
                     $"<a href=\"http://{prefix}/{info.passdir}/to_png/{share}/{uri}{Uri.EscapeDataString($"{file.Name}")}\">PNG</a>" +
                     $"/" +
@@ -325,7 +325,7 @@ namespace ShareHole
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
                     $"<span class=\"thumbnail\" >" +
-                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
+                    $"<font size={State.server["gallery"]["thumbnail_size"].ToInt()}px>" +
                     $"<text class=\"gallery_folder\">⮝</text>" +
                     $"</font>" +
                     $"<br>" +
@@ -339,7 +339,7 @@ namespace ShareHole
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
                     $"<span class=\"thumbnail\" >" +
-                    $"<font size={CurrentConfig.server["gallery"]["thumbnail_size"].ToInt()}px>" +
+                    $"<font size={State.server["gallery"]["thumbnail_size"].ToInt()}px>" +
                     $"<text class=\"gallery_folder\">📁</text>" +
                     $"</font>" +
                     $"<br>" +

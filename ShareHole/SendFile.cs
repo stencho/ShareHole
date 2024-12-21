@@ -22,7 +22,7 @@ namespace ShareHole {
                     context.Response.StatusCode = (int)HttpStatusCode.NotFound;
                     context.Response.StatusDescription = "404 NOT FOUND";
                     context.Response.Close();
-                }, CurrentConfig.cancellation_token);
+                }, State.cancellation_token);
             }
             Logging.Error("404");
 
@@ -37,13 +37,13 @@ namespace ShareHole {
                     context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                     context.Response.StatusDescription = "400 BAD REQUEST";
                     context.Response.Close();
-                }, CurrentConfig.cancellation_token);
+                }, State.cancellation_token);
                 Logging.Error("400");
             }
         }
 
         public static void FileWithRanges(string filename, string mime, HttpListenerContext context) {
-            Task.Run(() => { send_file_ranges(filename, mime, context); }, CurrentConfig.cancellation_token);
+            Task.Run(() => { send_file_ranges(filename, mime, context); }, State.cancellation_token);
         }   
 
         public static (long start, long end, long length) ParseRequestRangeHeader(string range_value, long file_size) {
@@ -89,17 +89,17 @@ namespace ShareHole {
             FileStream fs = File.OpenRead(file.FullName);
             context.Response.ContentLength64 = fs.Length;
 
-            fs.CopyToAsync(context.Response.OutputStream, CurrentConfig.cancellation_token).ContinueWith(a => {
+            fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
                 try {
                     //context.Response.OutputStream.Close();
-                    if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                    if (State.LogLevel == Logging.LogLevel.ALL)
                         Logging.Warning($"Finished writing {file.Name}");
                     fs.Close();
                 } catch (HttpListenerException ex) {
                     Logging.Error($"{ex.Message}");
                     fs.Close();
                 }
-            }, CurrentConfig.cancellation_token);
+            }, State.cancellation_token);
         }
 
         static async void send_file_ranges(string filename, string mime, HttpListenerContext context) {
@@ -112,7 +112,7 @@ namespace ShareHole {
             var file_size = fi.Length;
 
             //get range size from config
-            var kb_size = CurrentConfig.server["server"]["transfer_buffer_size"].ToInt();
+            var kb_size = State.server["server"]["transfer_buffer_size"].ToInt();
             if (kb_size <= 0) kb_size = 1;            
             long chunk_size = kb_size * 1024;
             if (chunk_size > int.MaxValue) chunk_size = int.MaxValue;
@@ -132,7 +132,7 @@ namespace ShareHole {
 
                 context.Response.ContentLength64 = chunk_size;
 
-                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.Message($"Wants range {range_info.start}-{range_info.start + chunk_size - 1} {(range_info.start + chunk_size - 1) - range_info.start}");
 
                 context.Response.AddHeader("Content-Range", $"bytes {range_info.start}-{range_info.start + chunk_size - 1}/{file_size}");
@@ -141,25 +141,25 @@ namespace ShareHole {
 
                 FileStream fs = File.OpenRead(filename);
                 fs.Seek(range_info.start, SeekOrigin.Begin);
-                await fs.ReadAsync(buffer, 0, buffer.Length, CurrentConfig.cancellation_token);
+                await fs.ReadAsync(buffer, 0, buffer.Length, State.cancellation_token);
                 fs.Close();
 
                 using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
                     buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                         try {
                             context.Response.OutputStream.Close();
-                            if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                            if (State.LogLevel == Logging.LogLevel.ALL)
                                 Logging.Message($"{fi.Name} :: Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\"");
                            
 
                         } catch (Exception ex) {
                             Logging.Error($"{ex.Message}");
                         }
-                    }, CurrentConfig.cancellation_token);
+                    }, State.cancellation_token);
                 }
 
             } else {
-                if (CurrentConfig.LogLevel == Logging.LogLevel.ALL)
+                if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.Message($"Got file request, start streaming {fi.Name} of length {file_size}");
 
                 send_file(fi, mime, context);

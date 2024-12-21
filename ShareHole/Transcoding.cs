@@ -27,7 +27,7 @@ namespace ShareHole {
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.StatusDescription = "200 OK";
 
-                if (CurrentConfig.server["transcode"]["use_variable_bit_rate"].ToBool()) {
+                if (State.server["transcode"]["use_variable_bit_rate"].ToBool()) {
                     FFMpegArguments
                         .FromFileInput(file.FullName)
                         .OutputToPipe(new StreamPipeSink(context.Response.OutputStream), options => options
@@ -37,11 +37,11 @@ namespace ShareHole {
                             .WithAudioCodec("aac")
 
                             .UsingMultithreading(true)
-                            .UsingThreads(CurrentConfig.server["transcode"]["threads_per_video_conversion"].ToInt())
+                            .UsingThreads(State.server["transcode"]["threads_per_video_conversion"].ToInt())
                             .WithSpeedPreset(Speed.VeryFast)
                             .WithFastStart()
 
-                            .WithConstantRateFactor(CurrentConfig.server["transcode"]["vbr_quality_factor"].ToInt())
+                            .WithConstantRateFactor(State.server["transcode"]["vbr_quality_factor"].ToInt())
 
                             .WithCustomArgument("-map_metadata 0")
                             .WithCustomArgument("-loglevel verbose")
@@ -51,7 +51,7 @@ namespace ShareHole {
 
                         ).ProcessAsynchronously().ContinueWith(t => {
                             Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);
-                        }, CurrentConfig.cancellation_token);
+                        }, State.cancellation_token);
 
                 } else {
                     FFMpegArguments
@@ -63,11 +63,11 @@ namespace ShareHole {
                             .WithAudioCodec("aac")
 
                             .UsingMultithreading(true)
-                            .UsingThreads(CurrentConfig.server["transcode"]["threads_per_video_conversion"].ToInt())
+                            .UsingThreads(State.server["transcode"]["threads_per_video_conversion"].ToInt())
                             .WithSpeedPreset(Speed.VeryFast)
                             .WithFastStart()
 
-                            .WithVideoBitrate(CurrentConfig.server["transcode"]["cbr_bit_rate"].ToInt() * 1000)
+                            .WithVideoBitrate(State.server["transcode"]["cbr_bit_rate"].ToInt() * 1000)
 
                             .WithCustomArgument("-map_metadata 0")
                             .WithCustomArgument("-loglevel verbose")
@@ -77,7 +77,7 @@ namespace ShareHole {
 
                         ).ProcessAsynchronously().ContinueWith(t => {
                             Logging.ThreadMessage($"{file.Name} :: Finished sending data", "CONVERT:MP4", tid);
-                        }, CurrentConfig.cancellation_token);
+                        }, State.cancellation_token);
 
                 }
             } catch (Exception ex) {
