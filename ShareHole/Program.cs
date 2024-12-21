@@ -553,6 +553,8 @@ namespace ShareHole {
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+            Console.WriteLine("TEST");
+
             Logging.Start();
             
             if (args.Length > 0) {

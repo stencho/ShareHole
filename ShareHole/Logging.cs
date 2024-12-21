@@ -113,7 +113,7 @@ namespace ShareHole {
                 Task.Run(ProcessQueue, cancellation_token);
                 Console.CursorVisible = false;
                 
-                Task.Run(find_processor_usage, cancellation_token);
+                //Task.Run(find_processor_usage, cancellation_token);
                 
             }
         }
@@ -164,6 +164,7 @@ namespace ShareHole {
 
         public static Action<string> HandleReadLineAction;
 
+        public static bool log_to_queue => State.server["server"]["log_to_queue"].ToBool();
         public static bool enable_info_bar => !force_disable_info_bar && State.server["server"]["show_info"].ToBool();
         public static bool force_disable_info_bar = false;
         static void invert() {
@@ -319,7 +320,7 @@ namespace ShareHole {
             while (running && !cancellation_token.IsCancellationRequested) {
                 log_item li;
                 if (LogQueue.Count > 0) {
-                    Console.CursorLeft = 0;
+                    if (enable_info_bar) Console.CursorLeft = 0;
 
                 keep_going:
                     if (LogQueue.TryDequeue(out li)) {
