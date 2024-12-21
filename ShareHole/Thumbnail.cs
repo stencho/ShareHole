@@ -46,26 +46,20 @@ namespace ShareHole {
 
         public static void RequestThumbnail(string filename, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
         {
-            FileInfo f = new FileInfo(filename);
-            if (f.Exists)
-            {
-                RequestThumbnail(f, context, parent_server, mime_type, thread_id);
-            }
-            else return;
+                State.StartTask(() => { BuildThumbnail(new FileInfo(filename), context, parent_server, mime_type, thread_id); });
+            
         }
 
         public static void RequestThumbnail(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
         {
-            var tr = new ThumbnailRequest(file, context, parent_server, mime_type, thread_id);
-
-            State.StartTask(() => { build_thumbnail(tr); });
+            State.StartTask(() => { BuildThumbnail(file, context, parent_server, mime_type, thread_id); });
         }
 
-        static byte[] get_first_video_frame_from_ffmpeg(ThumbnailRequest request)
+        static byte[] get_first_video_frame_from_ffmpeg(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
         {
             byte[] output;
 
-            var anal = FFProbe.Analyse(request.file.FullName);
+            var anal = FFProbe.Analyse(file.FullName);
 
             double final_x, final_y;
 
@@ -85,7 +79,7 @@ namespace ShareHole {
             using (var stream_output = new MemoryStream())
             {
                 var stream_video = FFMpegArguments
-                    .FromFileInput(request.file)
+                    .FromFileInput(file)
                     .OutputToPipe(new StreamPipeSink(stream_output), options =>
                         options.WithFrameOutputCount(1)
                         .WithVideoCodec(VideoCodec.Png)
@@ -100,25 +94,24 @@ namespace ShareHole {
             return output;
         }
 
-        static async void build_thumbnail(ThumbnailRequest request)
-        {
+        static void BuildThumbnail(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id) {
         cache_fail:
             thumbnail_size = State.server["gallery"]["thumbnail_size"].ToInt();
 
             //cache hit, do nothing
-            if (thumbnail_cache.Test(request.file.FullName))
+            if (thumbnail_cache.Test(file.FullName))
             {
                 if (State.LogLevel == Logging.LogLevel.ALL)
-                    Logging.ThreadMessage($"Cache hit for {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                    Logging.ThreadMessage($"Cache hit for {file.Name}", $"THUMB:{thread_id}", thread_id);
 
                 //build new thumbnail for an image and add it to the cache
             }
-            else if (request.mime_type.StartsWith("image") || request.mime_type == "application/postscript" || request.mime_type == "application/pdf")
+            else if (mime_type.StartsWith("image") || mime_type == "application/postscript" || mime_type == "application/pdf")
             {
                 if (State.LogLevel == Logging.LogLevel.ALL)
-                    Logging.ThreadMessage($"Building thumbnail for image {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                    Logging.ThreadMessage($"Building thumbnail for image {file.Name}", $"THUMB:{thread_id}", thread_id);
 
-                using (MagickImage mi = new MagickImage(request.file.FullName)) {
+                using (MagickImage mi = new MagickImage(file.FullName)) {
 
                     if (mi.Orientation != OrientationType.Undefined)
                         mi.AutoOrient();
@@ -129,18 +122,20 @@ namespace ShareHole {
                         ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
 
                         try {
-                            thumbnail_cache.Store(request.file.FullName, ("image/jpeg", mi.ToByteArray()));
+                            thumbnail_cache.Store(file.FullName, ("image/jpeg", mi.ToByteArray()));
+                            mi.Dispose();
                         } catch (Exception ex) {
-                            Logging.Error($"{request.file.Name} :: {ex.Message}");
+                            Logging.Error($"{file.Name} :: {ex.Message}");
                         }
 
                     } else {
                         ConvertAndParse.Image.ConvertToPng(mi);
 
                         try {
-                            thumbnail_cache.Store(request.file.FullName, ("image/png", mi.ToByteArray()));
+                            thumbnail_cache.Store(file.FullName, ("image/png", mi.ToByteArray()));
+                            mi.Dispose();
                         } catch (Exception ex) {
-                            Logging.Error($"{request.file.Name} :: {ex.Message}");
+                            Logging.Error($"{file.Name} :: {ex.Message}");
                         }
                     }
 
@@ -148,14 +143,14 @@ namespace ShareHole {
 
                 //build one for a video
             }
-            else if (request.mime_type.StartsWith("video"))
+            else if (mime_type.StartsWith("video"))
             {
                 if (State.LogLevel == Logging.LogLevel.ALL)
-                    Logging.ThreadMessage($"Building thumbnail for video {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                    Logging.ThreadMessage($"Building thumbnail for video {file.Name}", $"THUMB:{thread_id}", thread_id);
 
                 try
                 {
-                    var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(request);
+                    var ffmpeg_thumb = get_first_video_frame_from_ffmpeg(file, context, parent_server, mime_type, thread_id);
 
                     byte[] img_data;
 
@@ -168,12 +163,12 @@ namespace ShareHole {
 
                             if (State.server["gallery"]["thumbnail_compression"].ToBool()) {
                                 ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
-                                img_data = mi.ToByteArray();
-                                thumbnail_cache.Store(request.file.FullName, ("image/jpeg", img_data));
+                                thumbnail_cache.Store(file.FullName, ("image/jpeg", mi.ToByteArray()));
+                                mi.Dispose();
                             } else {
                                 ConvertAndParse.Image.ConvertToPng(mi);
-                                img_data = mi.ToByteArray();
-                                thumbnail_cache.Store(request.file.FullName, ("image/png", img_data));
+                                thumbnail_cache.Store(file.FullName, ("image/png", mi.ToByteArray()));
+                                mi.Dispose();
                             }
 
                         }
@@ -182,37 +177,37 @@ namespace ShareHole {
                 }
                 catch (Exception ex)
                 {
-                    Logging.Error($"{request.file.Name} :: {ex.Message}");
-                    request.context.Response.Close();
+                    Logging.Error($"{file.Name} :: {ex.Message}");
+                    context.Response.Close();
                 }
             }
 
             //pull byte array from the cache and set up a few requirements
-            if (thumbnail_cache.Test(request.file.FullName))
+            if (thumbnail_cache.Test(file.FullName))
             {
-                request.thumbnail = thumbnail_cache.Request(request.file.FullName).data;
-                request.response.ContentType = thumbnail_cache.Request(request.file.FullName).mime;
-                request.response.ContentLength64 = request.thumbnail.LongLength;
+                var thumbnail = thumbnail_cache.Request(file.FullName).data;
+                context.Response.ContentType = thumbnail_cache.Request(file.FullName).mime;
+                context.Response.ContentLength64 = thumbnail.LongLength;
             }
             else goto cache_fail;
 
             try {
                 State.StartTask(async() => {
-                    using (MemoryStream ms = new MemoryStream(request.thumbnail, false)) {
-                        await ms.CopyToAsync(request.response.OutputStream, State.cancellation_token).ContinueWith(r => {
+                    using (MemoryStream ms = new MemoryStream(thumbnail_cache.Request(file.FullName).data, false)) {
+                        await ms.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(r => {
                             //success
-                            request.response.StatusCode = (int)HttpStatusCode.OK;
-                            request.response.StatusDescription = "200 OK";
+                            context.Response.StatusCode = (int)HttpStatusCode.OK;
+                            context.Response.StatusDescription = "200 OK";
 
                             if (State.LogLevel == Logging.LogLevel.ALL)
-                                Logging.ThreadMessage($"Sent thumb: {request.file.Name}", $"THUMB:{request.thread_id}", request.thread_id);
+                                Logging.ThreadMessage($"Sent thumb: {file.Name}", $"THUMB:{thread_id}", thread_id);
                         });                
                     }
                 });
             }
             catch (HttpListenerException ex)
             {
-                Logging.Error($"{request.file.Name} :: {ex.Message}");
+                Logging.Error($"{file.Name} :: {ex.Message}");
             }
 
         }

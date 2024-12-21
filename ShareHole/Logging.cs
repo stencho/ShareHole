@@ -67,7 +67,8 @@ namespace ShareHole {
                 Console.Write(text);
                 l += text.Length;
 
-                Console.Write(new string(' ', Console.WindowWidth - (l % Console.WindowWidth)));
+                if (enable_info_bar) Console.Write(new string(' ', Console.WindowWidth - (l % Console.WindowWidth)));
+                else Console.WriteLine();
             }
 
         };
@@ -106,22 +107,22 @@ namespace ShareHole {
         static bool running = false;
         static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         static CancellationToken cancellation_token => cancellation_token_source.Token;
-
+        static int thread_count = 0;
         public static void Start() {
             if (!running) {
                 running = true;
-                Task.Run(ProcessQueue, cancellation_token);                
-                Task.Run(find_processor_usage, cancellation_token);                
+                Interlocked.Increment(ref thread_count);
+                Interlocked.Increment(ref thread_count);
+                Task.Run(ProcessQueue, cancellation_token).ContinueWith(t => { Interlocked.Decrement(ref thread_count); });  
+                Task.Run(find_processor_usage, cancellation_token).ContinueWith(t => { Interlocked.Decrement(ref thread_count); });
             }
         }
         public static void Stop() {      
             cancellation_token_source.Cancel();
 
-            while (running) { Thread.Sleep(50); }
+            while (thread_count > 0) { Thread.Sleep(50); }
             
             finish_queue();
-
-            Console.WriteLine("Stopped all logging threads");
 
             Console.CursorVisible = true;
             Console.ForegroundColor = State.UserForegroundColor;
@@ -163,7 +164,7 @@ namespace ShareHole {
         public static Action<string> HandleReadLineAction;
 
         public static bool log_to_queue => State.server["server"]["log_to_queue"].ToBool();
-        public static bool enable_info_bar => !force_disable_info_bar && State.server["server"]["show_info"].ToBool();
+        public static bool enable_info_bar => !force_disable_info_bar && (State.server != null ? State.server["server"]["show_info"].ToBool() : false); 
         public static bool force_disable_info_bar = false;
         static void invert() {
             Console.ForegroundColor = ConsoleColor.Black;
@@ -325,25 +326,27 @@ namespace ShareHole {
                         li.print();
                     }
                     if (LogQueue.Count > 0) goto keep_going;
-                    Console.WriteLine();
-
-                    if (enable_info_bar) print_status_bar_bottom();
+                    if (enable_info_bar) {
+                        Console.WriteLine();
+                        print_status_bar_bottom();
+                    }
                     //else {
                     //    var i = draw_keyboard_buffer_with_cursor();
                     //    Console.Write(new string(' ', Console.WindowWidth - i - 1));
                     //}
                     LastConsoleBottom = ConsoleBottom;
 
-                } else Thread.Sleep(200);
+                } else Thread.Sleep(2);
 
                 if (enable_info_bar && LastConsoleBottom <= ConsoleBottom && keyboard_input_buffer.Length == 0) {
                     Console.CursorTop = ConsoleBottom;
                     print_status_bar_bottom();
-                } 
+                }
 
+                var me = Process.GetCurrentProcess();
+                if (State.server != null)
+                    Console.Title = $"[ShareHole] CPU: {string.Format("{0:0.00}", cpu_usage)}% RAM: {me.PagedMemorySize / 1000 / 1000}MB Threads: {Program.server.running_request_threads}->{State.TaskCount} Cache: {ThumbnailManager.ThumbsInCache} thumbs ";
             }
-
-            running = false;
         }
 
         static void finish_queue() {

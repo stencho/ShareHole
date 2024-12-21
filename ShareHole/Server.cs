@@ -48,8 +48,6 @@ namespace ShareHole {
             }
         }
 
-        int dispatch_thread_count = 64;
-
         public async void Start() {
             if (State.use_html_file) {
                 if (File.Exists("base.html"))
@@ -75,13 +73,14 @@ namespace ShareHole {
                 CSS = base_css_data_replaced;
             }
 
+
             listener = new HttpListener();
+            System.Net.ServicePointManager.DefaultConnectionLimit = 500;
+
 
             var port = State.Port;
             var prefixes = State.Prefixes.Trim().Split(' ');
             
-            ThreadPool.SetMinThreads(dispatch_thread_count * 4, dispatch_thread_count * 4);
-
             var p = prefixes[0];
             if (p.StartsWith("http://")) p = p.Remove(0, 7);
             if (p.StartsWith("https://")) p = p.Remove(0, 8);
@@ -137,31 +136,26 @@ namespace ShareHole {
             Logging.ThreadMessage($"Started thread", thread_name, thread_id);
             Interlocked.Increment(ref running_request_threads);
 
+
             while (listener.IsListening && running) {
                 HttpListenerContext context = null;
                 try {
                     //Asynchronously begin waiting for a new HTTP request,
                     //but continue on to the while loop below to make it
                     //possible to exit idly waiting threads 
+                    listener.GetContextAsync().ContinueWith(t => { context = t.Result; }, cancellation_token);
 
-                    await listener.GetContextAsync().ContinueWith(a => {
-                        context = a.Result;
-                    }, cancellation_token);
-
-                    /*
-                    //Wait for a new HTTP request
                     while (context == null) {
-                        if (State.cancellation_token.IsCancellationRequested) {
+                        if (cancellation_token.IsCancellationRequested) {
+                            Interlocked.Decrement(ref running_request_threads);
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
-                            running = false;
                             return;
                         }
-
-                        //sleep for a random amount of time, purely to reduce cpu usage at idle. 
-                        Thread.Sleep(Random.Shared.Next(5, 10));
+                        await Task.Delay(1);
                     }
-                    */
-                    //Logging.ThreadMessage($"Got context!", thread_name, thread_id);
+
+                    if (State.LogLevel == Logging.LogLevel.ALL)
+                        Logging.ThreadMessage($"Got context!", thread_name, thread_id);
                 } catch (HttpListenerException ex) {
                     //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
                     if (running) {

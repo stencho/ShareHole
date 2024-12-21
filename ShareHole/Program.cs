@@ -545,6 +545,7 @@ namespace ShareHole {
 
                 Console.ForegroundColor = tmpcol;
 
+                Exit();
                 return;
             } else {
                 Logging.Config($"Loaded shares");
@@ -556,8 +557,18 @@ namespace ShareHole {
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            Logging.Start();
+            Logging.Start(); 
             
+            int core_count = Environment.ProcessorCount;
+            IntPtr mask = (IntPtr)(1L << core_count) - 1;
+            Process proc = Process.GetCurrentProcess();
+            proc.ProcessorAffinity = mask;
+
+            Logging.Message($"ImageMagick version: {MagickNET.ImageMagickVersion}");
+            MagickNET.SetEnvironmentVariable("MAGICK_THREAD_LIMIT", "32");
+            MagickNET.SetEnvironmentVariable("MAGICK_FILE_LIMIT", "64");
+            MagickNET.SetEnvironmentVariable("MAGICK_MEMORY_LIMIT", (((long)2147483648) * 2).ToString());
+
             if (args.Length > 0) {
                 for (int i = 0; i < args.Length; i++) {
                     if (args[i] == "-c") {
@@ -587,6 +598,8 @@ namespace ShareHole {
             Logging.Config($"Loading configuration");
             LoadConfig();
             Logging.Config($"Configuration loaded, starting server!");
+
+            ThreadPool.SetMinThreads(State.RequestThreads * 4, State.RequestThreads * 4);
 
             server = new ShareServer();
 
@@ -659,7 +672,7 @@ namespace ShareHole {
             Logging.force_disable_info_bar = true;
 
             CacheCancellation.Cancel();
-            stop_server();
+            if (server != null) stop_server();
 
             Logging.Config($"Flushing config");
             State.server.config_file.Flush();
