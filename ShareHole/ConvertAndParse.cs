@@ -82,6 +82,14 @@ namespace ShareHole {
                 //mp4 audio/m4a
                 if (mime.EndsWith("mp4")) return transcode_url;
 
+                // these are just for the sake of compression
+                //flac
+                if (mime.EndsWith("x-flac")) return transcode_url;
+                //aac
+                if (mime.EndsWith("x-aac")) return transcode_url;
+                //wav
+                if (mime.EndsWith("x-wav")) return transcode_url;
+
             }
 
             return "";
