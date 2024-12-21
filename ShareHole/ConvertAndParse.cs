@@ -78,8 +78,8 @@ namespace ShareHole {
 
                 //wma
                 if (mime.EndsWith("x-ms-wma")) return transcode_url;
-                //flac
-                //
+                //mp4 audio/m4a
+                if (mime.EndsWith("mp4")) return transcode_url;
             }
 
             return "";
