@@ -604,7 +604,7 @@ namespace ShareHole {
 
             foreach (var section in State.shares.Keys) {
                 if (State.shares[section].ContainsKey("style") && State.shares[section]["style"].ToString() == "gallery") {
-                    if (State.shares[section].ContainsKey("precache_thumbnails") && State.shares[section]["precache_thumbnails"].ToBool()) {
+                    if (State.shares[section].ContainsKey("precache") && State.shares[section]["precache"].ToBool()) {
 
                         Logging.Warning($"Started caching all thumbails in [share] {section}");
 
