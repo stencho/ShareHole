@@ -654,7 +654,7 @@ namespace ShareHole {
                 else
                     handle_readline(Console.ReadLine());
 
-                Thread.Sleep(3);
+                Thread.Sleep(10);
             }
         }
 

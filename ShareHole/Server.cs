@@ -152,7 +152,7 @@ namespace ShareHole {
                             return;
                         }
 
-                        Thread.Sleep(2);
+                        Thread.Sleep(10);
                     }
 
                     if (State.LogLevel == Logging.LogLevel.ALL)

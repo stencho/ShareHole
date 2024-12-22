@@ -336,7 +336,7 @@ namespace ShareHole {
                     //}
                     LastConsoleBottom = ConsoleBottom;
 
-                } else Thread.Sleep(2);
+                } else Thread.Sleep(100);
 
                 if (enable_info_bar && LastConsoleBottom <= ConsoleBottom && keyboard_input_buffer.Length == 0) {
                     Console.CursorTop = ConsoleBottom;
