@@ -599,7 +599,7 @@ namespace ShareHole {
             LoadConfig();
             Logging.Config($"Configuration loaded, starting server!");
 
-            ThreadPool.SetMinThreads(State.RequestThreads * 4, State.RequestThreads * 4);
+            ThreadPool.SetMinThreads(State.RequestThreads * 2, State.RequestThreads * 2);
 
             server = new ShareServer();
 
@@ -696,6 +696,7 @@ namespace ShareHole {
             while (State.TaskCount != 0 && server.running_request_threads != 0) {
                 Thread.Sleep(50);
             }
+            Thread.Sleep(500);
 
             Logging.Message($"All threads stopped");
 

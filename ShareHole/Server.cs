@@ -75,7 +75,6 @@ namespace ShareHole {
 
 
             listener = new HttpListener();
-            System.Net.ServicePointManager.DefaultConnectionLimit = 500;
 
 
             var port = State.Port;
@@ -99,11 +98,12 @@ namespace ShareHole {
             }
 
             listener.Start();
+            System.Net.ServicePointManager.DefaultConnectionLimit = 500;
 
             Logging.Message($"Starting server on port {port}");
 
             Parallel.For(0, State.RequestThreads, i => {
-                State.StartTask(() => { HandleRequests($"{prefixes[0]}:{port}:{i}", i); });
+                Task.Run(() => { HandleRequests($"{prefixes[0]}:{port}:{i}", i); });
             });
         }
 
@@ -151,7 +151,8 @@ namespace ShareHole {
                             Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                             return;
                         }
-                        await Task.Delay(1);
+
+                        Thread.Sleep(2);
                     }
 
                     if (State.LogLevel == Logging.LogLevel.ALL)
@@ -182,7 +183,7 @@ namespace ShareHole {
                 context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.AddHeader("X-Frame-Options", "SAMEORIGIN");
-                context.Response.AddHeader("Keep-alive", "false");
+                //context.Response.AddHeader("Keep-alive", "false");
                 context.Response.AddHeader("Cache-control", "no-cache");
                 context.Response.AddHeader("Content-Disposition", "inline");
                 context.Response.AddHeader("Accept-Ranges", "bytes");
@@ -303,7 +304,7 @@ namespace ShareHole {
 
                             if (file_exists && (mime.StartsWith("video") || ConvertAndParse.IsValidImage(mime))) {
                                 enable_cache(context);
-                                ThumbnailManager.RequestThumbnail(absolute_on_disk_path, context, this, mime, thread_id);
+                                State.StartTask(() => { ThumbnailManager.BuildThumbnail(new FileInfo(absolute_on_disk_path), context, this, mime, thread_id); });
 
                             } else {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT AN IMAGE, VIDEO OR POSTSCRIPT FILE</b></p>";

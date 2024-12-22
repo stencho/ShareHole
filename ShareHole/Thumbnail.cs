@@ -35,7 +35,6 @@ namespace ShareHole {
 
     public static class ThumbnailManager
     {
-        static int thumbnail_size = 192;
 
         //cache for thumbnails which have been loaded at least once
         //static volatile Dictionary<string, (string mime, byte[] data)> thumbnail_cache = new Dictionary<string, (string mime, byte[] data)>();
@@ -43,17 +42,7 @@ namespace ShareHole {
         static ConcurrentCache<(string mime, byte[] data)> thumbnail_cache = new ConcurrentCache<(string mime, byte[] data)>();
         public static int ThumbsInCache => thumbnail_cache.Count;
         static int thumb_compression_quality => State.server["gallery"]["thumbnail_compression_quality"].ToInt();
-
-        public static void RequestThumbnail(string filename, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
-        {
-                State.StartTask(() => { BuildThumbnail(new FileInfo(filename), context, parent_server, mime_type, thread_id); });
-            
-        }
-
-        public static void RequestThumbnail(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
-        {
-            State.StartTask(() => { BuildThumbnail(file, context, parent_server, mime_type, thread_id); });
-        }
+        static int thumbnail_size => State.server["gallery"]["thumbnail_size"].ToInt();
 
         static byte[] get_first_video_frame_from_ffmpeg(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id)
         {
@@ -94,9 +83,9 @@ namespace ShareHole {
             return output;
         }
 
-        static void BuildThumbnail(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id) {
+        public static async void BuildThumbnail(FileInfo file, HttpListenerContext context, ShareServer parent_server, string mime_type, int thread_id) {
         cache_fail:
-            thumbnail_size = State.server["gallery"]["thumbnail_size"].ToInt();
+            
 
             //cache hit, do nothing
             if (thumbnail_cache.Test(file.FullName))
@@ -182,6 +171,9 @@ namespace ShareHole {
                 }
             }
 
+            context.Response.SendChunked = false;
+            context.Response.AddHeader("Accept-Ranges", "none");
+
             //pull byte array from the cache and set up a few requirements
             if (thumbnail_cache.Test(file.FullName))
             {
@@ -190,20 +182,15 @@ namespace ShareHole {
                 context.Response.ContentLength64 = thumbnail.LongLength;
             }
             else goto cache_fail;
-
             try {
-                State.StartTask(async() => {
-                    using (MemoryStream ms = new MemoryStream(thumbnail_cache.Request(file.FullName).data, false)) {
-                        await ms.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(r => {
-                            //success
-                            context.Response.StatusCode = (int)HttpStatusCode.OK;
-                            context.Response.StatusDescription = "200 OK";
-
-                            if (State.LogLevel == Logging.LogLevel.ALL)
-                                Logging.ThreadMessage($"Sent thumb: {file.Name}", $"THUMB:{thread_id}", thread_id);
-                        });                
-                    }
-                });
+                using (MemoryStream ms = new MemoryStream(thumbnail_cache.Request(file.FullName).data, false)) {
+                    await ms.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(r => {
+                        //success
+                        Send.OK(context);
+                        if (State.LogLevel == Logging.LogLevel.ALL)
+                            Logging.ThreadMessage($"Sent thumb: {file.Name}", $"THUMB:{thread_id}", thread_id);
+                    });                
+                }
             }
             catch (HttpListenerException ex)
             {
