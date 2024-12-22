@@ -347,8 +347,6 @@ namespace ShareHole
                     $"</span>" +
                     $"</a>" +
                     $"\n";
-
-                Logging.Custom($"{dir}", "RENDER][Gallery", ConsoleColor.Magenta);
             }
 
             IOrderedEnumerable<FileInfo> files;
