@@ -103,8 +103,10 @@ namespace ShareHole {
             Logging.Message($"Starting server on port {port}");
 
             Parallel.For(0, State.RequestThreads, i => {
-                Task.Run(() => { HandleRequests($"{prefixes[0]}:{port}:{i}", i); });
+                Task.Run(() => { HandleRequest($"{prefixes[0]}:{port}:{i}", i); });
             });
+
+            Logging.Message($"Started {State.RequestThreads} request getter threads");
         }
 
         public async void StopListener() {
@@ -124,21 +126,26 @@ namespace ShareHole {
 
         internal CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         internal CancellationToken cancellation_token => cancellation_token_source.Token;
-        internal int running_request_threads = 0;
+        internal int running_request_getter_threads = 0;
 
-        async void HandleRequests(string thread_name, int thread_id) {
+
+        async void HandleRequest(string thread_name, int thread_id) {
+
             if (cancellation_token.IsCancellationRequested) {
-                Interlocked.Decrement(ref running_request_threads);
-                Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                Interlocked.Decrement(ref running_request_getter_threads);
+                if (State.LogLevel == Logging.LogLevel.ALL)
+                    Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                 return;
             }
 
-            Logging.ThreadMessage($"Started thread", thread_name, thread_id);
-            Interlocked.Increment(ref running_request_threads);
+            if (State.LogLevel == Logging.LogLevel.ALL)
+                Logging.ThreadMessage($"Started thread", thread_name, thread_id);
+            Interlocked.Increment(ref running_request_getter_threads);
 
 
             while (listener.IsListening && running) {
                 HttpListenerContext context = null;
+
                 try {
                     //Asynchronously begin waiting for a new HTTP request,
                     //but continue on to the while loop below to make it
@@ -147,16 +154,15 @@ namespace ShareHole {
 
                     while (context == null) {
                         if (cancellation_token.IsCancellationRequested) {
-                            Interlocked.Decrement(ref running_request_threads);
-                            Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                            Interlocked.Decrement(ref running_request_getter_threads);
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                             return;
                         }
 
-                        Thread.Sleep(10);
+                        Thread.Sleep(5);
                     }
 
-                    if (State.LogLevel == Logging.LogLevel.ALL)
-                        Logging.ThreadMessage($"Got context!", thread_name, thread_id);
                 } catch (HttpListenerException ex) {
                     //if we're not running, then that means Stop was called, so this error is expected, same with the ObjectDisposedException                    
                     if (running) {
@@ -170,13 +176,13 @@ namespace ShareHole {
                     }
                     continue;
                 } catch (TaskCanceledException ex) {
-                    Interlocked.Decrement(ref running_request_threads);
-                    Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
+                    Interlocked.Decrement(ref running_request_getter_threads);
+                    if (State.LogLevel == Logging.LogLevel.ALL)
+                        Logging.ThreadMessage($"Stopping thread", thread_name, thread_id);
                     return;
                 }
 
                 /* COMICAL AMOUNTS OF SETUP */
-
                 var request = context.Request;
 
                 //Set up response
@@ -277,9 +283,9 @@ namespace ShareHole {
                 bool dir_exists = Directory.Exists(absolute_on_disk_path);
 
                 /* ACTUAL SERVING BEGINS HERE */
-                
+
                 /* CLIENT REQUESTED CSS */
-                if (request.Url.AbsolutePath.EndsWith("base.css")) { 
+                if (request.Url.AbsolutePath.EndsWith("base.css")) {
                     absolute_on_disk_path = Path.GetFullPath("base.css");
                     Logging.ThreadMessage($"Requested base.css", thread_name, thread_id);
 
@@ -292,11 +298,11 @@ namespace ShareHole {
                                 //ok_close(context);
                             }, State.cancellation_token);
                         }
-                     });
-                    
+                    });
 
-                /* COMMAND DIRECTORIES */
-                } else if (command_dir != command_dirs.none) { 
+
+                    /* COMMAND DIRECTORIES */
+                } else if (command_dir != command_dirs.none) {
 
                     switch (command_dir) {
                         case command_dirs.none: break;
@@ -348,7 +354,7 @@ namespace ShareHole {
                                                 Send.OK(context);
                                             }, State.cancellation_token);
                                         }
-                                    });                                    
+                                    });
                                 }
 
                             } else {
@@ -386,7 +392,7 @@ namespace ShareHole {
                                             }, State.cancellation_token);
                                         }
                                     });
-                                    
+
                                 }
 
                             } else {
@@ -518,7 +524,7 @@ namespace ShareHole {
 
                     }
 
-                /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */
+                    /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */
                 } else if (dir_exists) { // REQUESTED DIRECTORY
                     byte[] data = null;
 
@@ -530,7 +536,7 @@ namespace ShareHole {
                     } else {
                         //Get the page content based on the share's chosen render style
                         if (State.shares[share_name].ContainsKey("style")) {
-                            switch (State.shares[share_name]["style"].ToString()) {                                
+                            switch (State.shares[share_name]["style"].ToString()) {
                                 case "gallery":
                                     page_content = Renderer.Gallery(folder_path, request.UserHostName, url_path, share_name);
                                     data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
@@ -548,7 +554,7 @@ namespace ShareHole {
                             //There isn't a render style given in the config, so just use the regular list style
                             page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);
                             data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
-                        }                    
+                        }
                     }
 
                     context.Response.ContentType = "text/html; charset=utf-8";
@@ -568,7 +574,7 @@ namespace ShareHole {
                         Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
                     }
 
-                    
+
                 } else if (file_exists) { // REQUESTED FILE
                     string mimetype = ConvertAndParse.GetMimeTypeOrOctet(absolute_on_disk_path);
 
@@ -597,7 +603,7 @@ namespace ShareHole {
                         }
                     }
 
-                    if (using_extensions && (Path.HasExtension(absolute_on_disk_path) && !extensions.Contains(Path.GetExtension(absolute_on_disk_path).Replace(".","").ToLower()))) {
+                    if (using_extensions && (Path.HasExtension(absolute_on_disk_path) && !extensions.Contains(Path.GetExtension(absolute_on_disk_path).Replace(".", "").ToLower()))) {
                         Logging.ThreadError($"Attempted to open file in \"{share_name}\" with disallowed file extension \"{Path.GetExtension(absolute_on_disk_path).Replace(".", "").ToLower()}\"", thread_name, thread_id);
                         context.Response.Abort();
                         continue;
@@ -608,16 +614,16 @@ namespace ShareHole {
 
                     enable_cache(context);
                     context.Response.AddHeader("filename", request.Url.AbsolutePath.Remove(0, 1));
-                    context.Response.ContentType = mimetype;                 
+                    context.Response.ContentType = mimetype;
 
                     Send.FileWithRanges(absolute_on_disk_path, mimetype, context);
-                    
+
                 } else { // USER GAVE A FAIL URL
                     page_content = $"<b>NOT FOUND</b>";
                     Send.Error404(page_content, context);
                 }
-
             }
+
         }
 
         void enable_cache(HttpListenerContext context) {

@@ -12,7 +12,7 @@ namespace ShareHole {
             } catch { }
         }
 
-        public async static void Error404(string page_content, HttpListenerContext context) {
+        public static void Error404(string page_content, HttpListenerContext context) {
             var data = Encoding.UTF8.GetBytes(ShareServer.page_content_strings_replaced(page_content, ""));
 
             context.Response.ContentType = "text/html; charset=utf-8";
@@ -50,7 +50,7 @@ namespace ShareHole {
             State.StartTask(() => { send_file_ranges(filename, mime, context); });
         }
 
-        public async void File(FileInfo file, string mime, HttpListenerContext context) {
+        public void File(FileInfo file, string mime, HttpListenerContext context) {
             context.Response.StatusCode = (int)HttpStatusCode.OK;
             context.Response.StatusDescription = "200 OK";
 
@@ -122,7 +122,6 @@ namespace ShareHole {
 
             context.Response.AddHeader("Accept-Ranges", "bytes");
             context.Response.AddHeader("Content-Type", mime);
-            //context.Response.AddHeader("Transfer-Encoding", "chunked");
             context.Response.SendChunked = true;
 
             if (has_range) {
@@ -147,21 +146,19 @@ namespace ShareHole {
                     await fs.ReadAsync(buffer, 0, buffer.Length, State.cancellation_token);                 
                 }
 
-                State.StartTask(async () => {
-                    using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
-                        await buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                            try {
-                                context.Response.OutputStream.Close();
-                                if (State.LogLevel == Logging.LogLevel.ALL)
-                                    Logging.Message($"{file.Name} :: Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\"");
+                using (MemoryStream buffer_stream = new MemoryStream(buffer)) {
+                    await buffer_stream.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                        try {
+                            context.Response.OutputStream.Close();
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.Message($"{file.Name} :: Finished writing chunk \"{range_info.start}-{range_info.start + chunk_size - 1}/{file_size}\"");
 
 
-                            } catch (Exception ex) {
-                                Logging.Error($"{ex.Message}");
-                            }
-                        }, State.cancellation_token);
-                    }
-                });
+                        } catch (Exception ex) {
+                            Logging.Error($"{ex.Message}");
+                        }
+                    }, State.cancellation_token);
+                }
 
             } else {
                 if (State.LogLevel == Logging.LogLevel.ALL)
@@ -169,23 +166,21 @@ namespace ShareHole {
 
                 context.Response.StatusCode = (int)HttpStatusCode.OK;
                 context.Response.StatusDescription = "200 OK";
+                
+                using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
+                    context.Response.ContentLength64 = fs.Length;
 
-                State.StartTask(async () => {
-                    using (FileStream fs = System.IO.File.OpenRead(file.FullName)) {
-                        context.Response.ContentLength64 = fs.Length;
+                    await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
+                        try {
+                            context.Response.OutputStream.Close();
+                            if (State.LogLevel == Logging.LogLevel.ALL)
+                                Logging.Warning($"Finished writing {file.Name}");
 
-                        await fs.CopyToAsync(context.Response.OutputStream, State.cancellation_token).ContinueWith(a => {
-                            try {
-                                //context.Response.OutputStream.Close();
-                                if (State.LogLevel == Logging.LogLevel.ALL)
-                                    Logging.Warning($"Finished writing {file.Name}");
-
-                            } catch (HttpListenerException ex) {
-                                Logging.Error($"{ex.Message}");
-                            }
-                        }, State.cancellation_token);
-                    }
-                });
+                        } catch (HttpListenerException ex) {
+                            Logging.Error($"{ex.Message}");
+                        }
+                    }, State.cancellation_token);
+                }
             }
         }
     }

@@ -673,7 +673,6 @@ namespace ShareHole.Configuration {
         }
 
         // GET VALUES
-
         public int ToInt() {
             if (value_type == ValueType.INT) return (int)value;
             else throw new TypeAccessException();
@@ -692,7 +691,6 @@ namespace ShareHole.Configuration {
             if (value_type == ValueType.COLOR) return Color.FromArgb(((byte[])value)[3], ((byte[])value)[0], ((byte[])value)[1], ((byte[])value)[2]);
             else throw new TypeAccessException();
         }
-
         public string ToColorJSString() {
             var c = ToColor();
 

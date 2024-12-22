@@ -10,6 +10,8 @@ using static ShareHole.Logging;
 
 namespace ShareHole {
     public static class State {
+        public static Process process => Process.GetCurrentProcess();
+
         public static string config_dir = "config";
 
         public static LogLevel LogLevel = LogLevel.HIGH_IMPORTANCE;
@@ -319,7 +321,8 @@ namespace ShareHole {
                             { "use_css_file", new ConfigValue(false) },
                             //{ "log_to_file", new ConfigValue("")}, //todo
                             { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
-                            { "show_info", new ConfigValue(true)}
+                            { "precache_worker_threads", new ConfigValue(32) },
+                            { "precache_max_memory_usage", new ConfigValue(4192) }
                         }
                     },
 
@@ -406,9 +409,14 @@ namespace ShareHole {
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("server", "show_info", """
-                Shows information about CPU/memory usage, thread count, etc in the command line
-                May not work properly on some systems
+            ConfigFileIO.comment_manager.AddBefore("server", "precache_worker_threads", """
+                Sets the maximum number of worker threads used to precache thumbnails, for shares with the 'gallery' style and 
+                the option 'precache_thumbnails=true'. Using the precache_thumbnails option can be extremely resource 
+                intensive amd time consuming, but will make loading thumbnails very fast
+                """);
+            ConfigFileIO.comment_manager.AddBefore("server", "precache_max_memory_usage", """
+                This will limit creation of new precaching threads while memory usage is above this value
+                Value should be in MB
                 """);
 
             //THEME
@@ -496,11 +504,13 @@ namespace ShareHole {
     }
     internal class Program {
         public static ShareServer server;
-
+        
         internal static void LoadConfig() {
             State.InitializeComments();
 
             State.server = new ConfigWithExpectedValues(State.server_config_values);
+            State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
+
 
             if (State.server["server"].ContainsKey("use_html_file")) {
                 State.use_css_file = State.server["server"]["use_html_file"].ToBool();
@@ -519,12 +529,15 @@ namespace ShareHole {
             Logging.Config($"Loaded server config");
 
             State.shares = new ConfigWithUserValues("shares");
-
+            
             foreach (var section in State.shares.Keys) {
                 if (!State.shares[section].ContainsKey("path")) {
                     Logging.Warning($"Share \"{section}\" doesn't contain a 'path' variable. Removing.");
                     State.shares.Remove(section);
-                }
+                } else if (!Directory.Exists(State.shares[section]["path"].ToString())) {
+                    Logging.Warning($"Share \"{section}\" contains an invalid 'path' variable. Removing.");
+                    State.shares.Remove(section);
+                } 
             }
 
             State.shares.config_file.WriteAllValuesToConfig(State.shares);
@@ -551,11 +564,11 @@ namespace ShareHole {
                 Logging.Config($"Loaded shares");
             }
 
-            State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
         }
 
         static void Main(string[] args) {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
 
             Logging.Start(); 
             
@@ -565,9 +578,6 @@ namespace ShareHole {
             proc.ProcessorAffinity = mask;
 
             Logging.Message($"ImageMagick version: {MagickNET.ImageMagickVersion}");
-            MagickNET.SetEnvironmentVariable("MAGICK_THREAD_LIMIT", "32");
-            MagickNET.SetEnvironmentVariable("MAGICK_FILE_LIMIT", "64");
-            MagickNET.SetEnvironmentVariable("MAGICK_MEMORY_LIMIT", (((long)2147483648) * 2).ToString());
 
             if (args.Length > 0) {
                 for (int i = 0; i < args.Length; i++) {
@@ -597,9 +607,32 @@ namespace ShareHole {
 
             Logging.Config($"Loading configuration");
             LoadConfig();
-            Logging.Config($"Configuration loaded, starting server!");
 
-            ThreadPool.SetMinThreads(State.RequestThreads * 2, State.RequestThreads * 2);
+            var wt = (int)State.server["server"]["precache_worker_threads"].ToInt();
+
+            ThreadPool.SetMinThreads(wt * 2, wt * 2);
+            ThreadPool.SetMaxThreads(wt * 4, wt * 4);
+
+            foreach (var section in State.shares.Keys) {
+                if (State.shares[section].ContainsKey("style") && State.shares[section]["style"].ToString() == "gallery") {
+                    if (State.shares[section].ContainsKey("precache_thumbnails") && State.shares[section]["precache_thumbnails"].ToBool()) {
+
+                        Logging.Warning($"Started caching all thumbails in [share] {section}");
+
+                        DirectoryInfo di = new DirectoryInfo(State.shares[section]["path"].ToString());
+                        ThumbnailManager.CacheAllThumbsInDirectory(di, section, wt, true).Wait();
+
+                        Logging.ForceDisableLogging = false;
+
+                    }
+                }
+
+            }
+
+            ThreadPool.SetMinThreads(State.RequestThreads * 6, State.RequestThreads * 6);
+            ThreadPool.SetMaxThreads(State.RequestThreads * 6, State.RequestThreads * 6);
+
+            Logging.Message($"Finished loading, starting server!");
 
             server = new ShareServer();
 
@@ -608,11 +641,18 @@ namespace ShareHole {
                 start_server();
             });
 
-            Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) { e.Cancel = true; Exit(); };
 
             log_console_view_loop();
         }
-        bool running = true;
+
+        static void log_console_view_loop() {
+            Logging.HandleReadLineAction = handle_readline;
+            while (!State.cancellation_token.IsCancellationRequested) {
+                handle_readline(Console.ReadLine());
+                Thread.Sleep(10);
+            }
+        }
+
         static void handle_readline(string line) {
             if (line == "restart") {
                 Logging.Warning("Restarting server!");
@@ -633,7 +673,7 @@ namespace ShareHole {
                 return;
 
             } else if (line == "threadstatus") {
-                Logging.Message($"{server.running_request_threads}threads, {State.TaskCount} taskss");
+                Logging.Message($"{server.running_request_getter_threads}threads, {State.TaskCount} taskss");
 
             } else if (line != null && line.StartsWith("$") && line.Contains('.') && line.Contains('=')) {
                 line = line.Remove(0, 1);
@@ -642,22 +682,7 @@ namespace ShareHole {
                 line = line.Remove(0, 1);
                 State.shares.config_file.ChangeValueByString(State.shares, line);
             }
-
-
         }
-
-        static void log_console_view_loop() {
-            Logging.HandleReadLineAction = handle_readline;
-            while (!State.cancellation_token.IsCancellationRequested) {
-                if (Logging.enable_info_bar)
-                    Logging.ProcessKeyboard();
-                else
-                    handle_readline(Console.ReadLine());
-
-                Thread.Sleep(10);
-            }
-        }
-
 
         static void start_server() {
             if (CacheCancellation.cancellation_token.IsCancellationRequested)
@@ -693,7 +718,7 @@ namespace ShareHole {
             server.cancellation_token_source.Cancel(true);
             State.cancellation_token_source.Cancel(true);
 
-            while (State.TaskCount != 0 && server.running_request_threads != 0) {
+            while (State.TaskCount != 0 && server.running_request_getter_threads != 0) {
                 Thread.Sleep(50);
             }
             Thread.Sleep(500);

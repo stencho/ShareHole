@@ -44,6 +44,9 @@ namespace ShareHole {
                 var l = 0;
                 //draw caller tag
                 if (show_caller) {
+                    Logging.WriteColor($"[{tag}]", tag_color);
+                    l += $"[{tag}]".Length;
+
                     var last_slash = caller_file_name.Replace('\\', '/').LastIndexOf('/') + 1;
                     var fn = caller_file_name.Replace('\\', '/').Substring(last_slash, caller_file_name.Length - last_slash);
                     fn = fn.Remove(fn.Length - 3);
@@ -67,8 +70,7 @@ namespace ShareHole {
                 Console.Write(text);
                 l += text.Length;
 
-                if (enable_info_bar) Console.Write(new string(' ', Console.WindowWidth - (l % Console.WindowWidth)));
-                else Console.WriteLine();
+                Console.WriteLine();
             }
 
         };
@@ -79,6 +81,7 @@ namespace ShareHole {
 
         static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "", string extra_tag = "", ConsoleColor extra_color = ConsoleColor.White) {
             if (State.LogLevel == 0) return;
+            //if (ForceDisableLogging) return;
             LogQueue.Enqueue(new log_item(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
 
             string s = "";
@@ -103,7 +106,7 @@ namespace ShareHole {
             s += text;
             LogText.Enqueue(s);
         }
-
+        public static bool ForceDisableLogging = false;
         static bool running = false;
         static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         static CancellationToken cancellation_token => cancellation_token_source.Token;
@@ -163,8 +166,6 @@ namespace ShareHole {
 
         public static Action<string> HandleReadLineAction;
 
-        public static bool log_to_queue => State.server["server"]["log_to_queue"].ToBool();
-        public static bool enable_info_bar => !force_disable_info_bar && (State.server != null ? State.server["server"]["show_info"].ToBool() : false); 
         public static bool force_disable_info_bar = false;
         static void invert() {
             Console.ForegroundColor = ConsoleColor.Black;
@@ -197,50 +198,6 @@ namespace ShareHole {
             }
         }
 
-        static void print_status_bar_bottom() {
-            keyboard_text_start = 0;
-            int stored_x = Console.CursorLeft;
-            int stored_y = Console.CursorTop;
-            int top = Console.WindowTop;
-
-            var me = Process.GetCurrentProcess();
-                        
-            string status_text = $" CPU: {string.Format("{0:0.00}", cpu_usage)}% RAM: {me.PagedMemorySize / 1000 / 1000}MB Threads: {Program.server.running_request_threads}->{State.TaskCount} Cache: {ThumbnailManager.ThumbsInCache} thumbs ";
-            keyboard_text_start += status_text.Length;
-            full_status_length += status_text.Length;
-
-            Console.CursorTop = Console.WindowTop + Console.WindowHeight - 1;
-            Console.CursorLeft = 0;
-
-            Console.ForegroundColor = ConsoleColor.Black;
-            Console.BackgroundColor = ConsoleColor.Magenta;
-
-            Console.Write(status_text);
-
-            string cmd_txt = "";
-            var dkl = 0;            
-
-            if (keyboard_input_buffer.Length > 0) {
-                uninvert();
-                cmd_txt = $" Command: ";
-                Console.Write(cmd_txt);
-                full_status_length += cmd_txt.Length;
-                keyboard_text_start += " Command: ".Length;
-                dkl = draw_keyboard_buffer_with_cursor();
-                full_status_length += dkl;
-            }
-
-            full_status_length = status_text.Length + cmd_txt.Length + dkl;
-
-            uninvert();
-
-            Console.Write(new string(' ', Console.WindowWidth - full_status_length));
-
-            Console.CursorLeft = stored_x;
-            Console.CursorTop = stored_y; 
-            
-        }
-
         static int draw_keyboard_buffer_with_cursor() {
             int l = 0;
 
@@ -263,8 +220,6 @@ namespace ShareHole {
                 uninvert();
                 return keyboard_input_buffer.Length;
             } 
-
-            //Console.CursorTop = Console.WindowTop + Console.WindowHeight - 1;
 
             string before_cursor = keyboard_input_buffer.Substring(0, keyboard_input_cursor);
             string after_cursor = keyboard_input_buffer.Substring(keyboard_input_cursor+1, keyboard_input_buffer.Length - (keyboard_input_cursor+1));
@@ -307,45 +262,33 @@ namespace ShareHole {
                 keyboard_input_cursor--;
                 if (keyboard_input_cursor < 0) keyboard_input_cursor = 0;
             }
-            if (enable_info_bar) print_status_bar_bottom();
-            else {
-                var i = draw_keyboard_buffer_with_cursor();
-                Console.Write(new string(' ', Console.WindowWidth - i - 1));
-            }
 
+
+            //var i = draw_keyboard_buffer_with_cursor();
+            //Console.Write(new string(' ', Console.WindowWidth - i - 1));
         }
 
         static void ProcessQueue() {            
             while (!cancellation_token.IsCancellationRequested) {
                 log_item li;
                 if (LogQueue.Count > 0) {
-                    if (enable_info_bar) { Console.CursorVisible = false; Console.CursorLeft = 0; }
-
                 keep_going:
                     if (LogQueue.TryDequeue(out li)) {
                         li.print();
                     }
                     if (LogQueue.Count > 0) goto keep_going;
-                    if (enable_info_bar) {
-                        Console.WriteLine();
-                        print_status_bar_bottom();
-                    }
-                    //else {
-                    //    var i = draw_keyboard_buffer_with_cursor();
-                    //    Console.Write(new string(' ', Console.WindowWidth - i - 1));
-                    //}
-                    LastConsoleBottom = ConsoleBottom;
 
                 } else Thread.Sleep(100);
 
-                if (enable_info_bar && LastConsoleBottom <= ConsoleBottom && keyboard_input_buffer.Length == 0) {
-                    Console.CursorTop = ConsoleBottom;
-                    print_status_bar_bottom();
-                }
-
-                var me = Process.GetCurrentProcess();
                 if (State.server != null)
-                    Console.Title = $"[ShareHole] CPU: {string.Format("{0:0.00}", cpu_usage)}% RAM: {me.PagedMemorySize / 1000 / 1000}MB Threads: {Program.server.running_request_threads}->{State.TaskCount} Cache: {ThumbnailManager.ThumbsInCache} thumbs ";
+                    Console.Title = $"[ShareHole] " +
+                        $"CPU: {string.Format("{0:0.00}", cpu_usage)}% " +
+                        $"RAM: {State.process.PagedMemorySize64 / 1000 / 1000}MB " +
+                        (Program.server != null 
+                            ? $"Request Handlers: {Program.server.running_request_getter_threads} Tasks: {State.TaskCount} " 
+                            : $"Tasks: {State.TaskCount} "
+                            ) +
+                        $"Cache: {ThumbnailManager.ThumbsInCache} thumbs ";
             }
         }
 
