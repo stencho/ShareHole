@@ -320,9 +320,7 @@ namespace ShareHole {
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
                             //{ "log_to_file", new ConfigValue("")}, //todo
-                            { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
-                            { "precache_worker_threads", new ConfigValue(32) },
-                            { "precache_max_memory_usage", new ConfigValue(4192) }
+                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all
                         }
                     },
 
@@ -369,9 +367,7 @@ namespace ShareHole {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
-                            { "thumbnail_compression", new ConfigValue(false) },
-                            { "thumbnail_compression_quality", new ConfigValue(60) },
-
+                            { "precache_worker_threads", new ConfigValue(32) },
                             { "convert_images_automatically", new ConfigValue(true) },
                             { "convert_videos_automatically", new ConfigValue(true) },
                             { "convert_audio_automatically", new ConfigValue(true) }
@@ -409,15 +405,6 @@ namespace ShareHole {
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("server", "precache_worker_threads", """
-                Sets the maximum number of worker threads used to precache thumbnails, for shares with the 'gallery' style and 
-                the option 'precache_thumbnails=true'. Using the precache_thumbnails option can be extremely resource 
-                intensive amd time consuming, but will make loading thumbnails very fast
-                """);
-            ConfigFileIO.comment_manager.AddBefore("server", "precache_max_memory_usage", """
-                This will limit creation of new precaching threads while memory usage is above this value
-                Value should be in MB
-                """);
 
             //THEME
             ConfigFileIO.comment_manager.AddBefore("theme", """
@@ -485,15 +472,17 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("gallery", """
                 Settings for the 'gallery' view style
                 """);
+
             ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_size", """
                 Thumbnail maximum resolution for both x and y axes
                 """);
-            ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression", """
-                true = JPEG thumbnails, false = PNG thumbnails, prettier, but uses more data
+
+            ConfigFileIO.comment_manager.AddBefore("gallery", "precache_worker_threads", """
+                Sets the maximum number of worker threads used to precache thumbnails, for shares with the 'gallery' style and 
+                the option 'precache_thumbnails=true'. Using the precache_thumbnails option can be extremely resource 
+                intensive amd time consuming, but will make loading thumbnails very fast
                 """);
-            ConfigFileIO.comment_manager.AddBefore("gallery", "thumbnail_compression_quality", """
-                JPEG compression quality; 0-100
-                """);
+
             ConfigFileIO.comment_manager.AddBefore("gallery", "convert_images_automatically", """                
                 Does the same thing as the options in [list], but for the gallery
                 On by default
@@ -608,7 +597,7 @@ namespace ShareHole {
             Logging.Config($"Loading configuration");
             LoadConfig();
 
-            var wt = (int)State.server["server"]["precache_worker_threads"].ToInt();
+            var wt = (int)State.server["gallery"]["precache_worker_threads"].ToInt();
 
             ThreadPool.SetMinThreads(wt * 2, wt * 2);
             ThreadPool.SetMaxThreads(wt * 4, wt * 4);
@@ -620,7 +609,7 @@ namespace ShareHole {
                         Logging.Warning($"Started caching all thumbails in [share] {section}");
 
                         DirectoryInfo di = new DirectoryInfo(State.shares[section]["path"].ToString());
-                        ThumbnailManager.CacheAllThumbsInDirectory(di, section, wt, true).Wait();
+                        ThumbnailManager.CacheAllInShare(di, section, wt, true).Wait();
 
                         Logging.ForceDisableLogging = false;
 

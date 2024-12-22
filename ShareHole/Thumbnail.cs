@@ -41,11 +41,10 @@ namespace ShareHole {
 
         static ConcurrentCache<(string mime, byte[] data)> thumbnail_cache = new ConcurrentCache<(string mime, byte[] data)>();
         public static int ThumbsInCache => thumbnail_cache.Count;
-        static int thumb_compression_quality => State.server["gallery"]["thumbnail_compression_quality"].ToInt();
         static int thumbnail_size => State.server["gallery"]["thumbnail_size"].ToInt();
 
        
-        public static async Task CacheAllThumbsInDirectory(DirectoryInfo directory, string share_name, int max_workers, bool wait_for_workers) {
+        public static async Task CacheAllInShare(DirectoryInfo directory, string share_name, int max_workers, bool wait_for_workers) {
             int thumb_workers = 0;
 
             int c = 0;
@@ -53,24 +52,22 @@ namespace ShareHole {
             long bytes_stored = 0;
             var start = DateTime.Now;
 
-            long max_mem = State.server["server"]["precache_max_memory_usage"].ToInt();
 
             Environment.SetEnvironmentVariable("MAGICK_THREAD_LIMIT", max_workers.ToString());
-            Environment.SetEnvironmentVariable("MAGICK_MEMORY_LIMIT", ((max_mem / max_workers) * 1024 * 1024).ToString());
 
             foreach (var file in directory.GetFiles("*", new EnumerationOptions() { RecurseSubdirectories = true })) {
                 if (State.cancellation_token.IsCancellationRequested) break;
                 var mime = ConvertAndParse.GetMimeTypeOrOctet(file.FullName);
 
                 if (ConvertAndParse.IsValidImage(mime) || mime.StartsWith("video")) {
-                    while (thumb_workers >= max_workers || State.process.PagedMemorySize64 / 1024 / 1024 > max_mem) {
+                    while (thumb_workers >= max_workers) {
                         await Task.Delay(250);
                     }
 
                     Interlocked.Increment(ref thumb_workers);
                     State.StartTask(() => {
                         long b = 0;
-                        build_cache(file, mime, 64, -1, out b);
+                        BuildCache(file, mime, 64, -1, out b);
                         bytes_stored += b;
                         bytes_processed += file.Length;
 
@@ -91,16 +88,17 @@ namespace ShareHole {
                 Logging.Message($"{c} items added to thumbnail cache in {(end - start).ToString(@"mm\:ss\.ff")}");
                 Logging.Message($"{string.Format("{0:0.00}", bytes_processed / 1024.0 / 1024.0)} MB processed, " +
                     $"{string.Format("{0:0.00}", bytes_stored / 1024.0 / 1024.0)} MB stored");
-                Logging.Warning($"Finished caching all thumbails in [share] {share_name}");
+                Logging.Warning($"Finished caching all thumbnails in [share] {share_name}");
             } 
 
             return;
         }
 
-        static bool build_cache(FileInfo fi, string mime_type, int thread_id, double life_time, out long file_length) {
+        static bool BuildCache(FileInfo fi, string mime_type, int thread_id, double life_time, out long file_length) {
             file_length = 0;
             int fail_count = 0;
             FileInfo file = new FileInfo(fi.FullName);
+
             if (ConvertAndParse.IsValidImage(mime_type)) {
                 if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {file.Name}", $"THUMB:{thread_id}", thread_id);
@@ -109,34 +107,23 @@ namespace ShareHole {
                     if (mi.Orientation != OrientationType.Undefined)
                         mi.AutoOrient();
 
+                    mi.Strip();
+
+                    ConvertAndParse.Image.ConvertToPng(mi);
+
                     mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
+                                        
 
-                    if (State.server["gallery"]["thumbnail_compression"].ToBool()) {
-                        ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
-
-                        try {
-                            var ba = mi.ToByteArray();
-                            thumbnail_cache.Store(file.FullName, ("image/jpeg", ba), life_time);
-                            file_length = ba.Length;
-                            ba = null;
-                            mi.Dispose();
-                        } catch (Exception ex) {
-                            Logging.Error($"{file.Name} :: {ex.Message}");
-                        }
-
-                    } else {
-                        ConvertAndParse.Image.ConvertToPng(mi);
-
-                        try {
-                            var ba = mi.ToByteArray();
-                            thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
-                            file_length = ba.Length;
-                            ba = null;
-                            mi.Dispose();
-                        } catch (Exception ex) {
-                            Logging.Error($"{file.Name} :: {ex.Message}");
-                        }
+                    try {
+                        var ba = mi.ToByteArray();
+                        thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
+                        file_length = ba.Length;
+                        ba = null;
+                        mi.Dispose();
+                    } catch (Exception ex) {
+                        Logging.Error($"{file.Name} :: {ex.Message}");
                     }
+                    
                 }
                 
                 //build one for a video
@@ -176,23 +163,13 @@ namespace ShareHole {
 
                         using (MemoryStream ms = new MemoryStream(ffmpeg_thumb)) {
                             using (MagickImage mi = new MagickImage(ms)) {
-                                if (mi.Orientation != OrientationType.Undefined)
-                                    mi.AutoOrient();
+                                ConvertAndParse.Image.ConvertToPng(mi);
 
-                                if (State.server["gallery"]["thumbnail_compression"].ToBool()) {
-                                    ConvertAndParse.Image.ConvertToJpeg(mi, (uint)thumb_compression_quality);
-                                    var ba = mi.ToByteArray();
-                                    thumbnail_cache.Store(file.FullName, ("image/jpeg", ba), life_time);
-                                    file_length = ba.Length;
-                                    ba = null;
-                                } else {
-                                    ConvertAndParse.Image.ConvertToPng(mi);
-                                    var ba = mi.ToByteArray();
-                                    thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
-                                    file_length = ba.Length;
-                                    ba = null;
-                                }
-
+                                mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
+                                var ba = mi.ToByteArray();
+                                thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
+                                file_length = ba.Length;
+                                ba = null;
                             }
                         }
                     }
@@ -218,7 +195,7 @@ namespace ShareHole {
             // build new thumbnail for an image and add it to the cache
             } else {
                 try {
-                    build_cache(file, mime_type, thread_id, thumbnail_cache.MaxAge, out _);
+                    BuildCache(file, mime_type, thread_id, thumbnail_cache.MaxAge, out _);
                 } catch (Exception ex) {
                     Logging.ErrorAndThrow($"Thumbnail cache build failed :: {file.Name} :: {ex.Message}");
                 }
