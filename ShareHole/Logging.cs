@@ -81,7 +81,7 @@ namespace ShareHole {
 
         static void Log(string text, string tag, ConsoleColor color, bool show_caller = true, string caller_fn = "", string caller_mn = "", string extra_tag = "", ConsoleColor extra_color = ConsoleColor.White) {
             if (State.LogLevel == 0) return;
-            //if (ForceDisableLogging) return;
+
             LogQueue.Enqueue(new log_item(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
 
             string s = "";
@@ -106,7 +106,7 @@ namespace ShareHole {
             s += text;
             LogText.Enqueue(s);
         }
-        public static bool ForceDisableLogging = false;
+
         static bool running = false;
         static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         static CancellationToken cancellation_token => cancellation_token_source.Token;
