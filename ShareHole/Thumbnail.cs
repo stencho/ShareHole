@@ -88,7 +88,7 @@ namespace ShareHole {
                 Logging.Message($"{c} items added to thumbnail cache in {(end - start).ToString(@"mm\:ss\.ff")}");
                 Logging.Message($"{string.Format("{0:0.00}", bytes_processed / 1024.0 / 1024.0)} MB processed, " +
                     $"{string.Format("{0:0.00}", bytes_stored / 1024.0 / 1024.0)} MB stored");
-                Logging.Warning($"Finished caching all thumbnails in [share] {share_name}");
+                Logging.Message($"Finished caching all thumbnails in [share] {share_name}");
             } 
 
             return;
@@ -102,32 +102,39 @@ namespace ShareHole {
             if (ConvertAndParse.IsValidImage(mime_type)) {
                 if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for image {file.Name}", $"THUMB:{thread_id}", thread_id);
+                fail_reattempt:
+                try {
+                    using (MagickImage mi = new MagickImage(file.FullName)) {
+                        if (mi.Orientation != OrientationType.Undefined)
+                            mi.AutoOrient();
 
-                using (MagickImage mi = new MagickImage(file.FullName)) {
-                    if (mi.Orientation != OrientationType.Undefined)
-                        mi.AutoOrient();
+                        mi.Strip();
 
-                    mi.Strip();
+                        ConvertAndParse.Image.ConvertToPng(mi);
 
-                    ConvertAndParse.Image.ConvertToPng(mi);
-
-                    mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
+                        mi.Resize((uint)thumbnail_size, (uint)thumbnail_size);
                                         
 
-                    try {
-                        var ba = mi.ToByteArray();
-                        thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
-                        file_length = ba.Length;
-                        ba = null;
-                        mi.Dispose();
-                    } catch (Exception ex) {
-                        Logging.Error($"{file.Name} :: {ex.Message}");
+                        try {
+                            var ba = mi.ToByteArray();
+                            thumbnail_cache.Store(file.FullName, ("image/png", ba), life_time);
+                            file_length = ba.Length;
+                            ba = null;
+                            mi.Dispose();
+                        } catch (Exception ex) {
+                            Logging.Error($"{file.Name} :: {ex.Message}");
+                        }
+
                     }
-                    
+                } catch (Exception ex) {
+                    fail_count++;
+                    Logging.Warning($"{file.Name} [Failure {fail_count}/5] :: {ex.Message}");
+                    if (fail_count < 5) goto fail_reattempt;
+                    Logging.Error($"{file.Name} :: Failed too many times");
                 }
-                
-                //build one for a video
-            } else if (mime_type.StartsWith("video")) {
+
+            //build one for a video
+        } else if (mime_type.StartsWith("video")) {
                 if (State.LogLevel == Logging.LogLevel.ALL)
                     Logging.ThreadMessage($"Building thumbnail for video {file.Name}", $"THUMB:{thread_id}", thread_id);
                 fail_reattempt:
@@ -175,8 +182,8 @@ namespace ShareHole {
                     }
                 } catch (Exception ex) {
                     fail_count++;
-                    Logging.Error($"{file.Name} :: {ex.Message}");
-                    if (fail_count<5) goto fail_reattempt;
+                    Logging.Warning($"{file.Name} [Failure {fail_count}/5] :: {ex.Message}");
+                    if (fail_count < 5) goto fail_reattempt;
                     Logging.Error($"{file.Name} :: Failed too many times");
                 }
 

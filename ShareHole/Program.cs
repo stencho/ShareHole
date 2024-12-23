@@ -606,12 +606,10 @@ namespace ShareHole {
                 if (State.shares[section].ContainsKey("style") && State.shares[section]["style"].ToString() == "gallery") {
                     if (State.shares[section].ContainsKey("precache") && State.shares[section]["precache"].ToBool()) {
 
-                        Logging.Warning($"Started caching all thumbails in [share] {section}");
+                        Logging.Message($"Started caching all thumbnails in [share] {section}");
 
                         DirectoryInfo di = new DirectoryInfo(State.shares[section]["path"].ToString());
                         ThumbnailManager.CacheAllInShare(di, section, wt, true).Wait();
-
-                        Logging.ForceDisableLogging = false;
 
                     }
                 }
