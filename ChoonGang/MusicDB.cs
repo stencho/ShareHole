@@ -7,7 +7,7 @@ using ChoonGang;
 
 namespace ChoonGang {
     public class MusicFile {
-        public string title, artist, album,  path;
+        public string title, artist, album, path;
         public int track_number, year;
         public double seconds;
 
@@ -44,12 +44,12 @@ namespace ChoonGang {
         }
     }
 
-    public class MusicDB {
+    public static class MusicDB {
         public static string music_root => State.server["server"]["path"].ToString();
+        public static int total_song_count = 0;
+        static SqliteConnection connection;
 
-        SqliteConnection connection;
-
-        string connection_string = "Data Source=music.db";
+        const string connection_string = "Data Source=music.db";
 
         const string create_music_table_query = @"
                     CREATE TABLE IF NOT EXISTS music (
@@ -67,7 +67,8 @@ namespace ChoonGang {
             "INSERT OR IGNORE INTO music (path, title, artist, album, track_number, year, duration) " +
                                  "VALUES (@path, @title, @artist, @album, @track_number, @year, @duration);";
 
-        void add_songs(List<MusicFile> files) {
+        static int add_songs(List<MusicFile> files) {
+            int c = 0;
             lock (connection) {
                 using (var transaction = connection.BeginTransaction()) {
                     using (var command = new SqliteCommand(add_song_query, connection, transaction)) {
@@ -82,18 +83,51 @@ namespace ChoonGang {
                             command.Parameters.AddWithValue("@year", file.year);
                             command.Parameters.AddWithValue("@duration", file.seconds);
 
-                            command.ExecuteNonQuery();
+                            c += command.ExecuteNonQuery();                            
                         }
                     }
 
                     transaction.Commit();
                 }
             }
+            return c;
         }
 
-        public MusicDB(ConfigWithExpectedValues config) {
-            connection = new SqliteConnection(connection_string);
+        static int prune_missing() {
+            int c = 0;            
+            var q = "SELECT path FROM music";
 
+            lock (connection) {
+                using (var command = new SqliteCommand(q, connection)) {
+                    using (var reader = command.ExecuteReader()) {                        
+                        while (reader.Read()) {
+                            string path = reader.GetString(0);
+
+                            if (!System.IO.File.Exists(path)) {
+                                c += remove_song(path);
+                            } else {
+                                total_song_count++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return c;
+        }
+
+        static int remove_song(string path) {
+            int c = 0;
+            string q = "DELETE FROM music WHERE path = @path";
+            using (var command = new SqliteCommand(q, connection)) {
+                command.Parameters.AddWithValue("@path", path);
+                c += command.ExecuteNonQuery();
+            }
+            return c;
+        }
+
+        public static void Start() {
+            connection = new SqliteConnection(connection_string);
             connection.Open();
 
             //create tables
@@ -101,15 +135,17 @@ namespace ChoonGang {
                 command.ExecuteNonQuery();
             }
 
-            int song_count = 0;
+            int added_count = 0;            
             int corrupt_count = 0;
-            var di = new DirectoryInfo(config["server"]["path"].ToString());
+            List<string> corrupt_songs = new List<string>();
+
+            var di = new DirectoryInfo(State.server["server"]["path"].ToString());
 
             //recurse music directory and add all files
             if (di.Exists) {
                 DateTime start = DateTime.Now;
 
-                foreach (var directory in di.GetDirectories("*", new EnumerationOptions() { RecurseSubdirectories = true }).OrderBy(a => a.FullName)) {                    
+                foreach (var directory in di.GetDirectories("*", new EnumerationOptions() { RecurseSubdirectories = true }).OrderBy(a => a.FullName)) {
                     Tasks.StartTask(() => {
                         List<MusicFile> songs_in_folder = new List<MusicFile>();
 
@@ -122,26 +158,36 @@ namespace ChoonGang {
                                 } catch (TagLib.CorruptFileException ex) {
                                     Logging.Error($"{file.Name} is corrupt!");
                                     corrupt_count++;
-                                } finally {
-                                    song_count++;                                    
+                                    corrupt_songs.Add(file.FullName);
                                 }
                             }
                         }
 
-                        if (songs_in_folder.Count > 0) add_songs(songs_in_folder);
+                        if (songs_in_folder.Count > 0) added_count += add_songs(songs_in_folder);
                     });
                 }
 
                 while (Tasks.TaskCount > 0) {
-                    Console.Title = $"Adding music to database: {song_count} song{(song_count != 1 ? "s" : "")}, found {corrupt_count} corrupt song{(corrupt_count != 1 ? "s" : "")}";
+                    State.SetTitle($"Adding music to database: {added_count} new song{(added_count != 1 ? "s" : "")}, found {corrupt_count} corrupt song{(corrupt_count != 1 ? "s" : "")}");
                     Thread.Sleep(10);
                 }
 
+                //done recursing music dir
                 DateTime end = DateTime.Now;
-                Logging.Message($"Finished adding {song_count} songs in {(end - start).ToString(@"mm\:ss\.ff")}");
+                Logging.Message($"Finished adding {added_count} song{(added_count != 1 ? "s" : "")} in {(end - start).ToString(@"mm\:ss\.ff")}");
                 if (corrupt_count > 0) Logging.Warning($"Found {corrupt_count} corrupt audio files");
 
-            } else Environment.Exit(0);
+                //prune missing files from database
+                start = DateTime.Now;
+                State.SetTitle($"pruning database");
+                int pruned = prune_missing();
+                end = DateTime.Now;
+                Logging.Message($"Finished pruning {pruned} file{(pruned != 1 ? "s" : "")} in {(end - start).ToString(@"mm\:ss\.ff")}");
+
+                //done starting up
+                State.SetTitle($"serving {total_song_count} songs");
+
+            } else { connection.Close(); Environment.Exit(0); }
             
         }
     }

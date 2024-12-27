@@ -66,8 +66,9 @@ public static class State {
     public static int Port => server["server"]["port"].ToInt();
     public static int RequestThreads => server["server"]["threads"].ToInt();
 
-    public static MusicDB database;
-
+    public static void SetTitle(string status) {
+        Console.Title = "[Choon Gang] " + status;
+    }
 
     public static ConfigWithExpectedValues server;
     public static new Dictionary<string, Dictionary<string, ConfigValue>> server_config_values =
@@ -230,8 +231,7 @@ public class Program {
         ThreadPool.SetMinThreads(16, 16);
         ThreadPool.SetMaxThreads(16, 16);
 
-        State.database = new MusicDB(State.server);
-
+        MusicDB.Start();
 
         builder = WebApplication.CreateBuilder(args);
 
