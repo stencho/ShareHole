@@ -4,14 +4,19 @@ namespace ShareHole {
     public static class MusicInfo {
         internal static ConcurrentCache<MusicCacheItem> cache = new ConcurrentCache<MusicCacheItem>();
 
-        public class MusicCacheItem {
+        internal static Dictionary<string, List<FileInfo>> folder_reference = new Dictionary<string, List<FileInfo>>();
 
+        public class MusicCacheItem {
             internal string filename;
             string mime;
 
             public string title;
             public string artist;
             public string album;
+
+            public int year;            
+
+            public int track_number;
 
             public byte[] cover;
         }

@@ -83,7 +83,7 @@ namespace ShareHole {
             if (State.LogLevel == 0) return;
 
             LogQueue.Enqueue(new log_item(text, tag, color, extra_tag, extra_color, show_caller, caller_fn, caller_mn));
-
+            return;
             string s = "";
             //draw caller tag
             if (show_caller) {
@@ -111,6 +111,7 @@ namespace ShareHole {
         static CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
         static CancellationToken cancellation_token => cancellation_token_source.Token;
         static int thread_count = 0;
+
         public static void Start() {
             if (!running) {
                 running = true;
@@ -120,6 +121,7 @@ namespace ShareHole {
                 Task.Run(find_processor_usage, cancellation_token).ContinueWith(t => { Interlocked.Decrement(ref thread_count); });
             }
         }
+
         public static void Stop() {      
             cancellation_token_source.Cancel();
 

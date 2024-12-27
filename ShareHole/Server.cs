@@ -98,10 +98,8 @@ namespace ShareHole {
             }
 
             listener.Start();
-            System.Net.ServicePointManager.DefaultConnectionLimit = 500;
 
             Logging.Message($"Starting server on port {port}");
-
             Parallel.For(0, State.RequestThreads, i => {
                 Task.Run(() => { HandleRequest($"{prefixes[0]}:{port}:{i}", i); });
             });
@@ -404,7 +402,7 @@ namespace ShareHole {
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
-                                State.StartTask(() => { Transcoding.StreamVideoAsMp4Async(new FileInfo(absolute_on_disk_path), context); });
+                                State.StartTask(async () => { await Transcoding.StreamVideoAsMp4(new FileInfo(absolute_on_disk_path), context); });
 
                             } else if (file_exists && mime.StartsWith("audio")) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT IMPLEMENTED</b></p>";

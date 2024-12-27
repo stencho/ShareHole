@@ -381,8 +381,8 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("server",
                 "General server settings");
 
-            ConfigFileIO.comment_manager.AddBefore("server", "prefix", 
-                "Specify which adapter and port to bind to");
+            ConfigFileIO.comment_manager.AddBefore("server", "prefix",
+                "The adapter and port for the server to bind to");
 
             ConfigFileIO.comment_manager.AddBefore("server", "passdir", """
                 The name of the first section of the URL, required to access shares
@@ -613,7 +613,6 @@ namespace ShareHole {
 
                     }
                 }
-
             }
 
             ThreadPool.SetMinThreads(State.RequestThreads * 6, State.RequestThreads * 6);
