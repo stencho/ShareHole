@@ -25,7 +25,7 @@ namespace ShareHole {
 
     public static class MusicPlayerData {
         public static string stylesheet = """
-            :root {                            
+            :root {
                 --border-thickness: 2px;
                 --total-borders: 4;
 

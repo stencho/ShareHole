@@ -4,6 +4,8 @@ using ShareHole.Configuration;
 using TagLib;
 using HeyRed.Mime;
 using ChoonGang;
+using System.Text;
+using System.Diagnostics.Eventing.Reader;
 
 namespace ChoonGang {
     public class MusicFile {
@@ -22,7 +24,13 @@ namespace ChoonGang {
                     year = (int)f.Tag.Year;
                     seconds = f.Properties.Duration.TotalSeconds;
                 }
-            this.path = path;
+
+            string root = MusicDB.music_root;
+            if (root.EndsWith(Path.DirectorySeparatorChar)) {
+                root = root.Remove(root.Length - 1);
+            }
+
+            this.path = path.Remove(0, root.Length);
         }
 
         public MusicFile(string title, string artist, string album, string path, int track_number, int year, double seconds) {
@@ -102,8 +110,16 @@ namespace ChoonGang {
                     using (var reader = command.ExecuteReader()) {                        
                         while (reader.Read()) {
                             string path = reader.GetString(0);
+                            while (path.StartsWith(Path.DirectorySeparatorChar))
+                                path = path.Remove(0, 1);
 
-                            if (!System.IO.File.Exists(path)) {
+                            string root = music_root;
+                            while (root.EndsWith(Path.DirectorySeparatorChar))
+                                root = root.Remove(root.Length - 1);
+
+                            string full_path = root + Path.DirectorySeparatorChar + path;
+
+                            if (!System.IO.File.Exists(full_path)) {
                                 c += remove_song(path);
                             } else {
                                 total_song_count++;
@@ -163,12 +179,15 @@ namespace ChoonGang {
                             }
                         }
 
-                        if (songs_in_folder.Count > 0) added_count += add_songs(songs_in_folder);
+                        if (songs_in_folder.Count > 0) {
+                            added_count += songs_in_folder.Count;
+                            add_songs(songs_in_folder);
+                        }
                     });
                 }
 
                 while (Tasks.TaskCount > 0) {
-                    State.SetTitle($"Adding music to database: {added_count} new song{(added_count != 1 ? "s" : "")}, found {corrupt_count} corrupt song{(corrupt_count != 1 ? "s" : "")}");
+                    State.SetTitle($"Adding music to database: {added_count} song{(added_count != 1 ? "s" : "")}, found {corrupt_count} corrupt song{(corrupt_count != 1 ? "s" : "")}");
                     Thread.Sleep(10);
                 }
 
@@ -187,8 +206,105 @@ namespace ChoonGang {
                 //done starting up
                 State.SetTitle($"serving {total_song_count} songs");
 
-            } else { connection.Close(); Environment.Exit(0); }
+            } else { connection.Close(); Environment.Exit(0); }            
+        }
+
+        enum separator_mode { 
+            album, directory
+        }
+        static separator_mode sep_mode = separator_mode.album;
+
+        public static string ListSongsHTML() {
+            var sb = new StringBuilder();
+            var q = "SELECT path, artist, title, album, track_number, duration FROM music ORDER BY path";
+
+            string sep_prev = "";
+            bool sep_first = true;
+
+            using (var command = new SqliteCommand(q, connection)) {
+                using (var reader = command.ExecuteReader()) {
+                    sb.Append("<div id=\"music-list-container\"><div id='music-list'>");
+
+                    bool need_separator = false;
+
+                    while (reader.Read()) {
+                        string path = reader.GetString(0);
+                        while (path.StartsWith(Path.DirectorySeparatorChar))
+                            path = path.Remove(0, 1);
+
+                        string artist = reader.GetString(1);
+                        string title = reader.GetString(2);
+                        string album = reader.GetString(3);
+
+                        int track_num = reader.GetInt32(4);
+
+                        double duration = reader.GetDouble(5);
+                        TimeSpan ts = TimeSpan.FromSeconds(duration);
+
+                        string duration_str = "";
+                        if ((int)ts.TotalHours > 0)
+                            duration_str += ts.ToString(@"hh\:mm\:ss");
+                        else
+                            duration_str += ts.ToString(@"mm\:ss");
+
+                        string directory = Path.GetDirectoryName(path);
+
+                        need_separator = false;
+                        if (!sep_first) {
+                            switch (sep_mode) {
+                                case separator_mode.album:
+                                    if (album != sep_prev) need_separator = true;
+                                    sep_prev = album;
+                                    break;
+                                case separator_mode.directory:
+                                    if (directory != sep_prev) need_separator = true;
+                                    sep_prev = directory;
+                                    break;
+                            }
+                        } else {
+                            sep_first = false;
+                        }
+
+                        if (need_separator) sb.Append($"<hr class='music-list-item-separator'/>");
+
+                        sb.Append(
+                            $"<div class='music-list-item'>" +
+                            $"<a class='music-list-item-link' href='javascript:void(0)' onclick=\"play_song('{Uri.EscapeDataString(path)}')\"'>" +
+
+                            $"<span class=\"item-outer-span\">" +
+
+                                $"<span class=\"item-inner-span track-num\">" +
+                                $"{(track_num > 0 ? track_num : " ")}" + 
+                                $"</span>" +
+
+                                $"<span class=\"item-inner-span info\">" +
+                                $"{artist}" + 
+                                $"</span>" +
+
+                                $"<span class=\"item-inner-span info\">" +
+                                $"{title}" + 
+                                $"</span>" +
+
+                                $"<span class=\"item-inner-span info\">" +
+                                $"{album}" + 
+                                $"</span>" +
+
+                                $"<span class=\"item-inner-span duration\">" +
+                                $"{duration_str}" + 
+                                $"</span>" +
+
+                            $"</span>" +
+                            $"</a>" +
+                            $"</div>"
+                            );
+
+                    }
+                    sb.Append("</div></div>");
+                }
+            }
             
+
+            return sb.ToString();
         }
     }
 }

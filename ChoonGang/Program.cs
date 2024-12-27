@@ -1,10 +1,13 @@
 using ChoonGang;
+using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Extensions.FileProviders;
 using ShareHole;
 using ShareHole.Configuration;
 using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Web;
 
 namespace ChoonGang;
 public static class Tasks {
@@ -160,6 +163,8 @@ public static class State {
             scrollbar-width: thin;
         
             margin: 0;
+            padding: 0;
+
             height: 100%;
         }
                 
@@ -171,6 +176,7 @@ public static class State {
             font-size: 16pt;
         
             margin: 0;
+            padding: 0;
         
             height: auto;
         }
@@ -263,7 +269,202 @@ public class Program {
 
         web_app.Map("/", async context => {
             context.Response.ContentType = "text/html";
-            await context.Response.WriteAsync(base_html_strings_replaced("yay", "Choon Gang"), Tasks.cancellation_token);
+            await context.Response.WriteAsync(PlayerRenderer.DrawPlayer(), Tasks.cancellation_token);
+        });
+
+        web_app.Map("info", async context => {
+            //context.Response.ContentType = "text/json";
+            //await context.Response.WriteAsync(MusicDB.GetID3Json(), Tasks.cancellation_token);
+        });
+
+        web_app.Map("/get/{filename}", async (HttpContext context, ILogger<Program> logger) => {
+            string path = context.Request.RouteValues["filename"]?.ToString();
+            var root = MusicDB.music_root;
+
+            var mime = ConvertAndParse.GetMimeTypeOrOctet(path);
+            logger.LogInformation("WUMBA");
+
+            while (root.EndsWith(Path.DirectorySeparatorChar)) 
+                root = root.Remove(root.Length - 1);
+            while (path.StartsWith(Path.DirectorySeparatorChar))
+                path = path.Remove(0, 1);
+
+            string full_path = root + Path.DirectorySeparatorChar + path;
+            if (File.Exists(full_path)) {
+                context.Response.ContentType = mime;
+                byte[] bytes = await File.ReadAllBytesAsync(full_path);
+                await context.Response.Body.WriteAsync(bytes, 0, bytes.Length);
+
+            } else {
+                context.Response.StatusCode = 404;
+                context.Response.ContentType = "text/html";
+                await context.Response.WriteAsync("<html><body><h1>404 Not Found</h1><p>File not found.</p></body></html>");
+            }
+        });
+
+        web_app.UseStaticFiles(new StaticFileOptions {
+            FileProvider = new PhysicalFileProvider(MusicDB.music_root),
+            RequestPath = "/get"
+        });
+
+        web_app.Map("list", async context => {
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync(base_html_strings_replaced(MusicDB.ListSongsHTML(), "",
+
+                //scripts
+                """
+                    const music_list = document.getElementById('music-list');                     
+                        
+                    function scroll_bar_music_list_border() {
+                        console.log("ye");
+                        console.log(document.documentElement.scrollHeight);
+                        console.log(document.documentElement.clientHeight);
+
+                        if (document.documentElement.scrollHeight >= document.documentElement.clientHeight) {
+                            music_list.classList.add('scrollbar-visible');
+                        } else {
+                            music_list.classList.remove('scrollbar-visible');
+                        }
+                    }
+                
+                    window.addEventListener('load', () => {
+                        scroll_bar_music_list_border();                   
+                    });
+                    window.addEventListener('resize', scroll_bar_music_list_border);
+                
+                    function play_song(filename) {     
+                        window.parent.load_song(filename);
+                    }
+
+
+                """,
+
+                //styles
+                """                       
+                body {
+                    display: flex;
+                    overflow: hidden;
+                    flex-wrap: wrap;            
+                
+                    width: 100vw;            
+                    height: 100vh;
+                            
+                    max-width: 100vw;
+                
+                    margin: 0;
+
+                    scrollbar-color: var(--main-color) var(--background-color);
+                    scrollbar-width: thin;
+                }
+
+                :root { 
+                    --separator-thickness: 1px;   
+
+                    --track-num-width:60px;
+                    --duration-width:30px;
+
+                    --info-margin-width: 10px;
+                    --info-margin-count: 6;
+                    --info-margin-total-width: calc(var(--info-margin-width) * var(--info-margin-count));
+
+                    --info-width: calc((100vw - var(--track-num-width) - var(--duration-width) - var(--info-margin-total-width) - 2px) / 3);
+                }
+
+                iframe { border: none; }                          
+                audio-player { display: none; }
+
+                #music-list-container {
+                    overflow-y:auto;
+                    
+                    width:100%;
+                    height: 100%;
+                    margin: 0;
+
+                    scrollbar-color: var(--main-color) var(--background-color);
+                    scrollbar-width: thin;
+                }
+                
+                #music-list {
+                    display: flow;
+                    width: 100%;
+                }  
+
+                .music-list-item {                
+                    width:100%;
+                    margin: 0;
+                }  
+                .music-list-item-separator {                
+                    width:100%;
+                    margin: 0;
+                    height: var(--separator-thickness);
+                    margin:0;
+                    border:none;
+                    background-color: var(--secondary-color);
+                }  
+                
+                .item-outer-span { 
+                    color: transparent; 
+                    text-shadow: 0 0 0 var(--main-color);  
+                    width: 100%;
+                    max-width:100%;
+                    display: flex;
+                    align-items: center;
+                }
+
+                .item-outer-span:hover { 
+                    color: transparent; 
+                    background-color: var(--main-color);  
+                    text-shadow: 0 0 0 var(--background-color); 
+                }
+                                
+                .item-inner-span { 
+                    overflow: clip;
+                    text-overflow: hidden;
+
+                    height: auto;
+                    max-height: auto;
+
+                    font-size: 14pt;
+                    white-space: nowrap;                
+                    
+                    text-align:left;
+                }
+                
+                .item-inner-span.track-num {                 
+                    flex: 0 0 var(--track-num-width);
+
+                    margin-left: var(--info-margin-width);
+                }
+
+                .item-inner-span.info { 
+                    flex: 1;
+                    text-align:left;
+
+                    max-width: var(--info-width);
+
+                    margin-right: var(--info-margin-width);
+                }                
+
+                .item-inner-span.duration { 
+                    text-align:right;
+                    align-content: end;
+                    margin-left: auto;
+                    flex: 0 0 auto;
+                    margin-right: var(--info-margin-width);
+                }
+
+                a.music-list-item-link {
+                    display: flex;
+                    flex-grow: 1;
+                }
+
+                #music-list.scrollbar-visible {
+                    width: calc(100% - 2px) !important;
+                    border-right: solid 2px var(--main-color); 
+                } 
+                """
+                ), 
+                Tasks.cancellation_token);
         });
 
         web_app.Map("/base.css", async context => {
