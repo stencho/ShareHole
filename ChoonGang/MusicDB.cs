@@ -8,13 +8,12 @@ using System.Text;
 using System.Diagnostics.Eventing.Reader;
 
 namespace ChoonGang {
-    public class MusicFile {
+    public struct MusicFile {
         public string title, artist, album, path;
         public int track_number, year;
         public double seconds;
 
         public string directory => Path.GetDirectoryName(path);
-
 
         public MusicFile(string path) {
                 using (TagLib.File f = TagLib.File.Create(path)) {
@@ -121,8 +120,6 @@ namespace ChoonGang {
                                 zero_count--;
                             }
                             sort_str.Append(track_num);
-
-                            if (!string.IsNullOrEmpty(file.artist)) sort_str.Append(file.artist.Substring(0, 1));
                             if (!string.IsNullOrEmpty(file.title)) sort_str.Append(file.title.Substring(0, 1));
                             sort_str.Append(Path.GetFileName(file.path));
 
@@ -212,6 +209,10 @@ namespace ChoonGang {
                 }
             }
 
+            return "";
+        }
+
+        public static string GetID3Json() {
             return "";
         }
 

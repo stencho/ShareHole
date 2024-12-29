@@ -33,10 +33,10 @@ namespace ChoonGang {
                 //scripts
                 """   
                 const audio_player = document.getElementById('audio-player');
-                string current_file = "";
+                let current_file = "";
                 
-                string previous_track = "";
-                string next_track = "";
+                let previous_track = "";
+                let next_track = "";
 
                 function searchMusic() {
                     const query = document.getElementById("searchInput").value.trim();
@@ -95,7 +95,6 @@ namespace ChoonGang {
 
                 function next() {
                     play_song(next_track);
-                    if (next_track == ne
                 }
                 
                 function previous() {
@@ -106,7 +105,7 @@ namespace ChoonGang {
                     audio_player.src = '/get/' + filename;
                     play();         
                     current_file = filename;
-                    update_previous_and_next_track();       
+                    update_previous_and_next_track(filename);       
                 }
                 """,
 
