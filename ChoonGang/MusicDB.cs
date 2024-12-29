@@ -6,6 +6,8 @@ using HeyRed.Mime;
 using ChoonGang;
 using System.Text;
 using System.Diagnostics.Eventing.Reader;
+using System.Text.Json.Serialization;
+using Json.Net;
 
 namespace ChoonGang {
     public struct MusicFile {
@@ -49,12 +51,36 @@ namespace ChoonGang {
             this.year = year;
             this.seconds = seconds;
         }
+
+
+        public static MusicFile FromDB(string path) {
+            var q = "SELECT * FROM music WHERE path = @path";
+            using (var command = new SqliteCommand(q, MusicDB.connection)) {
+                command.Parameters.AddWithValue("@path", path);
+                using (var reader = command.ExecuteReader()) {
+                    if (reader.Read()) {
+                        string fn = reader.GetString(0);
+                        string title = reader.GetString(3);
+                        string artist = reader.GetString(4);
+                        string album = reader.GetString(5);
+
+                        int track_num = reader.GetInt32(7);
+                        int year = reader.GetInt32(8);
+                        double duration = reader.GetDouble(9);
+
+                        return new MusicFile(title, artist, album, fn, track_num, year, duration);
+                    }
+                }
+            }
+
+            return new MusicFile(path);
+        }
     }
 
     public static class MusicDB {
         public static string music_root => State.server["server"]["path"].ToString();
         public static int total_song_count = 0;
-        static SqliteConnection connection;
+        internal static SqliteConnection connection;
 
         const string connection_string = "Data Source=music.db";
 
@@ -212,8 +238,10 @@ namespace ChoonGang {
             return "";
         }
 
-        public static string GetID3Json() {
-            return "";
+        public static string GetID3Json(string path) {
+            MusicFile mi = MusicFile.FromDB(path);
+            var json = JsonNet.Serialize(mi);
+            return json;
         }
 
         public static void Start() {

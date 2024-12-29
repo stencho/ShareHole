@@ -272,6 +272,20 @@ public class Program {
             await context.Response.WriteAsync(PlayerRenderer.DrawPlayer(), Tasks.cancellation_token);
         });
 
+        web_app.Map("/info/{filename:regex(.*)}", async context => {
+            string path = context.Request.RouteValues["filename"]?.ToString();
+            path = Uri.UnescapeDataString(path);
+
+            if (string.IsNullOrEmpty(path)) {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsync("Filename parameter is missing");
+                return;
+            }
+
+            context.Response.ContentType = "text/json";
+            await context.Response.WriteAsync(MusicDB.GetID3Json(path), Tasks.cancellation_token);
+        });
+
         web_app.Map("/next/{filename:regex(.*)}", async context => {
             string path = context.Request.RouteValues["filename"]?.ToString();
             path = Uri.UnescapeDataString(path);
@@ -339,13 +353,9 @@ public class Program {
 
                 //scripts
                 """
-                    const music_list = document.getElementById('music-list');                     
+                    const music_list = document.getElementById('music-list');                            
                         
                     function scroll_bar_music_list_border() {
-                        console.log("ye");
-                        console.log(music_list.scrollHeight);
-                        console.log(document.documentElement.clientHeight);
-
                         if (music_list.scrollHeight >= document.documentElement.clientHeight) {
                             music_list.classList.add('scrollbar-visible');
                         } else {
@@ -407,6 +417,9 @@ public class Program {
 
                     scrollbar-color: var(--main-color) var(--background-color);
                     scrollbar-width: thin;
+
+                    border-right: solid 2px var(--main-color); 
+                    border-left: solid 2px var(--main-color); 
                 }
                 
                 #music-list {
@@ -479,7 +492,7 @@ public class Program {
                     flex-grow: 1;
                 }
 
-                #music-list.scrollbar-visible {
+                .scrollbar-visible {
                     width: calc(100% - 2px) !important;
                     border-right: solid 2px var(--main-color); 
                 } 
