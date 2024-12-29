@@ -33,7 +33,11 @@ namespace ChoonGang {
                 //scripts
                 """   
                 const audio_player = document.getElementById('audio-player');
-                    
+                string current_file = "";
+                
+                string previous_track = "";
+                string next_track = "";
+
                 function searchMusic() {
                     const query = document.getElementById("searchInput").value.trim();
                     let sqlQuery = '';
@@ -61,6 +65,26 @@ namespace ChoonGang {
                     }
                 }
                 
+                function update_previous_and_next_track(filename) {                
+                    fetch('/prev/' + encodeURIComponent(filename))
+                        .then(response => response.text())
+                        .then(data => {
+                            console.log('prev: ' + data);
+                            previous_track = data;
+                        }) 
+                
+                    fetch('/next/' + encodeURIComponent(filename))
+                        .then(response => response.text())
+                        .then(data => {
+                            console.log('next: ' + data);
+                            next_track = data;
+                        })                   
+                }
+
+                function update_tags() {
+
+                }
+                
                 function play() {
                     audio_player.play();
                 }
@@ -69,9 +93,20 @@ namespace ChoonGang {
                     audio_player.pause();
                 }
 
-                function load_song(filename) {    
-                    audio_player.src = '/get/' + filename;                                    
-                    play();                
+                function next() {
+                    play_song(next_track);
+                    if (next_track == ne
+                }
+                
+                function previous() {
+                    play_song(previous_track);
+                }
+
+                function play_song(filename) {    
+                    audio_player.src = '/get/' + filename;
+                    play();         
+                    current_file = filename;
+                    update_previous_and_next_track();       
                 }
                 """,
 

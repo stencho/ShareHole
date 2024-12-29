@@ -272,19 +272,50 @@ public class Program {
             await context.Response.WriteAsync(PlayerRenderer.DrawPlayer(), Tasks.cancellation_token);
         });
 
-        web_app.Map("info", async context => {
-            //context.Response.ContentType = "text/json";
-            //await context.Response.WriteAsync(MusicDB.GetID3Json(), Tasks.cancellation_token);
+        web_app.Map("/next/{filename:regex(.*)}", async context => {
+            string path = context.Request.RouteValues["filename"]?.ToString();
+            path = Uri.UnescapeDataString(path);
+
+            if (string.IsNullOrEmpty(path)) {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsync("Filename parameter is missing");
+                return;
+            }
+
+            context.Response.ContentType = "text/plain";
+            await context.Response.WriteAsync(MusicDB.FindNextSong(path), Tasks.cancellation_token);
         });
+
+        web_app.Map("/prev/{filename:regex(.*)}", async context => {
+            string path = context.Request.RouteValues["filename"]?.ToString();
+            path = Uri.UnescapeDataString(path);
+
+            if (string.IsNullOrEmpty(path)) {
+                context.Response.StatusCode = 400; 
+                await context.Response.WriteAsync("Filename parameter is missing");
+                return;
+            }
+
+            context.Response.ContentType = "text/plain";
+            await context.Response.WriteAsync(MusicDB.FindPreviousSong(path), Tasks.cancellation_token);
+        });
+
+        /*
+        web_app.UseStaticFiles(new StaticFileOptions {
+            FileProvider = new PhysicalFileProvider(MusicDB.music_root),
+            RequestPath = "/get"
+        });
+        */
 
         web_app.Map("/get/{filename}", async (HttpContext context, ILogger<Program> logger) => {
             string path = context.Request.RouteValues["filename"]?.ToString();
+            path = Uri.UnescapeDataString(path);
             var root = MusicDB.music_root;
 
             var mime = ConvertAndParse.GetMimeTypeOrOctet(path);
             logger.LogInformation("WUMBA");
 
-            while (root.EndsWith(Path.DirectorySeparatorChar)) 
+            while (root.EndsWith(Path.DirectorySeparatorChar))
                 root = root.Remove(root.Length - 1);
             while (path.StartsWith(Path.DirectorySeparatorChar))
                 path = path.Remove(0, 1);
@@ -302,11 +333,6 @@ public class Program {
             }
         });
 
-        web_app.UseStaticFiles(new StaticFileOptions {
-            FileProvider = new PhysicalFileProvider(MusicDB.music_root),
-            RequestPath = "/get"
-        });
-
         web_app.Map("list", async context => {
             context.Response.ContentType = "text/html";
             await context.Response.WriteAsync(base_html_strings_replaced(MusicDB.ListSongsHTML(), "",
@@ -317,10 +343,10 @@ public class Program {
                         
                     function scroll_bar_music_list_border() {
                         console.log("ye");
-                        console.log(document.documentElement.scrollHeight);
+                        console.log(music_list.scrollHeight);
                         console.log(document.documentElement.clientHeight);
 
-                        if (document.documentElement.scrollHeight >= document.documentElement.clientHeight) {
+                        if (music_list.scrollHeight >= document.documentElement.clientHeight) {
                             music_list.classList.add('scrollbar-visible');
                         } else {
                             music_list.classList.remove('scrollbar-visible');
@@ -333,9 +359,8 @@ public class Program {
                     window.addEventListener('resize', scroll_bar_music_list_border);
                 
                     function play_song(filename) {     
-                        window.parent.load_song(filename);
+                        window.parent.play_song(filename);
                     }
-
 
                 """,
 
@@ -407,8 +432,16 @@ public class Program {
                     text-shadow: 0 0 0 var(--main-color);  
                     width: 100%;
                     max-width:100%;
+                    
                     display: flex;
+
                     align-items: center;
+                    white-space: nowrap;     
+
+                    font-size: 14pt;      
+                    text-align:left; 
+                    height: auto;
+                    max-height: auto;
                 }
 
                 .item-outer-span:hover { 
@@ -416,41 +449,29 @@ public class Program {
                     background-color: var(--main-color);  
                     text-shadow: 0 0 0 var(--background-color); 
                 }
-                                
-                .item-inner-span { 
-                    overflow: clip;
-                    text-overflow: hidden;
-
-                    height: auto;
-                    max-height: auto;
-
-                    font-size: 14pt;
-                    white-space: nowrap;                
-                    
-                    text-align:left;
-                }
                 
                 .item-inner-span.track-num {                 
-                    flex: 0 0 var(--track-num-width);
+                    flex: 0 0 4ch;
+                    margin-left: 0.5rem;
+                    margin-right: 0.5rem;
 
-                    margin-left: var(--info-margin-width);
-                }
-
-                .item-inner-span.info { 
-                    flex: 1;
+                    overflow: hidden;
                     text-align:left;
+                }    
 
-                    max-width: var(--info-width);
-
-                    margin-right: var(--info-margin-width);
+                .item-inner-span { 
+                    flex: 1;
+                    overflow: hidden;
+                    text-align:left;
+                    max-width: calc((100% - (4ch + 1rem + 1rem + 5ch + 1rem)) / 3);
+                    margin-right: 0.5rem;
                 }                
 
                 .item-inner-span.duration { 
+                    flex: 0 0 7ch;
                     text-align:right;
-                    align-content: end;
-                    margin-left: auto;
-                    flex: 0 0 auto;
-                    margin-right: var(--info-margin-width);
+                    margin-right: 0.5rem;
+               
                 }
 
                 a.music-list-item-link {
