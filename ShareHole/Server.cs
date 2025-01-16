@@ -183,6 +183,13 @@ namespace ShareHole {
                 /* COMICAL AMOUNTS OF SETUP */
                 var request = context.Request;
 
+                if (request.ProtocolVersion.Major == 1 && request.ProtocolVersion.Minor == 0) {
+                    Logging.ThreadWarning($"Client attempted to connect using HTTP/1.0 from [{request.UserHostAddress}]", thread_name, thread_id);
+                    context.Response.StatusCode = (int)HttpStatusCode.HttpVersionNotSupported;
+                    context.Response.Close();
+                    continue;
+                }
+
                 //Set up response
                 context.Response.KeepAlive = false;
                 context.Response.ContentEncoding = Encoding.UTF8;
