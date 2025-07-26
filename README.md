@@ -117,6 +117,7 @@ show_directories=true
 path=D:\\pictures
 show_directories=true
 style=gallery
+precache=true
 
 # A music library share
 # example.com:8080/loot/music/
@@ -130,4 +131,5 @@ extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif
 - show_directories: enables or disables viewing sub-directories
 - extensions: limit the listed files to these extensions
 - group_by: 'extension' or 'type'
-- style: only list or gallery for now. list is default. 
+- style: only list or gallery for now. list is default.
+- precache: enable thumbnail pre-caching for "gallery" style shares on server start. If this is disabled, gallery thumbnails will still be cached to memory, but only once the share is viewed.
