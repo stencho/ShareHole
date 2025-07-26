@@ -47,7 +47,7 @@ namespace ShareHole {
         }
 
         public static void FileWithRanges(string filename, string mime, HttpListenerContext context) {
-            State.StartTask(() => { send_file_ranges(filename, mime, context); });
+            State.StartTask(() => { FileRange(filename, mime, context); });
         }
 
         public void File(FileInfo file, string mime, HttpListenerContext context) {
@@ -105,7 +105,7 @@ namespace ShareHole {
             }
         }
 
-        static async void send_file_ranges(string filename, string mime, HttpListenerContext context) {
+        static async void FileRange(string filename, string mime, HttpListenerContext context) {
             FileInfo file = new FileInfo(filename);
             
             //check for range header
