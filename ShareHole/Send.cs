@@ -79,7 +79,7 @@ namespace ShareHole {
             }
 
             string rv = range_value.Remove(0, "bytes=".Length);
-            int length;
+            long length;
 
             if (rv.Contains("/")) rv.Remove(rv.IndexOf("/"));
 
@@ -87,7 +87,7 @@ namespace ShareHole {
                 string[] split = rv.Split("-");
 
                 if (split.Length == 2) {
-                    output.start = int.Parse(split[0]);
+                    output.start = long.Parse(split[0]);
 
                     if (long.TryParse(split[1], out output.end)) {
                         return (output.start, output.end, output.end - output.start);
@@ -118,7 +118,7 @@ namespace ShareHole {
             var kb_size = State.server["server"]["transfer_buffer_size"].ToInt();
             if (kb_size <= 0) kb_size = 1;            
             long chunk_size = kb_size * 1024;
-            if (chunk_size > int.MaxValue) chunk_size = int.MaxValue;
+            //if (chunk_size > long.MaxValue) chunk_size = long.MaxValue;
 
             context.Response.AddHeader("Accept-Ranges", "bytes");
             context.Response.AddHeader("Content-Type", mime);
