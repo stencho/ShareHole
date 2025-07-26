@@ -1,11 +1,11 @@
 ## ShareHole
-An HTTP file server for sharing directories with low (but not zero) security, and a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file. Very asynchronous.
+An HTTP file server for sharing directories with low (but not zero) security, and a focus on security through extreme obscurity and minimization of features. It does not support POST requests, it's incapable of sharing files outside of user-defined shares, and it can't modify anything on disk except the server config file.
 
 ### Requirements
 FFMpeg, ImageMagick, and Ghostscript
 
 ### Configuration and usage
-Use the -c command line argument to set the current config directory.
+Use the -c command line argument to set the current config directory. Default is "config"
 
 ShareHole uses a "passdir", a directory which goes at the start of the URL, to let the server know you're cool. The default is "loot", so you would access a share called "share" though "example.com:8080/loot/share/".
 
@@ -15,7 +15,7 @@ There are also several "command directories" which go after the passdir, i.e. "/
 - /to_jpg/ will convert an image to JPG, with compression settings defined in the server config's \[conversion\] section
 - /to_png/ will convert an image to lossless PNG 
 
-This means that the server is able to use ImageMagick to render RAWs and Adobe files for you.
+This means that the server is able to use ImageMagick to render things like RAW images and Adobe PSD/AI files for you.
 
 - /transcode/ will transcode a video to browser-friendly MP4 and send the result to the client. This uses FFMPeg, so it works on most video formats.
 
@@ -80,7 +80,7 @@ show_stream_button=true
 # Display "PNG" and "JPG" buttons next to certain files which normally wouldn't be renderable in browser
 show_convert_image_buttons=true
 # Will modify URLs in the list to point to, for example, /to_jpg/ when the file is a .dng RAW
-# the others do the same thing but for video/audio
+# the others do the same thing but for video/audio (such as .mkv video or .wma audio files)
 convert_images_automatically=false
 convert_videos_automatically=false
 convert_audio_automatically=false
@@ -125,11 +125,12 @@ precache=true
 path=D:\\music
 show_directories=true
 extensions=ogg mp3 wav flac alac ape m4a wma jpg jpeg bmp png gif 
+style=music
 ```
 
 - path: required, the folder you want to be visible at this URL
 - show_directories: enables or disables viewing sub-directories
 - extensions: limit the listed files to these extensions
 - group_by: 'extension' or 'type'
-- style: only list or gallery for now. list is default.
+- style: list, gallery or music for now. "list" is default. "list" is a list of file names with conversion buttons on the right. "gallery" is a grid of thumbnails. "music" is an incomplete, simple music player, an earlier implementation of the ChoonGang server project.
 - precache: enable thumbnail pre-caching for "gallery" style shares on server start. If this is disabled, gallery thumbnails will still be cached to memory, but only once the share is viewed.
