@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="FFMpegCore" Version="5.2.0" />
-    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.8.0" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.8.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.8" />
     <PackageReference Include="MimeTypesMap" Version="1.0.9" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.8" />
