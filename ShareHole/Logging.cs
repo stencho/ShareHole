@@ -49,7 +49,7 @@ namespace ShareHole {
                 var l = 0;
                 
                 if (EnableTimeStamps) {
-                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 1 ? ":" + time.Second : "")}{(TimeStampDetail >= 2 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", ConsoleColor.DarkGray); //change this make it depend on the time of day
+                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 1 ? ":" + time.Second : "")}{(TimeStampDetail >= 2 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", Console.ForegroundColor); //change this make it depend on the time of day
                 }
                 
                 //draw caller tag
