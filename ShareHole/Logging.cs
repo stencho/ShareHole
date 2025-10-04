@@ -16,7 +16,7 @@ namespace ShareHole {
 
         struct log_item {
             string text;
-
+            
             string tag;
             ConsoleColor tag_color;
 
@@ -27,7 +27,10 @@ namespace ShareHole {
             string caller_file_name = "";
             string caller_member_name = "";
 
-
+            private DateTime time;
+            public bool EnableTimeStamps = true;
+            public int TimeStampDetail = 1;
+            
             public log_item(string text, string tag, ConsoleColor tag_color, string second_tag, ConsoleColor second_tag_color, bool show_caller, string callerfilename, string membername) {
                 this.text = text;
                 this.tag = tag;
@@ -37,12 +40,21 @@ namespace ShareHole {
                 this.show_caller = show_caller;
                 this.caller_file_name = callerfilename;
                 this.caller_member_name = membername;
+                
+                time = DateTime.Now;
             }
 
             public void print() {
                 if (string.IsNullOrEmpty(text)) return;
                 var l = 0;
+                
+                if (EnableTimeStamps) {
+                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 1 ? ":" + time.Second : "")}{(TimeStampDetail >= 2 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", ConsoleColor.DarkGray); //change this make it depend on the time of day
+                }
+                
                 //draw caller tag
+                Logging.WriteColor($"[{tag}]", tag_color);
+                
                 if (show_caller) {
                     Logging.WriteColor($"[{tag}]", tag_color);
                     l += $"[{tag}]".Length;

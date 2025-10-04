@@ -5,6 +5,7 @@ using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.ExceptionServices;
@@ -27,6 +28,19 @@ namespace ShareHole
 
             public DirectoryInfo[] directories;
             public FileInfo[] files;
+
+            public bool GetFile(string filename, out FileInfo result) {
+                foreach (FileInfo f in files) {
+                    if (f.Name.ToLower() == filename.ToLower()) {
+                        result = f;
+                        return true;
+                    }
+                }  
+                
+                result = null;
+                return false;
+            }
+            
         }
 
         static listing_info get_directory_info(string directory, string prefix, string uri, string share_name) {
@@ -297,16 +311,18 @@ namespace ShareHole
             return result;
         }
 
+        private static ConcurrentCache<string> guide_cache = new ConcurrentCache<string>();
+        
         //IMAGE/VIDEO GALLERY
         public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
             listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
-
+            
             int dir_c = 0;
             int file_c = 0;
 
             var share = share_name.Trim();
             var uri = uri_path.Trim();
-
+            
             while (share.EndsWith("/")) share = share.Remove(share.Length - 1);
             while (share.StartsWith("/")) share = share.Remove(0, 1);
 
@@ -314,10 +330,28 @@ namespace ShareHole
             while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
 
             if (uri.Length > 0) uri = uri + '/';
-
+            
+            Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
+            
             string result = "";
 
-            Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
+            if (uri_path == "/") {
+                string guide_uri = $"{directory}{uri_path}/guide.html";
+                
+                new_cache:
+                if (!guide_cache.Test(guide_uri)) {
+                    if (info.GetFile("guide.html", out var fi)) {
+                        Logging.Custom($"Caching guide for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
+                        guide_cache.Store(guide_uri, fi.OpenText().ReadToEnd());
+                        goto new_cache;
+                    }
+                } else {
+                    string header_guide = guide_cache.Request(guide_uri);
+                    result += "<div id=\"guide\">";
+                    result += $"<p>{header_guide}</p>";
+                    result += "</div>";
+                }
+            }
 
             result += "<div id=\"gallery\">";
             //Add up dir if we're showing directories

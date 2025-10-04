@@ -247,6 +247,11 @@ namespace ShareHole {
             align-items: end;
             align-content: normal;        
         }
+        
+        #guide {
+            margin-left: 15%;
+            margin-right: 15%;
+        }
 
         .gallery_folder {
             color: transparent; 
@@ -320,7 +325,8 @@ namespace ShareHole {
                             { "use_html_file", new ConfigValue(false) },
                             { "use_css_file", new ConfigValue(false) },
                             //{ "log_to_file", new ConfigValue("")}, //todo
-                            { "log_level", new ConfigValue(1) } // 0 = off, 1 = high importance only, 2 = all
+                            { "log_level", new ConfigValue(1) }, // 0 = off, 1 = high importance only, 2 = all
+                            { "log_timestamps", new ConfigValue(1) }  //  0 = off, 1 = H:M, 2 = H:M:S, 3 = H:M:S.MS
                         }
                     },
 
@@ -367,10 +373,14 @@ namespace ShareHole {
                     { "gallery",
                         new Dictionary<string, ConfigValue>() {
                             { "thumbnail_size", new ConfigValue(192) },
+                            
                             { "precache_worker_threads", new ConfigValue(32) },
+                            
                             { "convert_images_automatically", new ConfigValue(true) },
                             { "convert_videos_automatically", new ConfigValue(true) },
-                            { "convert_audio_automatically", new ConfigValue(true) }
+                            { "convert_audio_automatically", new ConfigValue(true) },
+                            
+                            { "show_guides", new ConfigValue(true) }
                         }
                     }
                 };
@@ -404,6 +414,10 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("server", "log_level", """
                 0 = Logging off, 1 = high importance only, 2 = all messages
                 """);
+            
+            ConfigFileIO.comment_manager.AddBefore("server", "log_timestamps", """
+                0 = off, 1 = H:M, 2 = H:M:S, 3 = H:M:S.MS
+              """);
 
 
             //THEME
@@ -486,6 +500,10 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("gallery", "convert_images_automatically", """                
                 Does the same thing as the options in [list], but for the gallery
                 On by default
+                """);
+
+            ConfigFileIO.comment_manager.AddBefore("gallery", "show_guides", """                
+                Look in folders for "guide.html" file. If found, it will be displayed at the top of the gallery
                 """);
         }
 
