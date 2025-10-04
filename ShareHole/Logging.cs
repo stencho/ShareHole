@@ -49,7 +49,7 @@ namespace ShareHole {
                 var l = 0;
                 
                 if (EnableTimeStamps) {
-                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 1 ? ":" + time.Second : "")}{(TimeStampDetail >= 2 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", Console.ForegroundColor); //change this make it depend on the time of day
+                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 2 ? ":" + time.Second : "")}{(TimeStampDetail >= 3 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", Console.ForegroundColor); //change this make it depend on the time of day
                 }
                 
                 //draw caller tag
@@ -330,9 +330,15 @@ namespace ShareHole {
         public static ConsoleColor SeededRandomConsoleColor(long seed) {
             var cc_list = Enum.GetNames(typeof(ConsoleColor));
             var cc_count = cc_list.Length;
-            var rng = new Random((int)seed).Next(1, cc_count-1);
-
-            return (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng]);
+            
+            var rng = new Random((int)seed);
+            var cc = (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng.Next(1, cc_count-1)]);
+            
+            while (cc == Console.BackgroundColor) {
+                cc = (ConsoleColor)Enum.Parse(typeof(ConsoleColor), cc_list[rng.Next(1, cc_count-1)]);
+            }
+            
+            return cc;
         }
         public static void Message(string text, bool show_caller = true, [CallerFilePath] string callerfilename = "", [CallerMemberName] string membername = "") {
             Log(text, "MSG", ConsoleColor.Green, show_caller, callerfilename, membername);
