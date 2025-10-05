@@ -312,6 +312,7 @@ namespace ShareHole
         }
 
         private static ConcurrentCache<string> guide_cache = new ConcurrentCache<string>();
+        private static bool disable_header_cache = true;
         
         //IMAGE/VIDEO GALLERY
         public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
@@ -335,26 +336,44 @@ namespace ShareHole
             
             string result = "";
 
-            if (uri_path == "/") {
-                string guide_uri = $"{directory}{uri_path}/guide.html";
-                
-                new_cache:
-                if (!guide_cache.Test(guide_uri)) {
-                    if (info.GetFile("guide.html", out var fi)) {
-                        Logging.Custom($"Caching guide for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
-                        guide_cache.Store(guide_uri, fi.OpenText().ReadToEnd());
-                        goto new_cache;
-                    }
-                } else {
-                    string header_guide = guide_cache.Request(guide_uri);
+            if (disable_header_cache) {
+                if (info.GetFile("lore.html", out var fi)) {
+                    Logging.Custom($"Caching guide for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
+                    
+                    var header_guide = fi.OpenText().ReadToEnd();
+                    
                     result += "<div id=\"guide\">";
                     result += $"<p>{header_guide}</p>";
                     result += "</div>";
                 }
+                
+                
+            } else {
+                //write guide to cache
+                if (uri_path == "/") {
+                    string guide_uri = $"{directory}{uri_path}/lore.html";
+
+                    new_cache:
+                    if (!guide_cache.Test(guide_uri)) {
+                        if (info.GetFile("lore.html", out var fi)) {
+                            Logging.Custom($"Caching guide for [share] {share}", "RENDER][Gallery",
+                                ConsoleColor.Magenta);
+                            guide_cache.Store(guide_uri, fi.OpenText().ReadToEnd());
+                            goto new_cache;
+                        }
+                    } else {
+                        string header_guide = guide_cache.Request(guide_uri);
+                        result += "<div id=\"guide\">";
+                        result += $"<p>{header_guide}</p>";
+                        result += "</div>";
+                    }
+                }
             }
 
+            
             result += "<div id=\"gallery\">";
             //Add up dir if we're showing directories
+            
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
                 result +=
                     $"<a href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
@@ -369,18 +388,20 @@ namespace ShareHole
                     $"\n";
             }
 
-            foreach (var dir in info.directories.OrderBy(a => a.Name)) {                
-                result +=
-                    $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
-                    $"<span class=\"thumbnail\" >" +
-                    $"<font size={State.server["gallery"]["thumbnail_size"].ToInt()}px>" +
-                    $"<text class=\"gallery_folder\">📁</text>" +
-                    $"</font>" +
-                    $"<br>" +
-                    $"<text class=\"gallery_folder_text\">{dir.Name}</text>" +
-                    $"</span>" +
-                    $"</a>" +
-                    $"\n";
+            if (info.show_dirs) {
+                foreach (var dir in info.directories.OrderBy(a => a.Name)) {
+                    result +=
+                        $"<a href=\"http://{prefix}/{info.passdir}/{share}/{uri}{Uri.EscapeDataString($"{dir.Name}")}\">" +
+                        $"<span class=\"thumbnail\" >" +
+                        $"<font size={State.server["gallery"]["thumbnail_size"].ToInt()}px>" +
+                        $"<text class=\"gallery_folder\">📁</text>" +
+                        $"</font>" +
+                        $"<br>" +
+                        $"<text class=\"gallery_folder_text\">{dir.Name}</text>" +
+                        $"</span>" +
+                        $"</a>" +
+                        $"\n";
+                }
             }
 
             IOrderedEnumerable<FileInfo> files;

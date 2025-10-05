@@ -116,6 +116,7 @@ namespace ShareHole {
             thumbnail,
             to_jpg,
             to_png,
+            random_images,
             transcode,
             file_list,
             music_player_dir,
@@ -126,6 +127,70 @@ namespace ShareHole {
         internal CancellationToken cancellation_token => cancellation_token_source.Token;
         internal int running_request_getter_threads = 0;
 
+        
+        private void handle_random_images(int count, string thread_name, int thread_id, bool dir_exists, ref string page_content, HttpListenerContext context, HttpListenerRequest request, string absolute_on_disk_path, string passdir, string share_name, string url_path) {
+            if (!dir_exists) {
+                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                Send.ErrorBadRequest(page_content, context);
+            }
+
+            Logging.ThreadMessage($"Building random image array for {url_path}", thread_name, thread_id);
+            
+            DirectoryInfo di = new DirectoryInfo(absolute_on_disk_path);
+
+            context.Response.ContentType = "text/html; charset=utf-8";
+
+            FileInfo[] files;
+            files = di.GetFiles("*", SearchOption.TopDirectoryOnly);
+            
+            int files_pulled = 0;
+            int files_to_send = count;
+            int attempts = 0;
+            int max_attempts = files_to_send * 5;
+            
+            string[] files_for_sending = new string[files_to_send];
+
+            string current_file = "";
+            Random rng = new Random();
+            
+            current_file += $"<center><div style=\"overflow-y: hidden; display:inline; align-items: center;  vertical-align: middle; \">";
+            
+            while (files_pulled < files_to_send && attempts <= max_attempts) {
+                var f = files[rng.Next(files.Length)];
+                var f_mime = ConvertAndParse.GetMimeTypeOrOctet(f.FullName);
+                
+                if (ConvertAndParse.IsValidImage(f_mime)) {
+                    //current_file += "<div style=\"height: 128px; display: flex;\">";
+                    current_file += $"<img style=\"max-width: 128px; max-height: 128px;\" src=\"http://{request.UserHostName}/{passdir}/{share_name}{url_path}{f.Name}\">";
+                    //current_file += $"</div>";        
+                    files_pulled++;
+                }
+
+                attempts++;
+            }
+            current_file += $"</div></center>";
+            
+            var ridata = Encoding.UTF8.GetBytes(current_file);
+            context.Response.ContentLength64 = ridata.Length;
+            
+            try {
+                State.StartTask(async () => {
+                    using (MemoryStream ms = new MemoryStream(ridata, false)) {
+                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                            Logging.ThreadMessage($"Sent random images from {url_path}", thread_name, thread_id);
+                            Send.OK(context);
+                        }, State.cancellation_token);
+                    }
+                });
+                
+            } catch (HttpListenerException ex) {
+                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                Send.ErrorBadRequest(page_content, context);
+            }
+            
+        }
+        
 
         async void HandleRequest(string thread_name, int thread_id) {
 
@@ -309,6 +374,9 @@ namespace ShareHole {
                     /* COMMAND DIRECTORIES */
                 } else if (command_dir != command_dirs.none) {
 
+                    DirectoryInfo di;
+                    FileInfo[] files;
+                    
                     switch (command_dir) {
                         case command_dirs.none: break;
                         case command_dirs.thumbnail: // REQUESTED THUMBNAIL
@@ -406,6 +474,10 @@ namespace ShareHole {
                             }
                             break;
 
+                        case command_dirs.random_images:
+                            handle_random_images(15, thread_name, thread_id, dir_exists, ref page_content, context, request, absolute_on_disk_path, passdir, share_name, url_path);
+                            break;
+                        
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
 
                             if (file_exists && mime.StartsWith("video")) {
@@ -420,20 +492,18 @@ namespace ShareHole {
                                 Send.ErrorBadRequest(page_content, context);
                             }
                             break;
-
+                        
                         case command_dirs.file_list: // REQUESTED PLAINTEXT OF FILES IN DIRECTORY
-
+                            
                             if (!dir_exists) {
                                 page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
                                 Send.ErrorBadRequest(page_content, context);
                             }
 
-                            var di = new DirectoryInfo(absolute_on_disk_path);
-
+                            di = new DirectoryInfo(absolute_on_disk_path);
                             context.Response.ContentType = "text/plain; charset=utf-8";
-
-                            var files = di.GetFiles();
-
+                            files = di.GetFiles();
+                            
                             string raw_file_list = "";
 
                             foreach (FileInfo fi in files) {
@@ -442,8 +512,8 @@ namespace ShareHole {
 
                             var data = Encoding.UTF8.GetBytes(raw_file_list);
                             context.Response.ContentLength64 = data.Length;
+                            
                             try {
-
                                 State.StartTask(async () => {
                                     using (MemoryStream ms = new MemoryStream(data, false)) {
                                         await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
@@ -458,8 +528,6 @@ namespace ShareHole {
                                 Send.ErrorBadRequest(page_content, context);
                             }
                             break;
-
-
                         case command_dirs.music_player_dir: // REQUESTED MUSIC PLAYER DIRECTORY BROWSER
 
                             if (!dir_exists) {

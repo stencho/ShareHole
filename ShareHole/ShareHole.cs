@@ -380,7 +380,7 @@ namespace ShareHole {
                             { "convert_videos_automatically", new ConfigValue(true) },
                             { "convert_audio_automatically", new ConfigValue(true) },
                             
-                            { "show_guides", new ConfigValue(true) }
+                            { "show_lore", new ConfigValue(true) }
                         }
                     }
                 };
@@ -502,8 +502,8 @@ namespace ShareHole {
                 On by default
                 """);
 
-            ConfigFileIO.comment_manager.AddBefore("gallery", "show_guides", """                
-                Look in folders for "guide.html" file. If found, it will be displayed at the top of the gallery
+            ConfigFileIO.comment_manager.AddBefore("gallery", "show_lore", """                
+                Look in folders for "lore.html" file. If found, it will be displayed at the top of the gallery
                 """);
         }
 
