@@ -634,6 +634,7 @@ namespace ShareHole
                 .Replace("{prefix}", $"http://{prefix}/")
                 .Replace("{prefix_pass}", $"http://{prefix}/{info.passdir}/")
                 .Replace("{prefix_pass_info}", $"http://{prefix}/{info.passdir}/music_info/")
+                .Replace("{passdir}", $"{info.passdir}")
                 .Replace("{share_name}", share_name.Trim());
 
             return result;

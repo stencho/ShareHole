@@ -122,7 +122,9 @@ namespace ShareHole {
             transcode,
             file_list,
             music_player_dir,
-            music_info
+            music_info,
+            next_track,
+            previous_track
         }
 
         internal CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
@@ -593,9 +595,20 @@ namespace ShareHole {
 
                                 TagLib.File f = TagLib.File.Create(absolute_on_disk_path);
                                 
-                                page_content += $"<div id=\"music-info-title\">{f.Tag.Title}</div>";
-                                page_content += $"<div id=\"music-info-artist\">{string.Join(", ", f.Tag.AlbumArtists)}</div>";
-                                page_content += $"<div id=\"music-info-album\">{f.Tag.Album}</div>";
+                                var title = f.Tag.Title;
+                                var artist = string.Join(", ", f.Tag.Performers);
+                                var album = f.Tag.Album;
+                                
+                                page_content += "<div id=\"audio-info-inner\">";
+                                
+                                if (!string.IsNullOrEmpty(title))
+                                    page_content += $"<div style=\"vertical-align: middle;\" id=\"music-info-title\">{title}</div>";
+                                if (!string.IsNullOrEmpty(artist))
+                                    page_content += $"<div style=\"vertical-align: middle;\" id=\"music-info-artist\">{artist}</div>";
+                                if (!string.IsNullOrEmpty(album))
+                                    page_content += $"<div style=\"vertical-align: middle;\" id=\"music-info-album\">{album}</div>";
+                                
+                                page_content += "</div>";
                                 
                                 var data_mi = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", "", ""));
 
@@ -603,7 +616,7 @@ namespace ShareHole {
                                     State.StartTask(async () => {
                                         using (MemoryStream ms = new MemoryStream(data_mi, false)) {
                                             await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
-                                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                                                Logging.ThreadMessage($"Requested music info for {url_path}", thread_name, thread_id);
                                                 Send.OK(context);
                                             }, State.cancellation_token);
                                         }
@@ -621,6 +634,114 @@ namespace ShareHole {
                             }
                             break;
 
+                        case command_dirs.previous_track:
+                            if (file_exists && mime.StartsWith("audio")) {
+                                context.Response.ContentType = "text/text; charset=utf-8";
+
+                                var url_path_no_file = Path.GetDirectoryName(url_path);
+                                
+                                //get files in containing path
+                                FileInfo fi = new FileInfo(absolute_on_disk_path);
+                                Logging.ThreadMessage($"{absolute_on_disk_path}", thread_name, thread_id);
+                                
+                                FileInfo[] files_in_dir = fi.Directory.GetFiles();
+                                Logging.ThreadMessage($"{fi.Directory}", thread_name, thread_id);
+                                var ordered = files_in_dir.OrderBy(a => a.Name).ToArray();
+                                int index = 0;
+                                
+                                bool NextOut = false;
+                                for (int i = ordered.Length - 1; i >= 0; i--) {
+                                    if (NextOut) {
+                                        var m = ConvertAndParse.GetMimeTypeOrOctet(ordered[i].FullName);
+                                        
+                                        if (m.StartsWith("audio") && ordered[i] != fi) {
+                                            index = i;
+                                            break;
+                                        } 
+                                    }
+                                    
+                                    if (!NextOut && ordered[i].FullName == fi.FullName) { NextOut = true; }
+                                }
+                                
+                                page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
+                                var data_mi = Encoding.UTF8.GetBytes(page_content);
+
+                                try {
+                                    State.StartTask(async () => {
+                                        using (MemoryStream ms = new MemoryStream(data_mi, false)) {
+                                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                                Logging.ThreadMessage($"Requested track before {url_path}", thread_name, thread_id);
+                                                Logging.ThreadMessage($"-> {page_content}", thread_name, thread_id);
+                                                Send.OK(context);
+                                            }, State.cancellation_token);
+                                        }
+                                    });
+
+                                } catch (HttpListenerException ex) {
+                                    Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                    page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                    Send.ErrorBadRequest(page_content, context);
+                                }
+                            } else {
+                                Logging.ThreadError($"Exception", thread_name, thread_id);
+                                page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            break;
+                    
+                        case command_dirs.next_track:
+                            if (file_exists && mime.StartsWith("audio")) {
+                                context.Response.ContentType = "text/text; charset=utf-8";
+
+                                var url_path_no_file = Path.GetDirectoryName(url_path);
+                                //get files in containing path
+                                FileInfo fi = new FileInfo(absolute_on_disk_path);
+                                
+                                FileInfo[] files_in_dir = fi.Directory.GetFiles();
+                                var ordered = files_in_dir.OrderBy(a => a.Name).ToArray();
+                                int index = 0;
+                                
+                                bool NextOut = false;
+                                for (int i = 0; i < ordered.Length; i++) {
+                                    if (NextOut) {
+                                        var m = ConvertAndParse.GetMimeTypeOrOctet(ordered[i].FullName);
+                                        
+                                        if (m.StartsWith("audio") && ordered[i] != fi) {
+                                            Logging.ThreadMessage($" ->{page_content}", thread_name, thread_id);
+                                            index = i;
+                                            break;
+                                            
+                                        }
+                                    }
+                                    
+                                    if (!NextOut && ordered[i].FullName == fi.FullName) { NextOut = true; }
+                                }
+                                
+                                page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
+                                var data_mi = Encoding.UTF8.GetBytes(page_content);
+
+                                try {
+                                    State.StartTask(async () => {
+                                        using (MemoryStream ms = new MemoryStream(data_mi, false)) {
+                                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                                Logging.ThreadMessage($"Requested track following {url_path}", thread_name, thread_id);
+                                                Logging.ThreadMessage($"s-> {share_name}{url_path_no_file}/{ordered[index].Name}", thread_name, thread_id);
+                                                Send.OK(context);
+                                            }, State.cancellation_token);
+                                        }
+                                    });
+
+                                } catch (HttpListenerException ex) {
+                                    Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                    page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                    Send.ErrorBadRequest(page_content, context);
+                                }
+                            } else {
+                                Logging.ThreadError($"Exception", thread_name, thread_id);
+                                page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            break;
                     }
 
                     /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */

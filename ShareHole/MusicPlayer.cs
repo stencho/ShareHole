@@ -202,11 +202,19 @@ namespace ShareHole {
             #audio-info {
                 display: flex;
                 justify-content: left;
-                flex-direction: column;
-                height: 100vh;
+                height: var(--control-area-height);
                 width: 100%;
                 color: var(--text-color);
+                text-align:left;
+                align-content: center;
+                
             }
+            
+            #audio-info-inner {
+                align-content: center;
+                vertical-align: middle;
+            }
+            
             .audio-controls {
                 display: flex;
                 justify-content: right;
@@ -288,11 +296,12 @@ namespace ShareHole {
                         <div id="audio-info">
                         </div>
                         <div class="audio-controls">
-                           <!-- <button id="previous-button">Previous</button> -->
+                           <hr class="button-separator"/>
+                           <button id="previous-button"><</button>
                            <hr class="button-separator"/>
                            <button id="play-pause-button">♡</button>
                            <hr class="button-separator"/>
-                           <!-- <button id="next-button">Next</button> -->
+                           <button id="next-button">></button>
                         </div>
                     </div>
                 </div>
@@ -320,6 +329,7 @@ namespace ShareHole {
                 let current_index = 0; 
                 const file_list = [];
                 let prefix = '{prefix}';
+                let passdir = '{passdir}';
                 let prefix_pass = '{prefix_pass}';
                 let prefix_pass_info = '{prefix_pass_info}';
                 
@@ -366,7 +376,6 @@ namespace ShareHole {
                     if (directory_box.innerHTML.length == 0) {
                         directory_box.innerHTML = share_name;
                     }
-
                 }
 
                 function play_pause() {
@@ -387,18 +396,30 @@ namespace ShareHole {
                     audio_player.pause();
                 }
             
-                function next() {            
-
+                function next() {                    
+                    fetch('/' + passdir + '/next_track/' + audio_player.src.replace(prefix_pass, ""))
+                        .then(response => response.text())
+                        .then(data => {
+                            if (data.length > 0) {
+                                load_song_and_folder(prefix + passdir + '/'  + data);
+                            }
+                        });
                 }
             
                 function previous() {
-
+                    fetch('/' + passdir + '/previous_track/' + audio_player.src.replace(prefix_pass, ""))
+                        .then(response => response.text())
+                        .then(data => {
+                            if (data.length > 0) {
+                                load_song_and_folder(prefix + passdir + '/'  + data);
+                            }
+                        });
                 }
             
                 play_pause_button.addEventListener('click', () => { play_pause(); });
             
-                //next_button.addEventListener('click', () => { next(); });
-                //previous_button.addEventListener('click', () => { previous(); }); 
+                next_button.addEventListener('click', () => { next(); });
+                previous_button.addEventListener('click', () => { previous(); }); 
                     
                 // skip to next file when current one ends
                 audio_player.addEventListener("ended", () => { next(); });
