@@ -642,7 +642,7 @@ namespace ShareHole {
                                     break;
                                 case "music":
                                     page_content = Renderer.MusicPlayerContent(folder_path, request.UserHostName, url_path, share_name);
-                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "test"));
+                                    data = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, ""));
                                     break;
                                 default:
                                     page_content = Renderer.FileListing(folder_path, request.UserHostName, url_path, share_name);

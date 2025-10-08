@@ -343,10 +343,10 @@ namespace ShareHole {
                 });                
             
                 function update_title(filename) {
-                    info_box.innerHTML = '{prefix_pass_info}' + decodeURIComponent(filename.replace(prefix_pass, ""));
+                    //info_box.innerHTML = '{prefix_pass_info}' + decodeURIComponent(filename.replace(prefix_pass, ""));
                 
                     fetch('{prefix_pass_info}' + filename.replace(prefix_pass, ""))
-                        .then(response => response.json())
+                        .then(response => response.text())
                         .then(data => {
                             info_box.innerHTML = data;  
                         });
