@@ -89,7 +89,7 @@ namespace ShareHole {
                 flex-direction: row;
                 justify-content: flex-start;
                 flex-wrap: wrap;
-            
+                
                 height: 100px;
                 width: 50%;
             }
@@ -280,7 +280,7 @@ namespace ShareHole {
                         <div class="audio-controls">
                            <!-- <button id="previous-button">Previous</button> -->
                            <hr class="button-separator"/>
-                           <button id="play-pause-button"></button>
+                           <button id="play-pause-button">♡</button>
                            <hr class="button-separator"/>
                            <!-- <button id="next-button">Next</button> -->
                         </div>
@@ -356,12 +356,12 @@ namespace ShareHole {
                 }
 
                 function play() {
-                    play_pause_button.innerHTML = "";
+                    play_pause_button.innerHTML = "♥";
                     audio_player.play();
                 }
 
                 function pause() {
-                    play_pause_button.innerHTML = "";
+                    play_pause_button.innerHTML = "♡";
                     audio_player.pause();
                 }
             
