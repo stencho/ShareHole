@@ -30,7 +30,7 @@ namespace ShareHole {
                 --total-borders: 4;
 
                 /* top - info */
-                --top-info-area-height: 100px;
+                --top-info-area-height: 0px;
                 --progress-bar-height: 12px;
 
                 /* middle - files */
@@ -99,18 +99,21 @@ namespace ShareHole {
             }
             
             #music-info-title {
-                width: fit-content;
+                width: 100%;
                 height: fit-content;
+            color: var(--text-color);
             }
             
             #music-info-artist {
-                width: fit-content;
+                width: 100%;
                 height: fit-content;
+            color: var(--text-color);
             }
             
             #music-info-album {
-                width: fit-content;
+                width: 100%;
                 height: fit-content;
+            color: var(--text-color);
             }
             
             #music-info-cover {            
@@ -188,7 +191,7 @@ namespace ShareHole {
             .audio-controls-container {
                 text-align: center;
                 display: flex;
-                flex-direction: column;
+                flex-direction: row;
                 overflow:hidden;
                 height: 100px;
                 width: 100%;
@@ -196,12 +199,20 @@ namespace ShareHole {
                 border-top: solid var(--border-thickness) var(--main-color);
             }
             
-            .audio-controls {
+            #audio-info {
                 display: flex;
-                justify-content: center;
+                justify-content: left;
+                flex-direction: column;
                 height: 100vh;
                 width: 100%;
-                color: var(--background-color);
+                color: var(--text-color);
+            }
+            .audio-controls {
+                display: flex;
+                justify-content: right;
+                height: 100vh;
+                width: 25%;
+                color: var(--text-color);
             }
             
             .audio-controls button {
@@ -214,7 +225,7 @@ namespace ShareHole {
                 padding 0px;
                             
                 font-family: 'Segoe UI Symbol', Tahoma, Geneva, Verdana, sans-serif !important;     
-                font-size: calc(var(--top-height) * 0.5);
+                font-size: calc(var(--bottom-height) * 0.5);
                 text-align:center;
                 align-content: center;
             
@@ -252,7 +263,7 @@ namespace ShareHole {
 
             <body>
                 <audio id="audio-player" preload="auto">
-                    <source src="http://localhost:8080/loot/music/50%20Cent/Get%20Rich%20Or%20Die%20Tryin'/50%20Cent%20-%2004%20-%20Many%20Men%20%28Wish%20Death%29.mp3" type="audio/mp3">
+                    <source src="" type="audio/mp3">
                     Your browser does not support the audio element.
                 </audio>
             
@@ -260,9 +271,6 @@ namespace ShareHole {
                     <div id="music-info-container">
                         <div id="music-info-cover"></div>
                         <div id="music-info-details">
-                            <div id="music-info-title">Title</div>
-                            <div id="music-info-artist">The Artists</div>
-                            <div id="music-info-album">The Album</div>
                         </div>
                     </div>
                 </div>
@@ -277,6 +285,8 @@ namespace ShareHole {
                         <div class="progress-bar" id="progress-bar"></div>
                     </div>        
                     <div class="audio-controls-container">
+                        <div id="audio-info">
+                        </div>
                         <div class="audio-controls">
                            <!-- <button id="previous-button">Previous</button> -->
                            <hr class="button-separator"/>
@@ -305,6 +315,7 @@ namespace ShareHole {
                 const progress_container = document.getElementById('progress-container');
             
                 const directory_box = document.getElementById('directory-box'); 
+                const info_box = document.getElementById('audio-info'); 
                         
                 let current_index = 0; 
                 const file_list = [];
@@ -329,7 +340,8 @@ namespace ShareHole {
                 });                
             
                 function update_title() {
-
+                    //info_box.innerHTML = fetch();
+                    
                 }
 
                 function change_directory(url) {
@@ -384,6 +396,8 @@ namespace ShareHole {
                 // load a file and attempt to find it in the list for the sake of highlighting + next/previous track stuff
                 function load_song_and_folder(filename) {    
                     audio_player.src = filename;
+                    
+                    update_title();
                                 
                     progress_bar.style.width = '0%';
                     play();

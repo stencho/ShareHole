@@ -2,6 +2,8 @@
 using System.Text;
 using ImageMagick;
 using FFMpegCore;
+using TagLib;
+using File = System.IO.File;
 
 namespace ShareHole {
     public class ShareServer {
@@ -587,7 +589,31 @@ namespace ShareHole {
 
                         case command_dirs.music_info:
                             if (file_exists && mime.StartsWith("audio")) {
+                                context.Response.ContentType = "text/html; charset=utf-8";
 
+                                TagLib.File f = TagLib.File.Create(absolute_on_disk_path);
+                                
+                                page_content += $"<div id=\"music-info-title\">{f.Tag.Title}</div>";
+                                page_content += $"<div id=\"music-info-artist\">{string.Join(", ", f.Tag.AlbumArtists)}</div>";
+                                page_content += $"<div id=\"music-info-album\">{f.Tag.Album}</div>";
+                                
+                                var data_mi = Encoding.UTF8.GetBytes(page_content_strings_replaced(page_content, "", "", ""));
+
+                                try {
+                                    State.StartTask(async () => {
+                                        using (MemoryStream ms = new MemoryStream(data_mi, false)) {
+                                            await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                                Logging.ThreadMessage($"Sent directory listing for {url_path}", thread_name, thread_id);
+                                                Send.OK(context);
+                                            }, State.cancellation_token);
+                                        }
+                                    });
+
+                                } catch (HttpListenerException ex) {
+                                    Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                    page_content = $"<b>NOT AN AUDIO FILE</b>";
+                                    Send.ErrorBadRequest(page_content, context);
+                                }
                             } else {
                                 Logging.ThreadError($"Exception", thread_name, thread_id);
                                 page_content = $"<b>NOT AN AUDIO FILE</b>";
