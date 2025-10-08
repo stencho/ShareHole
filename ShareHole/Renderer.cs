@@ -25,6 +25,7 @@ namespace ShareHole
             public bool cares_about_groups;
             public bool using_extensions;
             public bool show_dirs;
+            public bool lore_cache => State.server["gallery"]["lore_cache"].ToBool();
 
             public DirectoryInfo[] directories;
             public FileInfo[] files;
@@ -43,6 +44,8 @@ namespace ShareHole
             
         }
 
+        private static ConcurrentCache<string> guide_cache = new ConcurrentCache<string>();
+        
         static listing_info get_directory_info(string directory, string prefix, string uri, string share_name) {
             listing_info info = new listing_info();
 
@@ -144,7 +147,14 @@ namespace ShareHole
         }
 
         public static string FileListing(string directory, string prefix, string uri_path, string share_name) {
-            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+            listing_info info;
+            try {
+                info = get_directory_info(directory, prefix, uri_path, share_name);
+                
+            } catch (Exception ex) {
+                Logging.Error($"Ex: {ex.Message}");
+                return"ERROR";
+            }
 
             //TODO: hide hidden files/folders + allow forcing them to show through an option
             int file_count;
@@ -311,12 +321,20 @@ namespace ShareHole
             return result;
         }
 
-        private static ConcurrentCache<string> guide_cache = new ConcurrentCache<string>();
-        private static bool disable_header_cache = true;
+        private static void draw_guide() {
+            
+        }
         
         //IMAGE/VIDEO GALLERY
         public static string Gallery(string directory, string prefix, string uri_path, string share_name) {
-            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+            listing_info info;
+            try {
+                info = get_directory_info(directory, prefix, uri_path, share_name);
+                
+            } catch (Exception ex) {
+                Logging.Error($"Ex: {ex.Message}");
+                return"ERROR";
+            }
             
             int dir_c = 0;
             int file_c = 0;
@@ -335,19 +353,14 @@ namespace ShareHole
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
             
             string result = "";
-
-            if (disable_header_cache) {
+            if (!info.lore_cache) {
                 if (info.GetFile("lore.html", out var fi)) {
-                    Logging.Custom($"Caching guide for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
-                    
                     var header_guide = fi.OpenText().ReadToEnd();
                     
                     result += "<div id=\"guide\">";
                     result += $"<p>{header_guide}</p>";
                     result += "</div>";
                 }
-                
-                
             } else {
                 //write guide to cache
                 if (uri_path == "/") {
@@ -468,8 +481,15 @@ namespace ShareHole
             return result;
         }
 
-        public static string MusicPlayerDirectoryView(string directory, string prefix, string uri_path, string share_name) {        
-            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+        public static string MusicPlayerDirectoryView(string directory, string prefix, string uri_path, string share_name) {    
+            listing_info info;
+            try {
+                info = get_directory_info(directory, prefix, uri_path, share_name);
+                
+            } catch (Exception ex) {
+                Logging.Error($"Ex: {ex.Message}");
+                return"ERROR";
+            }
             string listing = "";
 
             //TODO: hide hidden files/folders + allow forcing them to show through an option
@@ -574,7 +594,14 @@ namespace ShareHole
         }
 
         public static string MusicPlayerContent(string directory, string prefix, string uri_path, string share_name) {
-            listing_info info = get_directory_info(directory, prefix, uri_path, share_name);
+            listing_info info;
+            try {
+                info = get_directory_info(directory, prefix, uri_path, share_name);
+                
+            } catch (Exception ex) {
+                Logging.Error($"Ex: {ex.Message}");
+                return"ERROR";
+            }
 
             var share = share_name.Trim();
             var uri = uri_path.Trim();

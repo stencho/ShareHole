@@ -380,7 +380,8 @@ namespace ShareHole {
                             { "convert_videos_automatically", new ConfigValue(true) },
                             { "convert_audio_automatically", new ConfigValue(true) },
                             
-                            { "show_lore", new ConfigValue(true) }
+                            { "show_lore", new ConfigValue(true) },
+                            { "lore_cache", new ConfigValue(true) }
                         }
                     }
                 };
@@ -505,6 +506,10 @@ namespace ShareHole {
             ConfigFileIO.comment_manager.AddBefore("gallery", "show_lore", """                
                 Look in folders for "lore.html" file. If found, it will be displayed at the top of the gallery
                 """);
+            
+            ConfigFileIO.comment_manager.AddBefore("gallery", "lore_cache", """                
+                Keep folder lore in a cache
+                """);
         }
 
 
@@ -517,7 +522,6 @@ namespace ShareHole {
 
             State.server = new ConfigWithExpectedValues(State.server_config_values);
             State.LogLevel = (LogLevel)State.server["server"]["log_level"].ToInt();
-
 
             if (State.server["server"].ContainsKey("use_html_file")) {
                 State.use_css_file = State.server["server"]["use_html_file"].ToBool();
@@ -570,7 +574,6 @@ namespace ShareHole {
             } else {
                 Logging.Config($"Loaded shares");
             }
-
         }
 
         static void Main(string[] args) {
