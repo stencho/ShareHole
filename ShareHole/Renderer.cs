@@ -631,8 +631,10 @@ namespace ShareHole
                 .Replace("{current_directory}", $"http://{prefix}/{info.passdir}/{share}/{uri}")
                 .Replace("{current_directory_cleaned}", cdc)
                 .Replace("{music_info_url}", $"http://{prefix}/{info.passdir}/music_info/{share}/{uri}")
-                .Replace("{share_name}", share_name.Trim())
-                ;
+                .Replace("{prefix}", $"http://{prefix}/")
+                .Replace("{prefix_pass}", $"http://{prefix}/{info.passdir}/")
+                .Replace("{prefix_pass_info}", $"http://{prefix}/{info.passdir}/music_info/")
+                .Replace("{share_name}", share_name.Trim());
 
             return result;
         }

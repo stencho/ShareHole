@@ -319,6 +319,9 @@ namespace ShareHole {
                         
                 let current_index = 0; 
                 const file_list = [];
+                let prefix = '{prefix}';
+                let prefix_pass = '{prefix_pass}';
+                let prefix_pass_info = '{prefix_pass_info}';
                 
                 // set the text in the current directory box above the file list
                 directory_box.addEventListener('load', () => {
@@ -339,9 +342,16 @@ namespace ShareHole {
                     audio_player.currentTime = newTime;
                 });                
             
-                function update_title() {
-                    //info_box.innerHTML = fetch();
-                    
+                function update_title(filename) {
+                    info_box.innerHTML = '{prefix_pass_info}' + decodeURIComponent(filename.replace(prefix_pass, ""));
+                
+                    fetch('{prefix_pass_info}' + filename.replace(prefix_pass, ""))
+                        .then(response => response.json())
+                        .then(data => {
+                            info_box.innerHTML = data;  
+                        });
+                
+                    //info_box.innerHTML = fetch(filename);
                 }
 
                 function change_directory(url) {
@@ -397,7 +407,7 @@ namespace ShareHole {
                 function load_song_and_folder(filename) {    
                     audio_player.src = filename;
                     
-                    update_title();
+                    update_title(filename);
                                 
                     progress_bar.style.width = '0%';
                     play();
