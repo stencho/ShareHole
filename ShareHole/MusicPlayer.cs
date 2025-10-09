@@ -101,19 +101,22 @@ namespace ShareHole {
             #music-info-title {
                 width: 100%;
                 height: fit-content;
-            color: var(--text-color);
+                color: var(--text-color);
+                font-size: 24px;
             }
             
             #music-info-artist {
                 width: 100%;
                 height: fit-content;
-            color: var(--text-color);
+                color: var(--text-color);
+                font-size: 20px;
             }
             
             #music-info-album {
                 width: 100%;
                 height: fit-content;
-            color: var(--text-color);
+                color: var(--text-color);
+                font-size: 20px;
             }
             
             #music-info-cover {            
@@ -145,7 +148,7 @@ namespace ShareHole {
                 left: 0;
                 width: 100%;
                 height: 30px; 
-                text-align: center;                              
+                text-align: center;                            
                         
                 border-bottom: solid var(--border-thickness) var(--main-color);            
                 overflow:hidden;
@@ -204,15 +207,21 @@ namespace ShareHole {
                 justify-content: left;
                 height: var(--control-area-height);
                 width: 100%;
+                max-width: 100%;
+                padding-left: 10px;
                 color: var(--text-color);
                 text-align:left;
                 align-content: center;
-                
             }
             
             #audio-info-inner {
+                width: 100%;
+                max-width: 100%;
                 align-content: center;
                 vertical-align: middle;
+                overflow: hidden;
+                text-overflow: clip;
+                white-space: nowrap; 
             }
             
             .audio-controls {
@@ -293,15 +302,15 @@ namespace ShareHole {
                         <div class="progress-bar" id="progress-bar"></div>
                     </div>        
                     <div class="audio-controls-container">
-                        <div id="audio-info">
-                        </div>
                         <div class="audio-controls">
-                           <hr class="button-separator"/>
                            <button id="previous-button"><</button>
                            <hr class="button-separator"/>
                            <button id="play-pause-button">♡</button>
                            <hr class="button-separator"/>
                            <button id="next-button">></button>
+                            <hr class="button-separator"/>
+                        </div>
+                        <div id="audio-info">
                         </div>
                     </div>
                 </div>

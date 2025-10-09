@@ -647,7 +647,7 @@ namespace ShareHole {
                                 FileInfo[] files_in_dir = fi.Directory.GetFiles();
                                 Logging.ThreadMessage($"{fi.Directory}", thread_name, thread_id);
                                 var ordered = files_in_dir.OrderBy(a => a.Name).ToArray();
-                                int index = 0;
+                                int index = -1;
                                 
                                 bool NextOut = false;
                                 for (int i = ordered.Length - 1; i >= 0; i--) {
@@ -663,7 +663,21 @@ namespace ShareHole {
                                     if (!NextOut && ordered[i].FullName == fi.FullName) { NextOut = true; }
                                 }
                                 
-                                page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
+                                if (index == -1) {
+                                    for (int i = ordered.Length - 1; i >= 0; i--) {
+                                        var m = ConvertAndParse.GetMimeTypeOrOctet(ordered[i].FullName);
+                                        if (m.StartsWith("audio") && ordered[i] != fi) {
+                                            index = i;
+                                            break;
+                                            
+                                        }
+                                    }
+                                }
+
+                                if (index > -1) 
+                                    page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
+                                
+
                                 var data_mi = Encoding.UTF8.GetBytes(page_content);
 
                                 try {
@@ -699,7 +713,7 @@ namespace ShareHole {
                                 
                                 FileInfo[] files_in_dir = fi.Directory.GetFiles();
                                 var ordered = files_in_dir.OrderBy(a => a.Name).ToArray();
-                                int index = 0;
+                                int index = -1;
                                 
                                 bool NextOut = false;
                                 for (int i = 0; i < ordered.Length; i++) {
@@ -707,7 +721,6 @@ namespace ShareHole {
                                         var m = ConvertAndParse.GetMimeTypeOrOctet(ordered[i].FullName);
                                         
                                         if (m.StartsWith("audio") && ordered[i] != fi) {
-                                            Logging.ThreadMessage($" ->{page_content}", thread_name, thread_id);
                                             index = i;
                                             break;
                                             
@@ -716,8 +729,20 @@ namespace ShareHole {
                                     
                                     if (!NextOut && ordered[i].FullName == fi.FullName) { NextOut = true; }
                                 }
+
+                                if (index == -1) {
+                                    for (int i = 0; i < ordered.Length; i++) {
+                                        var m = ConvertAndParse.GetMimeTypeOrOctet(ordered[i].FullName);
+                                        if (m.StartsWith("audio")) {
+                                            index = i;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (index > -1) 
+                                    page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
                                 
-                                page_content = $"{share_name}{url_path_no_file}/{ordered[index].Name}";
                                 var data_mi = Encoding.UTF8.GetBytes(page_content);
 
                                 try {

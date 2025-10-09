@@ -280,7 +280,9 @@ namespace ChoonGang {
                     width: 100%;
                     height: var(--middle-height);
                     padding: 0px;
-                    text-align: center;
+                padding-left: 10px;
+                    text-align: center; 
+                    
                 }
 
                 #music-list-iframe {
