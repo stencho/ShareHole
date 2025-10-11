@@ -118,6 +118,7 @@ namespace ShareHole {
             thumbnail,
             to_jpg,
             to_png,
+            random_image,
             random_images,
             transcode,
             file_list,
@@ -182,6 +183,77 @@ namespace ShareHole {
                     using (MemoryStream ms = new MemoryStream(ridata, false)) {
                         await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
                             Logging.ThreadMessage($"Sent random images from {url_path}", thread_name, thread_id);
+                            Send.OK(context);
+                        }, State.cancellation_token);
+                    }
+                });
+                
+            } catch (HttpListenerException ex) {
+                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                Send.ErrorBadRequest(page_content, context);
+            }
+            
+        }
+        
+        private void handle_random_image(int max_size_x, int max_size_y, bool recursive, string thread_name, int thread_id, bool dir_exists, ref string page_content, HttpListenerContext context, HttpListenerRequest request, string absolute_on_disk_path, string passdir, string share_name, string url_path) {
+            if (!dir_exists) {
+                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                Send.ErrorBadRequest(page_content, context);
+            }
+
+            Logging.ThreadMessage($"\"Finding a random image in  {url_path}", thread_name, thread_id);
+            
+            DirectoryInfo di = new DirectoryInfo(absolute_on_disk_path);
+
+            context.Response.ContentType = "text/html; charset=utf-8";
+
+            FileInfo[] files;
+            files = di.GetFiles("*", SearchOption.TopDirectoryOnly);
+            
+            string f_name = "";
+            
+            bool file_pulled = false;
+            int attempts = 0;
+            int max_attempts = 5;
+            
+            string current_file = "";
+            Random rng = new Random();
+            
+            current_file += $"<center><div style=\"background: var(--background-color); overflow-y: hidden; display:inline; align-items: center;  vertical-align: middle; \">";
+            
+            while (file_pulled == false && attempts <= max_attempts) {
+                attempts++;
+                
+                var f = files[rng.Next(files.Length)];
+                f_name = f.Name;
+                var f_mime = ConvertAndParse.GetMimeTypeOrOctet(f.FullName);
+
+                
+                if (ConvertAndParse.IsValidImage(f_mime)) {
+                    string size_string = "";
+                    if (max_size_x > 0) {
+                        size_string += $"max-width: {max_size_x}px; ";
+                    }
+                    if (max_size_y > 0) {
+                        size_string += $"max-height: {max_size_y}px; ";
+                    }
+                    
+                    current_file = $"<img style=\"{size_string}\" src=\"http://{request.UserHostName}/{passdir}/{share_name}{url_path}{f.Name}\">";
+                    file_pulled = true;
+                }
+            }
+            
+            current_file += $"</div></center>";
+            
+            var ridata = Encoding.UTF8.GetBytes(current_file);
+            context.Response.ContentLength64 = ridata.Length;
+            
+            try {
+                State.StartTask(async () => {
+                    using (MemoryStream ms = new MemoryStream(ridata, false)) {
+                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                            Logging.ThreadMessage($"Sent random image from {url_path}: {f_name}", thread_name, thread_id);
                             Send.OK(context);
                         }, State.cancellation_token);
                     }
@@ -480,6 +552,9 @@ namespace ShareHole {
 
                         case command_dirs.random_images:
                             handle_random_images(15, thread_name, thread_id, dir_exists, ref page_content, context, request, absolute_on_disk_path, passdir, share_name, url_path);
+                            break;
+                        case command_dirs.random_image:
+                            handle_random_image(0,0, true, thread_name, thread_id, dir_exists, ref page_content, context, request, absolute_on_disk_path, passdir, share_name, url_path);
                             break;
                         
                         case command_dirs.transcode: // REQUESTED MP4 TRANSCODE STREAM
