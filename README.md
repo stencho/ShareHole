@@ -19,6 +19,9 @@ This means that the server is able to use ImageMagick to render things like RAW 
 
 - /transcode/ will transcode a video to browser-friendly MP4 and send the result to the client. This uses FFMPeg, so it works on most video formats.
 
+- /random_image/ returns a random image in the given folder
+- /random_images/ returns several random images in a grid for use in UIs. currently just returns 15, needs to have options passed through the URL
+
 The config loader will write the default server config below, including comments, to config_dir/server on first start, and the server will do its best to keep this config file structure.
 
 'server' config file
@@ -98,7 +101,10 @@ thumbnail_compression_quality=60
 convert_images_automatically=true
 convert_videos_automatically=true
 convert_audio_automatically=true
-
+# Look in folders for "lore.html" file. If found, it will be displayed at the top of the gallery
+show_lore=true
+# Keep folder lore in a cache
+lore_cache=false
 ```
 
 The shares file is more free form, but every \[section\] must contain a "path" key, and all keys must be of the structure "key=value"
@@ -132,5 +138,8 @@ style=music
 - show_directories: enables or disables viewing sub-directories
 - extensions: limit the listed files to these extensions
 - group_by: 'extension' or 'type'
-- style: list, gallery or music for now. "list" is default. "list" is a list of file names with conversion buttons on the right. "gallery" is a grid of thumbnails. "music" is an incomplete, simple music player, an earlier implementation of the ChoonGang server project.
+- style: list, gallery or music for now. "list" is default.
+"list" is a list of file names with conversion buttons on the right. 
+"gallery" is a grid of thumbnails.
+"music" is a simple directory browser + music player. It will happily play through entire folders song by song if you want it to. Currently has no volume control uh oh oh no
 - precache: enable thumbnail pre-caching for "gallery" style shares on server start. If this is disabled, gallery thumbnails will still be cached to memory, but only once the share is viewed.
