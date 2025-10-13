@@ -53,8 +53,6 @@ namespace ShareHole {
                 }
                 
                 //draw caller tag
-                Logging.WriteColor($"[{tag}]", tag_color);
-                
                 if (show_caller) {
                     Logging.WriteColor($"[{tag}]", tag_color);
                     l += $"[{tag}]".Length;
