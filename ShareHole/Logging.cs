@@ -291,10 +291,9 @@ namespace ShareHole {
 
         static void ProcessQueue() {            
             while (!cancellation_token.IsCancellationRequested) {
-                log_item li;
                 if (LogQueue.Count > 0) {
                 keep_going:
-                    if (LogQueue.TryDequeue(out li)) {
+                    if (LogQueue.TryDequeue(out var li)) {
                         li.print();
                     }
                     if (LogQueue.Count > 0) goto keep_going;
@@ -315,8 +314,7 @@ namespace ShareHole {
 
         static void finish_queue() {
             while (LogQueue.Count > 0) {
-                log_item li;
-                if (LogQueue.TryDequeue(out li)) li.print();
+                if (LogQueue.TryDequeue(out var li)) li.print();
             }
         }
 

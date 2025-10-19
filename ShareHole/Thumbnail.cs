@@ -66,8 +66,7 @@ namespace ShareHole {
 
                     Interlocked.Increment(ref thumb_workers);
                     State.StartTask(() => {
-                        long b = 0;
-                        BuildCache(file, mime, 64, -1, out b);
+                        BuildCache(file, mime, 64, -1, out var b);
                         bytes_stored += b;
                         bytes_processed += file.Length;
 

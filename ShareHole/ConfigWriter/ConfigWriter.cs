@@ -191,9 +191,8 @@ namespace ShareHole.Configuration {
 
         bool string_to_int(Dictionary<string, Dictionary<string, ConfigValue>> values, string section, string key, out int value) {
             string s = Read(section, key);
-            int res;
-
-            if (int.TryParse(s, out res)) {
+            
+            if (int.TryParse(s, out var res)) {
                 value = res;
                 return true;
             }
@@ -204,9 +203,8 @@ namespace ShareHole.Configuration {
 
         bool string_to_bool(Dictionary<string, Dictionary<string, ConfigValue>> values, string section, string key, out bool value) {
             string s = Read(section, key);
-            bool res;
-
-            if (bool.TryParse(s, out res)) {
+            
+            if (bool.TryParse(s, out var res)) {
                 value = res;
                 return true;
             }
@@ -223,9 +221,7 @@ namespace ShareHole.Configuration {
             if (split.Length != 4) goto error;
 
             for (int i = 0; i < split.Length; i++) {
-                int res;
-
-                if (int.TryParse(split[i], out res) && res >= 0 && res <= 255) {
+                if (int.TryParse(split[i], out var res) && res >= 0 && res <= 255) {
                     value[i] = (byte)res;
                 } else goto error;
             }
@@ -245,9 +241,7 @@ namespace ShareHole.Configuration {
             if (split.Length != 4) goto error;
 
             for (int i = 0; i < split.Length; i++) {
-                int res;
-
-                if (int.TryParse(split[i], out res) && res >= 0 && res <= 255) {
+                if (int.TryParse(split[i], out var res) && res >= 0 && res <= 255) {
                     value[i] = (byte)res;
                 } else goto error;
             }
@@ -339,9 +333,7 @@ namespace ShareHole.Configuration {
             if (split.Length != 4) goto error;
 
             for (int i = 0; i < split.Length; i++) {
-                int res;
-
-                if (int.TryParse(split[i], out res) && res >= 0 && res <= 255) {
+                if (int.TryParse(split[i], out var res) && res >= 0 && res <= 255) {
                     ip[i] = (byte)res;
                 } else goto error;
             }
@@ -362,9 +354,7 @@ namespace ShareHole.Configuration {
             if (split.Length != 4) goto error;
 
             for (int i = 0; i < split.Length; i++) {
-                int res;
-
-                if (int.TryParse(split[i], out res) && res >= 0 && res <= 255) {
+                if (int.TryParse(split[i], out var res) && res >= 0 && res <= 255) {
                     rgba[i] = (byte)res;
 
                 } else goto error;
@@ -444,13 +434,11 @@ namespace ShareHole.Configuration {
 
                     if (current_section.Length > 0) {
                         if (!dict[current_section].ContainsKey(key)) {
-                            int ip = 0;
-                            bool bp = false;
-                            if (int.TryParse(value, out ip)) {
+                            if (int.TryParse(value, out var ip)) {
                                 Logging.Config($"| [INT] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(ip));          
                                 
-                            } else if (bool.TryParse(value, out bp)) {                                
+                            } else if (bool.TryParse(value, out var bp)) {                                
                                 Logging.Config($"| [BOOL] {current_section}.{key} = {value}");
                                 dict[current_section].Add(key, new ConfigValue(bp));
 
@@ -459,8 +447,7 @@ namespace ShareHole.Configuration {
                                 var str = value.Split(',');
                                 byte[] byte_out = new byte[4];
                                 for (int c = 0; c < str.Length; c++) {
-                                    byte b;
-                                    if (!byte.TryParse(str[c], out b)) {
+                                    if (!byte.TryParse(str[c], out var b)) {
                                         continue;
                                     }
                                     byte_out[c] = b;
@@ -474,8 +461,7 @@ namespace ShareHole.Configuration {
                                 var str = value.Split(',');
                                 byte[] col = new byte[4];
                                 for (int c = 0; c < str.Length; c++) {
-                                    byte b;
-                                    if (!byte.TryParse(str[c], out b)) {
+                                    if (!byte.TryParse(str[c], out var b)) {
                                         continue;
                                     }
                                     col[c] = b;
