@@ -30,6 +30,8 @@ namespace ShareHole {
             private DateTime time;
             public bool EnableTimeStamps = true;
             public int TimeStampDetail = 1;
+            private static int last_day;
+            private static DateOnly current_date;
             
             public log_item(string text, string tag, ConsoleColor tag_color, string second_tag, ConsoleColor second_tag_color, bool show_caller, string callerfilename, string membername) {
                 this.text = text;
@@ -49,7 +51,14 @@ namespace ShareHole {
                 var l = 0;
                 
                 if (EnableTimeStamps) {
-                    Logging.WriteColor($"[{time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 2 ? ":" + time.Second : "")}{(TimeStampDetail >= 3 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", Console.ForegroundColor); //change this make it depend on the time of day
+                    current_date = DateOnly.FromDateTime(DateTime.Now);
+
+                    if (current_date.Day != last_day) {
+                        Logging.Message($"Date is now {current_date.ToLongDateString()}", false);
+                    }
+                    
+                    last_day = current_date.Day; 
+                    Logging.WriteColor($"[{current_date.Year}/{current_date.Month}/{current_date.Day} {time.Hour.ToString("D2")}:{time.Minute.ToString("D2")}{(TimeStampDetail >= 2 ? ":" + time.Second : "")}{(TimeStampDetail >= 3 ? $".{(1000 / time.Millisecond) * .1f}" : "")}]", Console.ForegroundColor); //change this make it depend on the time of day
                 }
                 
                 //draw caller tag
