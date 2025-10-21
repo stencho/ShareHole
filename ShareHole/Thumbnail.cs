@@ -159,7 +159,7 @@ namespace ShareHole {
                             .FromFileInput(file)
                             .OutputToPipe(new StreamPipeSink(stream_output), options =>
                                 options.WithFrameOutputCount(1)
-                                .WithVideoCodec(VideoCodec.Png)
+                                .WithVideoCodec(VideoCodec.Image.Png)
                                 .Resize((int)Math.Round(final_x), (int)Math.Round(final_y))
                                 .ForceFormat("image2pipe")
                                 .WithCustomArgument("-loglevel verbose")
