@@ -29,7 +29,8 @@ namespace ShareHole {
 
         Type type;
         ConcurrentDictionary<string, (cache_item_life life, T item)> cache = new ConcurrentDictionary<string, (cache_item_life life, T item)>();
-
+        public ConcurrentDictionary<string, (cache_item_life life, T item)> Cache => cache;
+        
         bool currently_pruning = false;
 
         public bool Test(string key) => cache.ContainsKey(key);
@@ -55,7 +56,7 @@ namespace ShareHole {
         public void Store(string key, T item) {
             Store(key, item, MaxAge);
         }
-
+        
         public void Store(string key, T item, double life_time) {
             if (item == null) return;
             if (!item.GetType().IsAssignableFrom(type)) return;
@@ -83,6 +84,47 @@ namespace ShareHole {
         public void StartPruning() {
             State.StartTask(Prune, CacheCancellation.cancellation_token)
                 .ContinueWith(a => { currently_pruning = false; });
+        }
+
+        public void CropToNewest(int count) {
+            if (count >= cache.Count) return;
+            
+            (string name, double age)[] newest = new (string, double)[count];
+
+            for (int i = 0; i < count; i++) {
+                newest[i] = ("", double.MaxValue);
+            }
+
+            var keys = cache.Keys.ToList();
+            for (int i = 0; i < cache.Count; i++) {
+                var k = keys[i];
+                
+                for (int n = 0; n < newest.Length; n++) {
+                    if (cache[k].life.age < newest[n].age) {
+                        newest[n].name = k;
+                        newest[n].age = cache[k].life.age;
+                        
+                        //move rest of list forwards
+                        for (int z = newest.Length - 1; z > n; z--) {
+                            newest[z] = newest[z - 1];
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < cache.Count; i++) {
+                var k = keys[i];
+                bool keep = false;
+                
+                for (int p = 0; p < newest.Length; p++) {
+                    if (newest[p].name == k) {
+                        keep = true;
+                        break;
+                    }
+                }
+
+                if (!keep) cache.Remove(k, out _);
+            }
         }
 
         private async void Prune() {

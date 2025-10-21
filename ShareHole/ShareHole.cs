@@ -215,9 +215,8 @@ namespace ShareHole {
         .file { 
             color: transparent; 
             text-shadow: 0 0 0 var(--main-color);  
+            background-color: var(--background-color);  
             width: 100%;
-            display: flex;
-            flex-grow: 1;
         }
 
         .file:hover { 

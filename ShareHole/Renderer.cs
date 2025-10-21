@@ -27,6 +27,9 @@ namespace ShareHole
             public bool show_dirs;
             public bool lore_cache => State.server["gallery"]["lore_cache"].ToBool();
 
+            public bool zip_folder;
+            public bool zip_in_root;
+            
             public DirectoryInfo[] directories;
             public FileInfo[] files;
 
@@ -82,6 +85,16 @@ namespace ShareHole
                 info.show_dirs = State.shares[share_name]["show_directories"].ToBool();
             }
 
+            info.zip_folder = false;
+            if (State.shares[share_name].ContainsKey("zip_folder")) {
+                info.zip_folder = State.shares[share_name]["zip_folder"].ToBool();
+            }
+            
+            info.zip_in_root = false;
+            if (State.shares[share_name].ContainsKey("zip_in_root")) {
+                info.zip_in_root = State.shares[share_name]["zip_in_root"].ToBool();
+            }
+            
             info.grouping = "";
             info.cares_about_groups = false;
             if (State.shares[share_name].ContainsKey("group_by")) {
@@ -173,14 +186,28 @@ namespace ShareHole
             while (uri.StartsWith("/")) uri = uri.Remove(0, 1);
             
             if (uri.Length > 0) uri = uri + '/';
-
+            
+            // add download ZIP button
+            string zip_string = "";
+            if (info.zip_folder && (uri.Trim() != share.Trim()) && ((uri.Trim() is "" or "/" && info.zip_in_root) || uri.Trim() is not "" or "/")) {
+                zip_string = $"" +
+                             $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}/zip_folder_confirm/{share}/{uri}\">" +
+                             $"<span class=\"file\" style=\"text-align: center; max-width: 50%; width: fit-content; position: fixed; right: 0px; padding-left:20px; padding-right:20px;\">" +
+                             $"⸢Download ZIP⸥" +
+                             $"</span>" +
+                             $"</a>";
+                
+            } 
+            
+            result += zip_string;
+            
             //Add up dir if we're showing directories
             if (info.show_dirs && (uri.Trim() != share.Trim()) && uri.Trim().Length != 0 && uri.Trim() != "/") {
                 result += $"" +
                     $"<div class=\"list-item\">" +
                     $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}/{share}/{info.up_dir}\">" +
-                    $"<span class=\"file\">" +
-                    $"📁" +
+                    $"<span class=\"file\"  style=\"text-align: left; display: flex; flex-grow: 1; \">" +
+                    $"" +
                     $"↑ ⸢/{info.up_dir}⸥" +
                     $"</span>" +
                     $"</a>" +
@@ -353,6 +380,21 @@ namespace ShareHole
             Logging.Custom($"rendering gallery for [share] {share}", "RENDER][Gallery", ConsoleColor.Magenta);
             
             string result = "";
+            
+            string zip_string = "";
+            
+            if (info.zip_folder && (uri.Trim() != share.Trim()) && ((uri.Trim() is "" or "/" && info.zip_in_root) || uri.Trim() is not "" or "/")) {
+                zip_string = $"" +
+                             $"<a class=\"list-item-link\" href=\"http://{prefix}/{info.passdir}/zip_folder_confirm/{share}/{uri}\">" +
+                             $"<span class=\"file\" style=\"text-align: center; max-width: 50%; width: fit-content; position: fixed; right: 0px; padding-left:5px; padding-right:5px;\">" +
+                             $"⸢Download ZIP⸥" +
+                             $"</span>" +
+                             $"</a>";
+                
+            } 
+            
+            result += zip_string;
+            
             if (!info.lore_cache) {
                 if (info.GetFile("lore.html", out var fi)) {
                     var header_guide = fi.OpenText().ReadToEnd();

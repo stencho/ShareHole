@@ -125,7 +125,11 @@ namespace ShareHole {
             music_player_dir,
             music_info,
             next_track,
-            previous_track
+            previous_track,
+            zip_folder,
+            cache_zip_folder,
+            zip_folder_confirm,
+            folder_size
         }
 
         internal CancellationTokenSource cancellation_token_source = new CancellationTokenSource();
@@ -571,6 +575,148 @@ namespace ShareHole {
                                 Send.ErrorBadRequest(page_content, context);
                             }
                             break;
+                        case command_dirs.zip_folder_confirm:
+                            
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+
+                            di = new DirectoryInfo(absolute_on_disk_path);
+                            context.Response.ContentType = "text/html; charset=utf-8";
+
+                            page_content += $"<head><meta charset=\"UTF-8\"><link rel=\"stylesheet\" href=\"base.css\"></head>";
+
+                            var folder_size = di.EnumerateFiles("*", SearchOption.AllDirectories).AsParallel().Select(file => file.Length).Sum();
+                            page_content += "<center>";
+                            page_content += $"This folder is {folder_size / 1024 / 1024} MB.<br>" +
+                                            "Please make wise decisions.<br><br>" +
+                                            $"<a href=\"/{passdir}/zip_folder/{share_name}{url_path}\">Download as ZIP - This may take some time</a>"
+                                            ;
+                            page_content += "</center>";
+                            var zip_page_text_data = Encoding.UTF8.GetBytes(page_content);
+                            context.Response.ContentLength64 = zip_page_text_data.Length;
+                            
+                            try {
+                                State.StartTask(async () => {
+                                    using (MemoryStream ms = new MemoryStream(zip_page_text_data, false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent ZIP for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+
+                                });
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            break;
+                            
+                        case command_dirs.zip_folder:
+                            
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+
+                            di = new DirectoryInfo(absolute_on_disk_path);
+                            context.Response.ContentType = "application/zip";
+                            context.Response.Headers.Add($"Content-Disposition", $"attachment; filename={di.Name}.zip");
+
+                            Zip.ZipFolderToCache(absolute_on_disk_path);
+                            
+                            byte[] zip_page_data = Zip.CacheRequest(absolute_on_disk_path);
+                            context.Response.ContentLength64 = zip_page_data.Length;
+                            
+                            try {
+                                State.StartTask(async () => {
+                                    using (MemoryStream ms = new MemoryStream(Zip.CacheRequest(absolute_on_disk_path), false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent ZIP for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+
+                                });
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            zip_page_data = null;
+                            break;
+                        
+                        case command_dirs.cache_zip_folder:
+                            
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+
+                            di = new DirectoryInfo(absolute_on_disk_path);
+                            context.Response.ContentType = "text/text";
+                            
+                            Zip.ZipFolderToCache(absolute_on_disk_path);
+                            
+                            page_content += $"done";
+                            
+                            var cache_zip_page_text_data = Encoding.UTF8.GetBytes(page_content);
+                            context.Response.ContentLength64 = cache_zip_page_text_data.Length;
+                            
+                            try {
+                                State.StartTask(async () => {
+                                    using (MemoryStream ms = new MemoryStream(cache_zip_page_text_data, false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent ZIP for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+
+                                });
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            zip_page_data = null;
+                            break;
+                        
+                        case command_dirs.folder_size:
+                            
+                            if (!dir_exists) {
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            
+                            di = new DirectoryInfo(absolute_on_disk_path);
+                            context.Response.ContentType = "text/plain; charset=utf-8";
+                            files = di.GetFiles();
+
+                            var fid = di.EnumerateFiles("*", SearchOption.AllDirectories);
+
+                            string text = $"{fid.AsParallel().Select(file => file.Length).Sum()}";
+                            
+                            var fsd = Encoding.UTF8.GetBytes(text);
+                            context.Response.ContentLength64 = fsd.Length;
+                            
+                            try {
+                                State.StartTask(async () => {
+                                    using (MemoryStream ms = new MemoryStream(fsd, false)) {
+                                        await ms.CopyToAsync(context.Response.OutputStream).ContinueWith(a => {
+                                            Logging.ThreadMessage($"Sent file list for {url_path}", thread_name, thread_id);
+                                            Send.OK(context);
+                                        }, State.cancellation_token);
+                                    }
+                                });
+                            } catch (HttpListenerException ex) {
+                                Logging.ThreadError($"Exception: {ex.Message}", thread_name, thread_id);
+                                page_content = $"<p class=\"head\"><color=white><b>NOT A VALID DIRECTORY</b></p>";
+                                Send.ErrorBadRequest(page_content, context);
+                            }
+                            break;
+
                         
                         case command_dirs.file_list: // REQUESTED PLAINTEXT OF FILES IN DIRECTORY
                             
@@ -607,6 +753,7 @@ namespace ShareHole {
                                 Send.ErrorBadRequest(page_content, context);
                             }
                             break;
+                        
                         case command_dirs.music_player_dir: // REQUESTED MUSIC PLAYER DIRECTORY BROWSER
 
                             if (!dir_exists) {
@@ -842,6 +989,7 @@ namespace ShareHole {
                                 Send.ErrorBadRequest(page_content, context);
                             }
                             break;
+                        
                     }
 
                     /* REGULAR REQUESTS FOR FILES AND DIRECTORIES */
